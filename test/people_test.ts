@@ -1,5 +1,5 @@
-import { applyPeople, normalizePerson, ValidationError } from "../src/people.ts";
-import { SeedStore } from "../src/store.ts";
+import { applyPeople, normalizePerson, ValidationError } from "../lib/people.ts";
+import { SeedStore } from "../lib/store.ts";
 import { assert, assertEquals } from "./asserts.ts";
 
 const groups = new Set(["no", "dk"]);

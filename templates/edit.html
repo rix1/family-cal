@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
@@ -11,7 +11,8 @@
       <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <div class="flex items-center gap-3">
-            <a href="index.html" class="text-sm font-medium text-zinc-500 hover:text-zinc-900">← Calendar</a>
+            <a href="index.html" class="text-sm font-medium text-zinc-500 hover:text-zinc-900"
+            >← Calendar</a>
           </div>
           <h1 class="mt-1 text-2xl font-semibold tracking-normal">Edit family dates</h1>
           <p class="mt-1 max-w-2xl text-sm text-zinc-600">
@@ -26,25 +27,49 @@
             class="w-32 rounded-md border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-900"
             title="Used to label your changes in the history"
           />
-          <button id="add-row" type="button" class="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700">
+          <button
+            id="add-row"
+            type="button"
+            class="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700"
+          >
             Add person
           </button>
-          <button id="save" type="button" class="hidden rounded-md bg-teal-700 px-4 py-2 text-sm font-medium text-white hover:bg-teal-600">
+          <button
+            id="save"
+            type="button"
+            class="hidden rounded-md bg-teal-700 px-4 py-2 text-sm font-medium text-white hover:bg-teal-600"
+          >
             Save
           </button>
-          <button id="copy" type="button" class="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-100">
+          <button
+            id="copy"
+            type="button"
+            class="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-100"
+          >
             Copy CSV
           </button>
-          <button id="download" type="button" class="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-100">
+          <button
+            id="download"
+            type="button"
+            class="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-100"
+          >
             Download CSV
           </button>
-          <button id="reset" type="button" class="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-500 hover:bg-zinc-100" title="Discard local changes and reload">
+          <button
+            id="reset"
+            type="button"
+            class="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-500 hover:bg-zinc-100"
+            title="Discard local changes and reload"
+          >
             Reset
           </button>
         </div>
       </div>
 
-      <div id="draft-banner" class="mb-4 hidden rounded-md border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900">
+      <div
+        id="draft-banner"
+        class="mb-4 hidden rounded-md border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900"
+      >
         You have unsaved local changes. Save (or Download) to keep them, or Reset to discard.
       </div>
 
@@ -69,37 +94,67 @@
       </section>
 
       <p class="mt-3 text-xs text-zinc-500">
-        Date accepts <code>YYYY-MM-DD</code> (full date, enables age), <code>MM-DD</code> (recurring, year unknown), or leave blank if unknown.
+        Date accepts <code>YYYY-MM-DD</code> (full date, enables age), <code>MM-DD</code>
+        (recurring, year unknown), or leave blank if unknown.
       </p>
     </main>
 
     <template id="row-template">
       <tr>
         <td class="px-3 py-2">
-          <input data-field="name" class="w-full rounded-md border border-zinc-300 px-3 py-2 outline-none focus:border-zinc-900" placeholder="Name" />
+          <input
+            data-field="name"
+            class="w-full rounded-md border border-zinc-300 px-3 py-2 outline-none focus:border-zinc-900"
+            placeholder="Name"
+          />
         </td>
         <td class="px-3 py-2">
-          <select data-field="group" class="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 outline-none focus:border-zinc-900"></select>
+          <select
+            data-field="group"
+            class="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 outline-none focus:border-zinc-900"
+          >
+          </select>
         </td>
         <td class="px-3 py-2">
-          <select data-field="type" class="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 outline-none focus:border-zinc-900">
+          <select
+            data-field="type"
+            class="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 outline-none focus:border-zinc-900"
+          >
             <option value="birthday">birthday</option>
             <option value="anniversary">anniversary</option>
           </select>
         </td>
         <td class="px-3 py-2">
-          <input data-field="date" class="w-full rounded-md border border-zinc-300 px-3 py-2 outline-none focus:border-zinc-900" placeholder="1990-05-17 / 05-17" />
+          <input
+            data-field="date"
+            class="w-full rounded-md border border-zinc-300 px-3 py-2 outline-none focus:border-zinc-900"
+            placeholder="1990-05-17 / 05-17"
+          />
         </td>
         <td class="px-3 py-2">
-          <input data-field="notes" class="w-full rounded-md border border-zinc-300 px-3 py-2 outline-none focus:border-zinc-900" placeholder="Optional" />
+          <input
+            data-field="notes"
+            class="w-full rounded-md border border-zinc-300 px-3 py-2 outline-none focus:border-zinc-900"
+            placeholder="Optional"
+          />
         </td>
         <td class="px-3 py-2 text-right">
-          <button type="button" data-remove class="rounded-md px-3 py-2 text-sm text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900">Remove</button>
+          <button
+            type="button"
+            data-remove
+            class="rounded-md px-3 py-2 text-sm text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900"
+          >
+            Remove
+          </button>
         </td>
       </tr>
     </template>
 
-    <div id="toast" class="pointer-events-none fixed bottom-4 left-1/2 z-30 -translate-x-1/2 translate-y-2 rounded-md bg-zinc-900 px-4 py-2 text-sm text-white opacity-0 shadow-lg transition-all"></div>
+    <div
+      id="toast"
+      class="pointer-events-none fixed bottom-4 left-1/2 z-30 -translate-x-1/2 translate-y-2 rounded-md bg-zinc-900 px-4 py-2 text-sm text-white opacity-0 shadow-lg transition-all"
+    >
+    </div>
 
     <script>
       let groups = {};
@@ -203,8 +258,14 @@
         const invalid = validate();
         const summary = document.querySelector("#summary");
         summary.innerHTML =
-          `<strong>${people.length}</strong> people · <strong>${dated}</strong> with dates · <strong>${people.length - dated}</strong> missing` +
-          (invalid ? ` · <span class="font-semibold text-red-600">${invalid} invalid date${invalid === 1 ? "" : "s"}</span>` : "");
+          `<strong>${people.length}</strong> people · <strong>${dated}</strong> with dates · <strong>${
+            people.length - dated
+          }</strong> missing` +
+          (invalid
+            ? ` · <span class="font-semibold text-red-600">${invalid} invalid date${
+              invalid === 1 ? "" : "s"
+            }</span>`
+            : "");
       }
 
       function csvEscape(value) {
@@ -217,7 +278,14 @@
         const lines = [headers.join(",")];
         for (const p of toServerPeople()) {
           lines.push(
-            [p.id || "", p.name, p.born || "", p.died || "", (p.groups || []).join("|"), p.notes || ""]
+            [
+              p.id || "",
+              p.name,
+              p.born || "",
+              p.died || "",
+              (p.groups || []).join("|"),
+              p.notes || "",
+            ]
               .map(csvEscape)
               .join(","),
           );
@@ -380,7 +448,8 @@
           for (const g of serverData.groups || []) groups[g.key] = { label: g.label, flag: g.flag };
           groupKeys = Object.keys(groups);
           document.querySelector("#save").classList.remove("hidden");
-          modeHint.innerHTML = 'Changes <strong>Save</strong> to the shared calendar; Download CSV is a backup.';
+          modeHint.innerHTML =
+            "Changes <strong>Save</strong> to the shared calendar; Download CSV is a backup.";
           if (draft && draft.length) {
             document.querySelector("#draft-banner").classList.remove("hidden");
             loadPeople(draft);

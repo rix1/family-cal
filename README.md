@@ -2,23 +2,25 @@
 
 A family calendar for birthdays and other important dates across the extended family and our Danish family.
 
-Run it via the `server/` Deno app. The server serves the web app, a JSON API, and per-viewer iCal subscription feeds, all backed by Deno KV. New KV stores are bootstrapped from CSV seed files in `server/seed/`.
+The app is now a **Fresh 2 / Vite** app on Deno, backed by Deno KV. Fresh serves the web pages, JSON API, and per-viewer iCal subscription feeds from one root project. Fresh KV stores are bootstrapped from CSV seed files in `seed/`.
 
 ## Files
 
-| File / directory    | Purpose                                                         |
-| ------------------- | --------------------------------------------------------------- |
-| `index.html`        | Calendar view, served by the Deno app.                          |
-| `edit.html`         | Add / edit people via the API; can also export a CSV backup.    |
-| `server/`           | Deno server, Deno KV store, iCal generator, JSON API and tests. |
-| `server/seed/*.csv` | CSV seed data for bootstrapping a fresh KV store.               |
-| `architecture.md`   | Target architecture and migration notes.                        |
-| `design.md`         | Visual/product design notes.                                    |
+| File / directory | Purpose |
+| --- | --- |
+| `routes/` | Fresh file routes for pages, JSON API, health check, and iCal feeds. |
+| `templates/` | Existing HTML calendar/editor UI served by Fresh routes (temporary until ported to islands/components). |
+| `lib/` | Domain logic: store, KV adapter, seed loading, iCal, holidays, validation. |
+| `seed/*.csv` | CSV seed data for bootstrapping a fresh KV store. |
+| `test/` | Deno tests for domain logic and Fresh route handlers. |
+| `main.ts` | Fresh `App` entry point. |
+| `vite.config.ts` | Fresh 2 Vite plugin config. |
+| `architecture.md` | Architecture notes. |
+| `design.md` | Visual/product design notes. |
 
 ## Running
 
 ```sh
-cd server
 deno task dev
 ```
 
@@ -26,9 +28,9 @@ Open `http://localhost:8000/` for the calendar and `http://localhost:8000/edit.h
 
 The server seeds an empty KV store from:
 
-- `server/seed/people.csv`
-- `server/seed/groups.csv`
-- `server/seed/viewers.csv`
+- `seed/people.csv`
+- `seed/groups.csv`
+- `seed/viewers.csv`
 
 Use `KV_PATH=/tmp/famcal.db deno task dev` if you want an explicit local database file.
 
@@ -46,16 +48,18 @@ In Google/Apple/Outlook Calendar, choose "Subscribe from URL" and paste one of t
 
 Open `/edit.html`, enter your name, edit the table, and click **Save**. Changes are written to KV and audited. **Download CSV** exports a `people.csv` backup that can also be used as seed material later.
 
-## Testing
+## Testing / build
 
 ```sh
-cd server
 deno task check
 deno fmt --check
 deno lint
+deno task build
 ```
 
 ## Notes
 
 - `family-dates.js` was removed. KV is now the runtime source of truth; CSV files are only seed/bootstrap material.
+- The current UI is still the original HTML/inline JS, served via Fresh routes from `templates/`. Next cleanup is to port the interactive pieces into Fresh islands.
+- Generated Fresh output lives in `_fresh/` and is git-ignored.
 - Original raw CSV files at the repo root remain git-ignored historical inputs.

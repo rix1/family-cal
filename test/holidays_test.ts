@@ -1,4 +1,4 @@
-import { easterSunday, holidaysForYear, holidaysForYears } from "../src/holidays.ts";
+import { easterSunday, holidaysForYear, holidaysForYears } from "../lib/holidays.ts";
 import { assert, assertEquals } from "./asserts.ts";
 
 Deno.test("easterSunday matches known Gregorian dates", () => {

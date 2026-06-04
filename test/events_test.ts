@@ -1,5 +1,5 @@
-import { birthdayEvents, holidayEvents, memorialEvents, reminderDefaults } from "../src/events.ts";
-import type { Person } from "../src/model.ts";
+import { birthdayEvents, holidayEvents, memorialEvents, reminderDefaults } from "../lib/events.ts";
+import type { Person } from "../lib/model.ts";
 import { assert, assertEquals } from "./asserts.ts";
 
 const person = (over: Partial<Person>): Person => ({

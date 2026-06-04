@@ -1,8 +1,8 @@
 # Architecture
 
-> **Status:** Implemented baseline. The repo now runs via the Deno server:
-> structured store (Deno KV) → serverless-style generator/API → per-viewer iCal
-> feeds and web app. CSV files in `server/seed/` bootstrap fresh KV stores.
+> **Status:** Implemented baseline. The repo now runs as a Fresh 2 / Vite app:
+> structured store (Deno KV) → Fresh routes/generator/API → per-viewer iCal
+> feeds and web app. CSV files in `seed/` bootstrap fresh KV stores.
 
 ## Decision
 
@@ -180,7 +180,7 @@ interface so the engine stays swappable.
 Completed:
 
 1. Deno server serves the web app and JSON API.
-2. Deno KV is the runtime source of truth, seeded from `server/seed/*.csv`.
+2. Deno KV is the runtime source of truth, seeded from `seed/*.csv`.
 3. Per-viewer iCal feeds exist at `/cal/<token>.ics` and subset by viewer groups.
 4. Holidays are computed with Computus instead of stored.
 5. Edit API writes to KV and records audit entries.
@@ -204,9 +204,7 @@ Next:
 
 ## Open questions
 
-- Store engine choice — Deno KV (stays in-ecosystem) vs D1/Turso/Postgres;
-  defer, but decide before building writes.
-- Editor surface: keep the existing table UI pointed at the API, or rethink.
+- Port the current template-based UI into Fresh components/islands.
 - Token issuance/rotation UX (how a new relative gets onboarded).
 - Whether one-time life events also warrant a separate **timeline** view, or just
   live on a person profile.

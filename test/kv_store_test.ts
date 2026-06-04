@@ -1,5 +1,5 @@
-import { KvStore } from "../src/kv_store.ts";
-import { SEED_PEOPLE } from "../src/seed.ts";
+import { KvStore } from "../lib/kv_store.ts";
+import { SEED_PEOPLE } from "../lib/seed.ts";
 import { assert, assertEquals } from "./asserts.ts";
 
 async function freshStore(): Promise<KvStore> {

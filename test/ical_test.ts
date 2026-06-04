@@ -1,5 +1,5 @@
-import { escapeText, foldLine, toICalendar } from "../src/ical.ts";
-import type { CalEvent } from "../src/model.ts";
+import { escapeText, foldLine, toICalendar } from "../lib/ical.ts";
+import type { CalEvent } from "../lib/model.ts";
 import { assert, assertEquals, assertStringIncludes } from "./asserts.ts";
 
 const encoder = new TextEncoder();

@@ -1,6 +1,6 @@
-import { buildFeed } from "../src/feed.ts";
-import { SeedStore } from "../src/store.ts";
-import { SEED_PEOPLE } from "../src/seed.ts";
+import { buildFeed } from "../lib/feed.ts";
+import { SeedStore } from "../lib/store.ts";
+import { SEED_PEOPLE } from "../lib/seed.ts";
 import { assert, assertEquals, assertStringIncludes } from "./asserts.ts";
 
 const fixedNow = new Date(Date.UTC(2026, 5, 1));

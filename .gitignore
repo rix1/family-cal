@@ -1,6 +1,10 @@
 _chat.txt
 *.csv
-!server/seed/*.csv
+!seed/*.csv
+
+# Generated / dependency output
+_fresh/
+node_modules/
 
 # Local Deno KV databases
 *.db

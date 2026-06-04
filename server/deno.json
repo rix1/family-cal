@@ -1,0 +1,12 @@
+{
+  "tasks": {
+    "dev": "deno run --allow-net --allow-env --watch main.ts",
+    "start": "deno run --allow-net --allow-env main.ts",
+    "test": "deno test",
+    "check": "deno check main.ts && deno test"
+  },
+  "fmt": {
+    "useTabs": false,
+    "lineWidth": 100
+  }
+}

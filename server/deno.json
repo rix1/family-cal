@@ -1,12 +1,14 @@
 {
+  "unstable": ["kv"],
   "tasks": {
-    "dev": "deno run --allow-net --allow-env --watch main.ts",
-    "start": "deno run --allow-net --allow-env main.ts",
-    "test": "deno test",
-    "check": "deno check main.ts && deno test"
+    "dev": "deno run --allow-net --allow-env --allow-read --allow-write --watch main.ts",
+    "start": "deno run --allow-net --allow-env --allow-read --allow-write main.ts",
+    "test": "deno test --allow-net --allow-env --allow-read --allow-write",
+    "check": "deno check main.ts && deno test --allow-net --allow-env --allow-read --allow-write"
   },
   "fmt": {
     "useTabs": false,
-    "lineWidth": 100
+    "lineWidth": 100,
+    "exclude": ["**/*.md"]
   }
 }

@@ -16,29 +16,37 @@
           </div>
           <h1 class="mt-1 text-2xl font-semibold tracking-normal">Edit family dates</h1>
           <p class="mt-1 max-w-2xl text-sm text-zinc-600">
-            Add or change people, then <strong>Download</strong> the updated
-            <code class="rounded bg-zinc-200 px-1">family-dates.js</code> and commit it (or drop it next to the HTML files).
-            Edits are auto-saved in this browser as a draft until you do.
+            Add or change people. <span id="mode-hint"></span>
           </p>
         </div>
-        <div class="flex flex-wrap gap-2">
+        <div class="flex flex-wrap items-center gap-2">
+          <input
+            id="actor"
+            type="text"
+            placeholder="Your name"
+            class="w-32 rounded-md border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-900"
+            title="Used to label your changes in the history"
+          />
           <button id="add-row" type="button" class="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700">
             Add person
+          </button>
+          <button id="save" type="button" class="hidden rounded-md bg-teal-700 px-4 py-2 text-sm font-medium text-white hover:bg-teal-600">
+            Save
           </button>
           <button id="copy" type="button" class="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-100">
             Copy
           </button>
           <button id="download" type="button" class="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-100">
-            Download family-dates.js
+            Download
           </button>
-          <button id="reset" type="button" class="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-500 hover:bg-zinc-100" title="Discard local draft edits and reload from the file">
+          <button id="reset" type="button" class="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-500 hover:bg-zinc-100" title="Discard local changes and reload">
             Reset
           </button>
         </div>
       </div>
 
       <div id="draft-banner" class="mb-4 hidden rounded-md border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900">
-        Showing unsaved draft edits from this browser. Download to make them permanent, or Reset to discard.
+        You have unsaved local changes. Save (or Download) to keep them, or Reset to discard.
       </div>
 
       <div class="mb-4 flex flex-wrap items-center gap-3 text-sm text-zinc-600">
@@ -96,8 +104,9 @@
 
     <script>
       const data = window.FAMILY_DATA || { groups: {}, people: [], holidays: [] };
-      const groups = data.groups || {};
-      const groupKeys = Object.keys(groups);
+      let groups = data.groups || {};
+      let groupKeys = Object.keys(groups);
+      let serverMode = false;
       const holidays = data.holidays || [];
       const fileHeader = `/**
  * Family Calendar — single source of truth.
@@ -128,6 +137,10 @@
       function addRow(values = {}) {
         const row = template.content.firstElementChild.cloneNode(true);
 
+        // Carry server-only fields that have no column, so saves round-trip them.
+        if (values.id) row.dataset.id = values.id;
+        if (values.died) row.dataset.died = values.died;
+
         const groupSelect = row.querySelector('[data-field="group"]');
         groupSelect.innerHTML = groupKeys
           .map((key) => `<option value="${key}">${groups[key].flag} ${groups[key].label}</option>`)
@@ -151,8 +164,41 @@
       function getRows() {
         return Array.from(rows.querySelectorAll("tr")).map((row) => {
           const get = (field) => row.querySelector(`[data-field="${field}"]`).value.trim();
-          return { name: get("name"), date: get("date"), type: get("type") || "birthday", group: get("group"), notes: get("notes") };
+          return {
+            id: row.dataset.id || "",
+            died: row.dataset.died || "",
+            name: get("name"),
+            date: get("date"),
+            type: get("type") || "birthday",
+            group: get("group"),
+            notes: get("notes"),
+          };
         });
+      }
+
+      /** Convert a server Person into the row shape this editor uses. */
+      function serverPersonToRow(p) {
+        return {
+          id: p.id,
+          died: p.died || "",
+          name: p.name,
+          date: p.born || "",
+          type: "birthday",
+          group: (p.groups && p.groups[0]) || groupKeys[0] || "",
+          notes: p.notes || "",
+        };
+      }
+
+      /** Convert editor rows into the server's Person shape. */
+      function toServerPeople() {
+        return getPeople().map((p) => ({
+          id: p.id || undefined,
+          name: p.name,
+          born: p.date || "",
+          died: p.died || null,
+          groups: p.group ? [p.group] : [],
+          notes: p.notes,
+        }));
       }
 
       function getPeople() {
@@ -276,31 +322,110 @@
         }, 2600);
       }
 
+      async function save() {
+        if (validate() > 0) {
+          showToast("Fix the highlighted dates first.");
+          return;
+        }
+        const actorInput = document.querySelector("#actor");
+        const actor = actorInput.value.trim();
+        if (!actor) {
+          showToast("Enter your name so changes can be attributed.");
+          actorInput.focus();
+          return;
+        }
+        try {
+          const res = await fetch("/api/people", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ actor, people: toServerPeople() }),
+          });
+          const body = await res.json();
+          if (!res.ok) {
+            showToast(`Couldn't save: ${body.error || res.status}`);
+            return;
+          }
+          localStorage.removeItem(storageKey);
+          document.querySelector("#draft-banner").classList.add("hidden");
+          loadPeople((body.people || []).map(serverPersonToRow));
+          showToast(`Saved ${body.people.length} people as ${actor}.`);
+        } catch {
+          showToast("Couldn't reach the server. Use Download as a fallback.");
+        }
+      }
+
+      async function reloadFromServer() {
+        const d = await (await fetch("/api/data", { cache: "no-store" })).json();
+        loadPeople((d.people || []).map(serverPersonToRow));
+      }
+
       // Wire up
       document.querySelector("#add-row").addEventListener("click", () => {
         const row = addRow();
         row.querySelector('[data-field="name"]').focus();
         onChange();
       });
+      document.querySelector("#save").addEventListener("click", save);
       document.querySelector("#download").addEventListener("click", download);
       document.querySelector("#copy").addEventListener("click", copyToClipboard);
-      document.querySelector("#reset").addEventListener("click", () => {
+      document.querySelector("#reset").addEventListener("click", async () => {
         localStorage.removeItem(storageKey);
         document.querySelector("#draft-banner").classList.add("hidden");
-        loadPeople(data.people || []);
-        showToast("Reset to the saved file.");
+        if (serverMode) {
+          await reloadFromServer();
+          showToast("Reset to the saved calendar.");
+        } else {
+          loadPeople(data.people || []);
+          showToast("Reset to the saved file.");
+        }
       });
       rows.addEventListener("input", onChange);
       rows.addEventListener("change", onChange);
 
-      // Initial load: prefer a local draft, otherwise the committed file.
-      const draft = loadDraft();
-      if (draft && draft.length) {
-        document.querySelector("#draft-banner").classList.remove("hidden");
-        loadPeople(draft);
-      } else {
-        loadPeople(data.people || []);
-      }
+      // Persist the editor's name across visits.
+      const actorInput = document.querySelector("#actor");
+      actorInput.value = localStorage.getItem("editor-name") || "";
+      actorInput.addEventListener("input", () => {
+        localStorage.setItem("editor-name", actorInput.value.trim());
+      });
+
+      // Initial load: use the server API if reachable, else the local file.
+      (async () => {
+        let serverData = null;
+        try {
+          const res = await fetch("/api/data", { cache: "no-store" });
+          if (res.ok) serverData = await res.json();
+        } catch {
+          // No server (opened from disk) — fall back to family-dates.js.
+        }
+
+        const draft = loadDraft();
+        const modeHint = document.querySelector("#mode-hint");
+
+        if (serverData) {
+          serverMode = true;
+          groups = {};
+          for (const g of serverData.groups || []) groups[g.key] = { label: g.label, flag: g.flag };
+          groupKeys = Object.keys(groups);
+          document.querySelector("#save").classList.remove("hidden");
+          modeHint.innerHTML = 'Changes <strong>Save</strong> to the shared calendar; Download is a backup.';
+          if (draft && draft.length) {
+            document.querySelector("#draft-banner").classList.remove("hidden");
+            loadPeople(draft);
+          } else {
+            loadPeople((serverData.people || []).map(serverPersonToRow));
+          }
+        } else {
+          modeHint.innerHTML =
+            'Offline: <strong>Download</strong> the updated <code class="rounded bg-zinc-200 px-1">family-dates.js</code> and commit it.';
+          if (draft && draft.length) {
+            document.querySelector("#draft-banner").classList.remove("hidden");
+            loadPeople(draft);
+          } else {
+            loadPeople(data.people || []);
+          }
+        }
+      })();
     </script>
   </body>
 </html>

@@ -246,10 +246,12 @@
     <div id="toast" class="toast fixed bottom-4 left-1/2 z-30 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 rounded-2xl border border-[color:var(--line)] bg-[color:var(--paper-strong)] px-4 py-3 text-sm text-[color:var(--ink)] shadow-[var(--shadow)]"></div>
 
     <script>
-      const data = window.FAMILY_DATA || { groups: {}, people: [], holidays: [] };
-      const groups = data.groups || {};
-      const people = data.people || [];
-      const holidays = (data.holidays || []).map((h) => ({ ...h, type: "holiday" }));
+      // Data is loaded at startup from the server API when available, otherwise
+      // from the bundled family-dates.js (offline / file://). These are filled
+      // by ingest() before the first render.
+      let groups = {};
+      let people = [];
+      let holidays = [];
 
       const today = new Date();
       const todayKey = toKey(today);
@@ -266,12 +268,43 @@
       const monthFormatter = new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric" });
 
       // Active filter state. Type "holiday" is included only if there are holidays.
-      const allTypes = Array.from(new Set([...people.map((p) => p.type || "birthday"), ...(holidays.length ? ["holiday"] : [])]));
+      // Sets are repopulated by ingest(); the object identity is kept stable so
+      // closures below always read the current selection.
+      let allTypes = [];
       const state = {
-        groups: new Set(Object.keys(groups)),
-        types: new Set(allTypes),
+        groups: new Set(),
+        types: new Set(),
         query: "",
       };
+
+      function ingest(d) {
+        groups = d.groups || {};
+        people = d.people || [];
+        holidays = (d.holidays || []).map((h) => ({ ...h, type: "holiday" }));
+        allTypes = Array.from(
+          new Set([...people.map((p) => p.type || "birthday"), ...(holidays.length ? ["holiday"] : [])]),
+        );
+        state.groups = new Set(Object.keys(groups));
+        state.types = new Set(allTypes);
+      }
+
+      // Map the server's Person shape to the view's person shape. Holidays are
+      // taken from the bundled file (the static table is fine; the server
+      // computes its own for the iCal feed).
+      function fromServer(api) {
+        const groupsMap = {};
+        for (const g of api.groups || []) groupsMap[g.key] = { label: g.label, flag: g.flag };
+        const ppl = (api.people || []).map((p) => ({
+          name: p.name,
+          date: p.born || "",
+          type: "birthday",
+          group: (p.groups && p.groups[0]) || "",
+          notes: p.notes || "",
+          died: p.died || "",
+        }));
+        const hol = (window.FAMILY_DATA && window.FAMILY_DATA.holidays) || [];
+        return { groups: groupsMap, people: ppl, holidays: hol };
+      }
 
       function toKey(date) {
         const year = date.getFullYear();
@@ -654,10 +687,13 @@
       }
 
       // --- Wire up ---
-      if (!people.length && !holidays.length) {
-        document.querySelector("#calendar").innerHTML =
-          `<div class="surface rounded-2xl p-6 text-sm text-[color:var(--muted)]">Couldn't load <code>family-dates.js</code>. Make sure it sits next to this file.</div>`;
-      } else {
+      function start() {
+        if (!people.length && !holidays.length) {
+          document.querySelector("#calendar").innerHTML =
+            `<div class="surface rounded-2xl p-6 text-sm text-[color:var(--muted)]">Couldn't load the calendar data.</div>`;
+          return;
+        }
+
         rerender();
 
         document.querySelector("#search").addEventListener("input", (e) => {
@@ -689,6 +725,28 @@
           document.querySelector(`#month-${todayKey.slice(0, 7)}`)?.scrollIntoView({ block: "start" });
         });
       }
+
+      // Load from the server API when reachable; otherwise the bundled file.
+      (async () => {
+        let loaded = null;
+        try {
+          const res = await fetch("/api/data", { cache: "no-store" });
+          if (res.ok) loaded = fromServer(await res.json());
+        } catch {
+          // No server (opened from disk) — fall back to family-dates.js.
+        }
+        if (!loaded) {
+          loaded = window.FAMILY_DATA
+            ? {
+              groups: window.FAMILY_DATA.groups || {},
+              people: window.FAMILY_DATA.people || [],
+              holidays: window.FAMILY_DATA.holidays || [],
+            }
+            : { groups: {}, people: [], holidays: [] };
+        }
+        ingest(loaded);
+        start();
+      })();
     </script>
   </body>
 </html>

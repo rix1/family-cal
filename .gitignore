@@ -1,2 +1,8 @@
 _chat.txt
 *.csv
+
+# Local Deno KV databases
+*.db
+*.db-shm
+*.db-wal
+*.sqlite3

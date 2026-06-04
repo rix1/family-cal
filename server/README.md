@@ -1,9 +1,8 @@
-# Family Calendar feed server
+# Family Calendar server
 
-TypeScript on Deno. Emits an iCalendar feed that calendar apps subscribe to.
-This is the first slice of the [architecture](../architecture.md): a structured
-store → generator → iCal feed. Per-viewer tokens/subsetting come next; for now
-it serves a single all-events feed.
+TypeScript on Deno, backed by Deno KV. Implements the
+[architecture](../architecture.md): a structured store → generator → per-viewer
+iCal feeds, plus a JSON API and the web app served from the same origin.
 
 ## Run
 
@@ -12,15 +11,29 @@ deno task dev      # watch mode on http://localhost:8000
 deno task start    # run once
 ```
 
-- `GET /` — landing page with the subscribe URL
-- `GET /calendar.ics` — the iCalendar feed
-- `GET /health` — liveness check
+Data lives in Deno KV, seeded from `src/seed.ts` on first run. `PORT` overrides
+the port (default `8000`); `KV_PATH` overrides the KV location (handy for a
+throwaway DB, e.g. `KV_PATH=/tmp/famcal.db`).
 
-`PORT` env var overrides the port (default `8000`).
+### Routes
 
-To try it in a calendar app: "Subscribe from URL" →
-`http://localhost:8000/calendar.ics` (Apple/Outlook honor the embedded birthday
-reminders; Google applies its own per-calendar notification settings).
+| Route                  | Purpose                                                     |
+| ---------------------- | ----------------------------------------------------------- |
+| `GET /`                | The calendar web app (`index.html`).                        |
+| `GET /edit.html`       | The editor.                                                 |
+| `GET /cal/<token>.ics` | A subscriber's per-viewer iCal feed (their group subset).   |
+| `GET /api/data`        | `{ groups, people }` for the web app.                       |
+| `POST /api/people`     | Full replace of people (`{ actor, people }`); audited.      |
+| `GET /api/audit`       | Recent change history (`?limit=`).                          |
+| `GET /health`          | Liveness check.                                             |
+
+Seed tokens for trying feeds: `demo-all` (everyone), `demo-no` (Family),
+`demo-dk` (Danish family). Subscribe in a calendar app via "Subscribe from URL"
+→ `http://localhost:8000/cal/demo-all.ics`. Apple/Outlook honor the embedded
+birthday reminders; Google applies its own per-calendar notification settings.
+
+The web app prefers the API when reachable and falls back to the bundled
+`family-dates.js` when opened directly from disk.
 
 ## Test
 
@@ -32,28 +45,34 @@ deno fmt && deno lint
 
 ## Layout
 
-| Path                | Responsibility                                                        |
-| ------------------- | --------------------------------------------------------------------- |
-| `src/model.ts`      | Domain types (`Person`, `CalEvent`, ...).                             |
-| `src/store.ts`      | `Store` interface (the swappable-engine seam) + `SeedStore`.          |
-| `src/seed.ts`       | Seed data lifted from the prototype's `family-dates.js`.              |
-| `src/dates.ts`      | Partial-date parsing + UTC date math.                                 |
-| `src/holidays.ts`   | NO/DK holidays, computed via Easter (Computus) — no external data.    |
-| `src/events.ts`     | People + holidays → `CalEvent`s; reminder policy.                     |
-| `src/ical.ts`       | RFC 5545 serialization (line folding, escaping, RRULE, VALARM).       |
-| `src/feed.ts`       | Orchestrates store → events → iCal; holds the per-viewer group seam.  |
-| `src/handler.ts`    | HTTP routing (pure function over a `Store`, so it's unit-testable).   |
-| `main.ts`           | Wires `SeedStore` + handler into `Deno.serve`.                        |
+| Path                | Responsibility                                                       |
+| ------------------- | ------------------------------------------------------------------- |
+| `src/model.ts`      | Domain types (`Person`, `Viewer`, `CalEvent`, `AuditEntry`).        |
+| `src/store.ts`      | `Store` interface (the swappable-engine seam) + in-memory `SeedStore`. |
+| `src/kv_store.ts`   | `KvStore` — the Deno KV implementation (the deploy target).         |
+| `src/seed.ts`       | Seed people, groups and viewer tokens.                              |
+| `src/dates.ts`      | Partial-date parsing + UTC date math.                              |
+| `src/holidays.ts`   | NO/DK holidays, computed via Easter (Computus) — no external data. |
+| `src/events.ts`     | People + holidays → `CalEvent`s; reminder policy.                  |
+| `src/ical.ts`       | RFC 5545 serialization (line folding, escaping, RRULE, VALARM).    |
+| `src/people.ts`     | Validation + diff/apply of edits, with audit.                      |
+| `src/feed.ts`       | Orchestrates store → events → iCal; per-viewer group subsetting.   |
+| `src/handler.ts`    | HTTP routing (pure function over a `Store`, so it's unit-testable). |
+| `main.ts`           | Wires `KvStore` + handler into `Deno.serve`.                       |
 
 ## Design notes
 
-- **Holidays are computed, never stored.** `holidays.ts` derives every NO/DK
-  holiday (fixed + Easter-relative) for any year. The old hand-maintained holiday
-  table is gone.
-- **Birthdays are recurring (`RRULE:FREQ=YEARLY`)**; their titles omit age (one
-  RRULE event has a single title for all years — the web view computes age and
-  "would have turned").
-- **Holidays are explicit per-year events**, not recurring, because
-  Easter-relative dates move annually.
+- **Storage is behind the `Store` seam.** `KvStore` is the real one; `SeedStore`
+  is an in-memory twin used in tests and as an offline fallback. Swapping engines
+  touches one file.
+- **Access = capability token.** `/cal/<token>.ics` both authorizes and
+  identifies the viewer; rotating a token revokes exactly one person. A viewer
+  with no groups sees everyone.
+- **Holidays are computed, never stored** (Easter/Computus), for any year.
+- **Birthdays recur (`RRULE:FREQ=YEARLY`)** with age-free titles (one title for
+  all years — the web view computes age and "would have turned").
+- **Holidays are explicit per-year events**, since Easter-relative dates move.
+- **Edits are a full replace with a diff + audit**: `POST /api/people` deletes
+  removed, upserts changed/new, and records each change keyed by `actor`.
 - **Reminders**: birthdays get one all-day-safe alarm (~09:00 the day before);
   other kinds are quiet by default (`src/events.ts` `reminderDefaults`).

@@ -1,7 +1,17 @@
 # Family Calendar
 
-A tiny, no-backend calendar for keeping track of birthdays (and other dates)
-across the extended family and our Danish family.
+A calendar for keeping track of birthdays (and other dates) across the extended
+family and our Danish family.
+
+There are two ways to run it:
+
+- **Static (no backend):** open `index.html` directly or host the files. Data
+  comes from `family-dates.js`; edits are downloaded and committed. Good for a
+  zero-infrastructure setup. See below.
+- **Server (shared):** the `server/` Deno app serves the same web app plus a
+  JSON API and per-viewer iCal subscription feeds, backed by Deno KV. This is
+  the target architecture (see `architecture.md`); the web app automatically
+  uses the API when it's reachable. See `server/README.md`.
 
 ## Files
 

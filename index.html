@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Family Calendar</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="family-dates.js"></script>
     <style>
       :root {
         --paper: #f6f1e8;
@@ -246,9 +245,8 @@
     <div id="toast" class="toast fixed bottom-4 left-1/2 z-30 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 rounded-2xl border border-[color:var(--line)] bg-[color:var(--paper-strong)] px-4 py-3 text-sm text-[color:var(--ink)] shadow-[var(--shadow)]"></div>
 
     <script>
-      // Data is loaded at startup from the server API when available, otherwise
-      // from the bundled family-dates.js (offline / file://). These are filled
-      // by ingest() before the first render.
+      // Data is loaded at startup from the server API. These are filled by
+      // ingest() before the first render.
       let groups = {};
       let people = [];
       let holidays = [];
@@ -288,9 +286,7 @@
         state.types = new Set(allTypes);
       }
 
-      // Map the server's Person shape to the view's person shape. Holidays are
-      // taken from the bundled file (the static table is fine; the server
-      // computes its own for the iCal feed).
+      // Map the server's Person shape to the view's person shape.
       function fromServer(api) {
         const groupsMap = {};
         for (const g of api.groups || []) groupsMap[g.key] = { label: g.label, flag: g.flag };
@@ -302,8 +298,7 @@
           notes: p.notes || "",
           died: p.died || "",
         }));
-        const hol = (window.FAMILY_DATA && window.FAMILY_DATA.holidays) || [];
-        return { groups: groupsMap, people: ppl, holidays: hol };
+        return { groups: groupsMap, people: ppl, holidays: api.holidays || [] };
       }
 
       function toKey(date) {
@@ -726,25 +721,16 @@
         });
       }
 
-      // Load from the server API when reachable; otherwise the bundled file.
+      // Load from the server API.
       (async () => {
         let loaded = null;
         try {
           const res = await fetch("/api/data", { cache: "no-store" });
           if (res.ok) loaded = fromServer(await res.json());
         } catch {
-          // No server (opened from disk) — fall back to family-dates.js.
+          // Served without the Deno API; show the error state below.
         }
-        if (!loaded) {
-          loaded = window.FAMILY_DATA
-            ? {
-              groups: window.FAMILY_DATA.groups || {},
-              people: window.FAMILY_DATA.people || [],
-              holidays: window.FAMILY_DATA.holidays || [],
-            }
-            : { groups: {}, people: [], holidays: [] };
-        }
-        ingest(loaded);
+        ingest(loaded || { groups: {}, people: [], holidays: [] });
         start();
       })();
     </script>

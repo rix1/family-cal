@@ -1,5 +1,6 @@
 import type { Store } from "./store.ts";
 import { buildFeed } from "./feed.ts";
+import { holidaysForYears } from "./holidays.ts";
 import { applyPeople, type PersonInput, ValidationError } from "./people.ts";
 
 export interface HandlerOptions {
@@ -14,7 +15,6 @@ const STATIC: Record<string, string> = {
   "/": "index.html",
   "/index.html": "index.html",
   "/edit.html": "edit.html",
-  "/family-dates.js": "family-dates.js",
 };
 
 const CONTENT_TYPES: Record<string, string> = {
@@ -90,7 +90,15 @@ export function createHandler(
         store.listGroups(),
         store.listPeople(),
       ]);
-      return json({ groups, people });
+      const year = new Date().getFullYear();
+      const holidays = holidaysForYears(year - 2, year + 2).map((h) => ({
+        date: `${h.date.year}-${String(h.date.month).padStart(2, "0")}-${
+          String(h.date.day).padStart(2, "0")
+        }`,
+        name: h.name,
+        countries: h.countries,
+      }));
+      return json({ groups, people, holidays });
     }
 
     if (pathname === "/api/people" && req.method === "POST") {

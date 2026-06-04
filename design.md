@@ -28,7 +28,9 @@ Professional, warm, and calm. The page should feel like a lightweight family ope
 
 ## Architecture
 
-- `family-dates.js` is the single source of truth: `window.FAMILY_DATA = { groups, people, holidays }`. It is loaded via a `<script>` tag so both pages work over http(s) *and* from the local file system (a plain `family-dates.json` + `fetch()` would be blocked under `file://`).
-- `index.html` is the read-only calendar view.
-- `edit.html` is the editor: it loads the data, lets you change it, and regenerates `family-dates.js` for download. Browser `localStorage` holds an autosaved draft only; the committed file is always the real source of truth.
-- Entry schema: `{ name, date, type, group, notes }`, where `date` is `YYYY-MM-DD` (full), `MM-DD` (recurring, year unknown), or `""` (unknown).
+- Runtime source of truth is Deno KV, accessed through the server API.
+- Fresh KV stores are bootstrapped from CSV seed files in `server/seed/`.
+- `index.html` is served by the Deno app and reads `/api/data`.
+- `edit.html` is the editor: it loads `/api/data`, saves through `POST /api/people`, and can export `people.csv` as a backup/seed artifact.
+- Per-viewer iCal feeds are served from `/cal/<token>.ics` and subset by the viewer's groups.
+- Current person schema: `{ id, name, born, died, groups, notes }`, where `born` is `YYYY-MM-DD`, `MM-DD`, or `null`, and `died` is a full `YYYY-MM-DD` or `null`.

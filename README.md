@@ -1,60 +1,61 @@
 # Family Calendar
 
-A calendar for keeping track of birthdays (and other dates) across the extended
-family and our Danish family.
+A family calendar for birthdays and other important dates across the extended family and our Danish family.
 
-There are two ways to run it:
-
-- **Static (no backend):** open `index.html` directly or host the files. Data
-  comes from `family-dates.js`; edits are downloaded and committed. Good for a
-  zero-infrastructure setup. See below.
-- **Server (shared):** the `server/` Deno app serves the same web app plus a
-  JSON API and per-viewer iCal subscription feeds, backed by Deno KV. This is
-  the target architecture (see `architecture.md`); the web app automatically
-  uses the API when it's reachable. See `server/README.md`.
+Run it via the `server/` Deno app. The server serves the web app, a JSON API, and per-viewer iCal subscription feeds, all backed by Deno KV. New KV stores are bootstrapped from CSV seed files in `server/seed/`.
 
 ## Files
 
-| File              | Purpose                                                              |
-| ----------------- | -------------------------------------------------------------------- |
-| `index.html`      | The calendar view everyone opens. Read-only.                         |
-| `edit.html`       | Add / edit people and download an updated data file.                 |
-| `family-dates.js` | The data — a single source of truth shared by both pages.            |
-| `design.md`       | Design notes and architecture.                                       |
-| `*.csv`           | Original source data (git-ignored; superseded by `family-dates.js`). |
+| File / directory    | Purpose                                                         |
+| ------------------- | --------------------------------------------------------------- |
+| `index.html`        | Calendar view, served by the Deno app.                          |
+| `edit.html`         | Add / edit people via the API; can also export a CSV backup.    |
+| `server/`           | Deno server, Deno KV store, iCal generator, JSON API and tests. |
+| `server/seed/*.csv` | CSV seed data for bootstrapping a fresh KV store.               |
+| `architecture.md`   | Target architecture and migration notes.                        |
+| `design.md`         | Visual/product design notes.                                    |
 
-## Viewing
+## Running
 
-Open `index.html` — by double-clicking the file, or via a static host. It shows
-today, the next upcoming birthday, recent birthdays, missing dates, and a
-month-by-month timeline. Use the chips to filter by family or entry type, the
-search box to find a person, and **Export .ics** to import birthdays into Google
-or Apple Calendar.
+```sh
+cd server
+deno task dev
+```
 
-## Adding or changing dates
+Open `http://localhost:8000/` for the calendar and `http://localhost:8000/edit.html` to edit.
 
-1. Open `edit.html`.
-2. Add a row (or edit an existing one). `Date` accepts:
-   - `1990-05-17` — full date (shows age),
-   - `05-17` — month/day only, when the year is unknown,
-   - blank — unknown; the person shows under "Missing dates".
-3. Click **Download family-dates.js**.
-4. Replace the existing `family-dates.js` with the downloaded file and commit it
-   (or just drop it next to the HTML files for local use).
+The server seeds an empty KV store from:
 
-Your edits are auto-saved as a draft in your browser until you download, so you
-won't lose work on a refresh. The committed `family-dates.js` is always the
-real, shared source of truth — the draft is per-device.
+- `server/seed/people.csv`
+- `server/seed/groups.csv`
+- `server/seed/viewers.csv`
 
-## Deploying
+Use `KV_PATH=/tmp/famcal.db deno task dev` if you want an explicit local database file.
 
-It's fully static. Any of these work:
+## Subscribing
 
-- **GitHub Pages:** push the repo and enable Pages on the default branch. The
-  site serves from `index.html` automatically.
-- **Netlify / any static host:** drag the folder in, no build step.
-- **Local:** just open `index.html`.
+Use one of the seeded feed URLs while prototyping:
 
-> Note: `index.html` and `edit.html` load Tailwind from a CDN for styling, so an
-> internet connection is needed for the layout to look right. The data itself is
-> local.
+- `http://localhost:8000/cal/demo-all.ics` — everyone
+- `http://localhost:8000/cal/demo-no.ics` — Family
+- `http://localhost:8000/cal/demo-dk.ics` — Danish family
+
+In Google/Apple/Outlook Calendar, choose "Subscribe from URL" and paste one of those URLs.
+
+## Editing
+
+Open `/edit.html`, enter your name, edit the table, and click **Save**. Changes are written to KV and audited. **Download CSV** exports a `people.csv` backup that can also be used as seed material later.
+
+## Testing
+
+```sh
+cd server
+deno task check
+deno fmt --check
+deno lint
+```
+
+## Notes
+
+- `family-dates.js` was removed. KV is now the runtime source of truth; CSV files are only seed/bootstrap material.
+- Original raw CSV files at the repo root remain git-ignored historical inputs.

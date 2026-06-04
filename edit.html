@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Edit Family Dates</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="family-dates.js"></script>
   </head>
   <body class="min-h-screen bg-zinc-50 text-zinc-950">
     <main class="mx-auto max-w-6xl px-4 py-8">
@@ -34,10 +33,10 @@
             Save
           </button>
           <button id="copy" type="button" class="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-100">
-            Copy
+            Copy CSV
           </button>
           <button id="download" type="button" class="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-100">
-            Download
+            Download CSV
           </button>
           <button id="reset" type="button" class="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-500 hover:bg-zinc-100" title="Discard local changes and reload">
             Reset
@@ -103,34 +102,13 @@
     <div id="toast" class="pointer-events-none fixed bottom-4 left-1/2 z-30 -translate-x-1/2 translate-y-2 rounded-md bg-zinc-900 px-4 py-2 text-sm text-white opacity-0 shadow-lg transition-all"></div>
 
     <script>
-      const data = window.FAMILY_DATA || { groups: {}, people: [], holidays: [] };
-      let groups = data.groups || {};
-      let groupKeys = Object.keys(groups);
+      let groups = {};
+      let groupKeys = [];
       let serverMode = false;
-      const holidays = data.holidays || [];
-      const fileHeader = `/**
- * Family Calendar — single source of truth.
- *
- * This is plain data assigned to a global so it loads both over http(s)
- * (GitHub Pages, Netlify) AND from the local file system (double-clicking
- * the HTML files), where \`fetch()\` of a local JSON file would be blocked.
- *
- * Entry schema:
- *   {
- *     name:  string,                       // person or label
- *     date:  "YYYY-MM-DD" | "MM-DD" | "",  // full date, recurring (year unknown), or unknown
- *     type:  "birthday" | "anniversary",   // extend as needed
- *     group: "no" | "dk",                  // which family (see \`groups\` below)
- *     notes: string                        // optional free text / relation
- *   }
- *
- * To update the data: edit this file by hand, or use edit.html and download
- * a regenerated copy, then commit it.
- */`;
 
       const rows = document.querySelector("#rows");
       const template = document.querySelector("#row-template");
-      const storageKey = "family-dates-draft";
+      const storageKey = "family-calendar-editor-draft";
 
       const dateValid = (v) => v === "" || /^\d{4}-\d{2}-\d{2}$/.test(v) || /^\d{2}-\d{2}$/.test(v);
 
@@ -229,30 +207,22 @@
           (invalid ? ` · <span class="font-semibold text-red-600">${invalid} invalid date${invalid === 1 ? "" : "s"}</span>` : "");
       }
 
-      function jsStr(value) {
-        return JSON.stringify(String(value ?? ""));
+      function csvEscape(value) {
+        const text = String(value ?? "");
+        return /[",\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
       }
 
-      function indent(text, spaces) {
-        const pad = " ".repeat(spaces);
-        return text.split("\n").join("\n" + pad);
-      }
-
-      function buildFile() {
-        const people = getPeople();
-        const peopleLines = people
-          .map((p) => `    { name: ${jsStr(p.name)}, date: ${jsStr(p.date)}, type: ${jsStr(p.type)}, group: ${jsStr(p.group)}, notes: ${jsStr(p.notes)} },`)
-          .join("\n");
-
-        return (
-          fileHeader +
-          "\n" +
-          "window.FAMILY_DATA = {\n" +
-          "  groups: " + indent(JSON.stringify(groups, null, 2), 2) + ",\n\n" +
-          "  people: [\n" + peopleLines + "\n  ],\n\n" +
-          "  holidays: " + indent(JSON.stringify(holidays, null, 2), 2) + ",\n" +
-          "};\n"
-        );
+      function buildPeopleCsv() {
+        const headers = ["id", "name", "born", "died", "groups", "notes"];
+        const lines = [headers.join(",")];
+        for (const p of toServerPeople()) {
+          lines.push(
+            [p.id || "", p.name, p.born || "", p.died || "", (p.groups || []).join("|"), p.notes || ""]
+              .map(csvEscape)
+              .join(","),
+          );
+        }
+        return lines.join("\n") + "\n";
       }
 
       function download() {
@@ -260,14 +230,14 @@
           showToast("Fix the highlighted dates first.");
           return;
         }
-        const blob = new Blob([buildFile()], { type: "text/javascript;charset=utf-8" });
+        const blob = new Blob([buildPeopleCsv()], { type: "text/csv;charset=utf-8" });
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
-        link.download = "family-dates.js";
+        link.download = "people.csv";
         link.click();
         URL.revokeObjectURL(url);
-        showToast("Downloaded family-dates.js — commit it to publish.");
+        showToast("Downloaded people.csv backup.");
       }
 
       async function copyToClipboard() {
@@ -276,8 +246,8 @@
           return;
         }
         try {
-          await navigator.clipboard.writeText(buildFile());
-          showToast("Copied file contents to clipboard.");
+          await navigator.clipboard.writeText(buildPeopleCsv());
+          showToast("Copied CSV to clipboard.");
         } catch {
           showToast("Couldn't access clipboard — use Download instead.");
         }
@@ -375,8 +345,9 @@
           await reloadFromServer();
           showToast("Reset to the saved calendar.");
         } else {
-          loadPeople(data.people || []);
-          showToast("Reset to the saved file.");
+          rows.innerHTML = "";
+          updateSummary();
+          showToast("No server data is available.");
         }
       });
       rows.addEventListener("input", onChange);
@@ -389,14 +360,15 @@
         localStorage.setItem("editor-name", actorInput.value.trim());
       });
 
-      // Initial load: use the server API if reachable, else the local file.
+      // Initial load: requires the server API. The old family-dates.js fallback
+      // has intentionally been removed; CSV seed files are the bootstrap path.
       (async () => {
         let serverData = null;
         try {
           const res = await fetch("/api/data", { cache: "no-store" });
           if (res.ok) serverData = await res.json();
         } catch {
-          // No server (opened from disk) — fall back to family-dates.js.
+          // Served without the Deno API; show the server-required state below.
         }
 
         const draft = loadDraft();
@@ -408,7 +380,7 @@
           for (const g of serverData.groups || []) groups[g.key] = { label: g.label, flag: g.flag };
           groupKeys = Object.keys(groups);
           document.querySelector("#save").classList.remove("hidden");
-          modeHint.innerHTML = 'Changes <strong>Save</strong> to the shared calendar; Download is a backup.';
+          modeHint.innerHTML = 'Changes <strong>Save</strong> to the shared calendar; Download CSV is a backup.';
           if (draft && draft.length) {
             document.querySelector("#draft-banner").classList.remove("hidden");
             loadPeople(draft);
@@ -417,13 +389,9 @@
           }
         } else {
           modeHint.innerHTML =
-            'Offline: <strong>Download</strong> the updated <code class="rounded bg-zinc-200 px-1">family-dates.js</code> and commit it.';
-          if (draft && draft.length) {
-            document.querySelector("#draft-banner").classList.remove("hidden");
-            loadPeople(draft);
-          } else {
-            loadPeople(data.people || []);
-          }
+            'This editor now requires the Deno server API. Start <code class="rounded bg-zinc-200 px-1">server/</code>, then reload.';
+          rows.innerHTML = "";
+          updateSummary();
         }
       })();
     </script>

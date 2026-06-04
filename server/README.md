@@ -32,8 +32,7 @@ Seed tokens for trying feeds: `demo-all` (everyone), `demo-no` (Family),
 → `http://localhost:8000/cal/demo-all.ics`. Apple/Outlook honor the embedded
 birthday reminders; Google applies its own per-calendar notification settings.
 
-The web app prefers the API when reachable and falls back to the bundled
-`family-dates.js` when opened directly from disk.
+The web app expects this API. `family-dates.js` has been removed; CSV seed files are only for bootstrapping fresh KV stores.
 
 ## Test
 
@@ -50,7 +49,8 @@ deno fmt && deno lint
 | `src/model.ts`      | Domain types (`Person`, `Viewer`, `CalEvent`, `AuditEntry`).        |
 | `src/store.ts`      | `Store` interface (the swappable-engine seam) + in-memory `SeedStore`. |
 | `src/kv_store.ts`   | `KvStore` — the Deno KV implementation (the deploy target).         |
-| `src/seed.ts`       | Seed people, groups and viewer tokens.                              |
+| `seed/*.csv`        | Seed people, groups and viewer tokens for fresh KV stores.          |
+| `src/seed.ts`       | Loads and parses the CSV seed files.                                |
 | `src/dates.ts`      | Partial-date parsing + UTC date math.                              |
 | `src/holidays.ts`   | NO/DK holidays, computed via Easter (Computus) — no external data. |
 | `src/events.ts`     | People + holidays → `CalEvent`s; reminder policy.                  |

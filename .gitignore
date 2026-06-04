@@ -1,5 +1,6 @@
 _chat.txt
 *.csv
+!server/seed/*.csv
 
 # Local Deno KV databases
 *.db

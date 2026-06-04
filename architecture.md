@@ -1,12 +1,12 @@
 # Architecture
 
-> **Status:** Target architecture, locked. Not yet implemented — the repo
-> currently contains the static prototype (`index.html`, `edit.html`,
-> `family-dates.js`). This document is the destination and the migration path.
+> **Status:** Implemented baseline. The repo now runs via the Deno server:
+> structured store (Deno KV) → serverless-style generator/API → per-viewer iCal
+> feeds and web app. CSV files in `server/seed/` bootstrap fresh KV stores.
 
 ## Decision
 
-Move from "static HTML + inline data" to:
+The locked architecture is:
 
 **Structured store → serverless generator → per-viewer iCal feeds.**
 
@@ -177,17 +177,19 @@ interface so the engine stays swappable.
 
 ## Migration path from the current prototype
 
-1. **Keep the static view working** as-is during the transition.
-2. **Lift `family-dates.js` into the store.** The current `{ people, holidays }`
-   maps directly; holidays can be *dropped* once the Computus generator exists.
-3. **Stand up the generator** that emits a single all-events iCal (no subsetting
-   yet) from the store. Validate against Apple/Google subscribe.
-4. **Add tokens + viewers**, then per-viewer subsetting via `groups`.
-5. **Add reminders** (per-kind default + per-viewer pref).
-6. **Add the edit API + audit**, and point `edit.html` at it instead of
-   download-and-commit.
-7. **Enrich the model** (`died`, `Event.kind`, recurring flag) once feeds are
-   solid.
+Completed:
+
+1. Deno server serves the web app and JSON API.
+2. Deno KV is the runtime source of truth, seeded from `server/seed/*.csv`.
+3. Per-viewer iCal feeds exist at `/cal/<token>.ics` and subset by viewer groups.
+4. Holidays are computed with Computus instead of stored.
+5. Edit API writes to KV and records audit entries.
+
+Next:
+
+1. Add real issuance/rotation UI for viewer/editor tokens.
+2. Gate read and write APIs with tokens before public deployment.
+3. Enrich the model (`died`, `Event.kind`, recurring flag).
 
 ## Deferred / out of scope (YAGNI for now)
 

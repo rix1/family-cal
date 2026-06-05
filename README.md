@@ -9,7 +9,7 @@ The app is now a **Fresh 2 / Vite** app on Deno, backed by Deno KV. Fresh serves
 | File / directory | Purpose |
 | --- | --- |
 | `routes/` | Fresh file routes for pages, JSON API, health check, and iCal feeds. |
-| `templates/` | Existing HTML calendar/editor UI served by Fresh routes (temporary until ported to islands/components). |
+| `templates/` | Remaining template HTML for editor/about while those pages await component migration. |
 | `lib/` | Domain logic: store, KV adapter, seed loading, iCal, holidays, validation. |
 | `seed/*.csv` | CSV seed data for bootstrapping a fresh KV store. |
 | `test/` | Deno tests for domain logic and Fresh route handlers. |
@@ -60,6 +60,6 @@ deno task build
 ## Notes
 
 - `family-dates.js` was removed. KV is now the runtime source of truth; CSV files are only seed/bootstrap material.
-- The current UI is still the original HTML/inline JS, served via Fresh routes from `templates/`. Next cleanup is to port the interactive pieces into Fresh islands.
+- The calendar page is now a Fresh route + `Calendar` island. The editor is still template HTML/inline JS and is the next migration target.
 - Generated Fresh output lives in `_fresh/` and is git-ignored.
 - Original raw CSV files at the repo root remain git-ignored historical inputs.

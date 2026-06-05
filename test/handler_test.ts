@@ -3,7 +3,6 @@ import { assert, assertEquals, assertStringIncludes } from "./asserts.ts";
 
 Deno.env.set("KV_PATH", ":memory:");
 
-const indexRoute = await import("../routes/index.ts");
 const aboutRoute = await import("../routes/about.ts");
 const editRoute = await import("../routes/edit.html.ts");
 const healthRoute = await import("../routes/health.ts");
@@ -66,7 +65,7 @@ routeTest("GET /api/data returns groups, people and holidays", async () => {
   assertEquals(res.status, 200);
   const data = await res.json();
   assert(Array.isArray(data.people) && data.people.length > 0);
-  assert(Array.isArray(data.groups) && data.groups.length === 2);
+  assert(data.groups && Object.keys(data.groups).length === 2);
   assert(Array.isArray(data.holidays) && data.holidays.length > 0);
 });
 
@@ -117,13 +116,6 @@ routeTest("POST /api/people rejects invalid dates with 400", async () => {
   assertEquals(res.status, 400);
   const body = await res.json();
   assert(typeof body.error === "string");
-});
-
-routeTest("GET / serves the calendar page", async () => {
-  const res = await indexRoute.handler.GET();
-  assertEquals(res.status, 200);
-  assertStringIncludes(res.headers.get("content-type") ?? "", "text/html");
-  assertStringIncludes(await res.text(), "<title>Family Calendar</title>");
 });
 
 routeTest("GET /about serves docs and API links", async () => {

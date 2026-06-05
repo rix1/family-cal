@@ -204,7 +204,7 @@ Next:
 
 ## Open questions
 
-- Port the current template-based UI into Fresh components/islands.
+- Port the remaining editor template into Fresh components/islands.
 - Token issuance/rotation UX (how a new relative gets onboarded).
 - Whether one-time life events also warrant a separate **timeline** view, or just
   live on a person profile.

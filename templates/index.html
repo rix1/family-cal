@@ -186,6 +186,10 @@
           </h1>
         </div>
         <div class="flex shrink-0 items-center gap-2">
+          <a href="/about" class="action action-secondary" title="About and API docs">
+            <span aria-hidden="true">ℹ️</span>
+            <span class="hidden sm:inline">About</span>
+          </a>
           <a href="edit.html" class="action action-secondary" title="Add or edit people">
             <span aria-hidden="true">✏️</span>
             <span class="hidden sm:inline">Edit</span>
@@ -293,8 +297,10 @@
       const today = new Date();
       const todayKey = toKey(today);
       const currentYear = today.getFullYear();
-      const startYear = currentYear - 2;
-      const endYear = currentYear + 2;
+      let firstMonthOffset = 0; // 0 = current month; previous months can be prepended later.
+      let renderedMonthCount = 24;
+      const monthBatchSize = 12;
+      let loadingMoreMonths = false;
       const dayFormatter = new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric" });
       const longDateFormatter = new Intl.DateTimeFormat("en-GB", {
         weekday: "long",
@@ -361,6 +367,25 @@
         return next;
       }
 
+      function dateForMonthOffset(offset) {
+        return new Date(currentYear, today.getMonth() + offset, 1);
+      }
+
+      function monthKeyForOffset(offset) {
+        const d = dateForMonthOffset(offset);
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      }
+
+      function renderedYearRange() {
+        const start = dateForMonthOffset(firstMonthOffset);
+        const end = dateForMonthOffset(firstMonthOffset + renderedMonthCount - 1);
+        // Include previous year for recent summaries even though the visual timeline starts today.
+        return {
+          startYear: Math.min(currentYear - 1, start.getFullYear()),
+          endYear: end.getFullYear(),
+        };
+      }
+
       // Returns "MM-DD" for full or recurring dates, or "" if no date is known.
       function monthDayOf(person) {
         if (!person.date) return "";
@@ -417,6 +442,7 @@
       }
 
       function allEvents() {
+        const { startYear, endYear } = renderedYearRange();
         const events = [];
         for (let year = startYear; year <= endYear; year++) {
           events.push(...personEventsForYear(year));
@@ -469,8 +495,9 @@
         const peopleCount = state.groups.size === Object.keys(groups).length
           ? people.length
           : people.filter((p) => state.groups.has(p.group)).length;
+        const lastRenderedMonth = monthKeyForOffset(firstMonthOffset + renderedMonthCount - 1);
         document.querySelector("#today-subtitle").textContent =
-          `${peopleCount} people · ${startYear}–${endYear}`;
+          `${peopleCount} people · timeline through ${lastRenderedMonth}`;
         document.querySelector("#range-label").textContent = "next 120 days";
 
         const upcoming = events.filter((e) => e.type !== "holiday" && e.date >= todayKey);
@@ -607,49 +634,55 @@
         }
 
         const sections = [];
-        for (let year = startYear; year <= endYear; year++) {
-          for (let month = 1; month <= 12; month++) {
-            const monthKey = `${year}-${String(month).padStart(2, "0")}`;
-            const monthEvents = byMonth.get(monthKey) || [];
-            if (!monthEvents.length) continue;
+        for (
+          let offset = firstMonthOffset;
+          offset < firstMonthOffset + renderedMonthCount;
+          offset++
+        ) {
+          const monthDate = dateForMonthOffset(offset);
+          const year = monthDate.getFullYear();
+          const month = monthDate.getMonth() + 1;
+          const monthKey = `${year}-${String(month).padStart(2, "0")}`;
+          const isCurrentMonth = monthKey === todayKey.slice(0, 7);
+          const monthEvents = (byMonth.get(monthKey) || []).filter((event) =>
+            !isCurrentMonth || event.date >= todayKey
+          );
+          if (!monthEvents.length && !isCurrentMonth) continue;
 
-            const dayGroups = new Map();
-            for (const event of monthEvents) {
-              if (!dayGroups.has(event.date)) dayGroups.set(event.date, []);
-              dayGroups.get(event.date).push(event);
-            }
-
-            sections.push(`
-              <section id="month-${monthKey}" class="scroll-mt-24">
-                <div class="month-bar sticky top-[73px] z-10 -mx-4 border-y px-4 py-3 backdrop-blur-xl">
-                  <div class="mx-auto flex max-w-5xl items-center justify-between">
-                    <h2 class="text-lg font-semibold">${
-              monthFormatter.format(new Date(year, month - 1, 1))
-            }</h2>
-                    <span class="text-sm font-medium text-[color:var(--soft-muted)]">${monthEvents.length} ${
-              monthEvents.length === 1 ? "event" : "events"
-            }</span>
-                  </div>
-                </div>
-                <div class="mt-4 space-y-4">
-                  ${
-              Array.from(dayGroups)
-                .map(([date, dayEvents]) => renderDay(date, dayEvents))
-                .join("")
-            }
-                </div>
-              </section>
-            `);
+          const dayGroups = new Map();
+          if (isCurrentMonth) dayGroups.set(todayKey, []);
+          for (const event of monthEvents) {
+            if (!dayGroups.has(event.date)) dayGroups.set(event.date, []);
+            dayGroups.get(event.date).push(event);
           }
+
+          sections.push(`
+            <section id="month-${monthKey}" style="scroll-margin-top: 96px;">
+              <div class="month-bar sticky top-[73px] z-10 -mx-4 border-y px-4 py-3 backdrop-blur-xl">
+                <div class="mx-auto flex max-w-5xl items-center justify-between">
+                  <h2 class="text-lg font-semibold">${monthFormatter.format(monthDate)}</h2>
+                  <span class="text-sm font-medium text-[color:var(--soft-muted)]">${monthEvents.length} ${
+            monthEvents.length === 1 ? "event" : "events"
+          }</span>
+                </div>
+              </div>
+              <div class="mt-4 space-y-4">
+                ${
+            Array.from(dayGroups).map(([date, dayEvents]) => renderDay(date, dayEvents)).join("")
+          }
+              </div>
+            </section>
+          `);
         }
 
-        calendar.innerHTML = sections.join("");
+        calendar.innerHTML = sections.join("") +
+          `<div id="calendar-sentinel" class="py-6 text-center text-sm text-[color:var(--soft-muted)]">Scroll for more months…</div>`;
       }
 
       function renderDay(dateKey, events) {
         const isToday = dateKey === todayKey;
         return `
-          <div class="grid gap-3 sm:grid-cols-[88px_1fr]">
+          <div id="day-${dateKey}" class="grid gap-3 sm:grid-cols-[88px_1fr]" style="scroll-margin-top: 148px;">
             <div class="flex items-start gap-3 sm:block">
               <div class="${
           isToday
@@ -723,6 +756,28 @@
         renderSummary(events);
         renderCalendar(events);
         renderFilterChips();
+      }
+
+      function extendTimelineIfNeeded() {
+        if (loadingMoreMonths) return;
+        const nearBottom =
+          window.innerHeight + window.scrollY > document.documentElement.scrollHeight - 1200;
+        if (!nearBottom) return;
+        loadingMoreMonths = true;
+        const previousCount = renderedMonthCount;
+        renderedMonthCount += monthBatchSize;
+        rerender();
+        loadingMoreMonths = false;
+        if (renderedMonthCount !== previousCount) {
+          // Keep extending if the page is still short enough to be near the bottom.
+          requestAnimationFrame(extendTimelineIfNeeded);
+        }
+      }
+
+      function scrollToToday(behavior = "smooth") {
+        const target = document.querySelector(`#day-${todayKey}`) ||
+          document.querySelector(`#month-${todayKey.slice(0, 7)}`);
+        target?.scrollIntoView({ block: "start", behavior });
       }
 
       // --- iCal (.ics) export of the currently filtered people ---
@@ -840,17 +895,12 @@
 
         document.querySelector("#export-ics").addEventListener("click", downloadIcs);
 
-        document.querySelector("#jump-today").addEventListener("click", () => {
-          document.querySelector(`#month-${todayKey.slice(0, 7)}`)?.scrollIntoView({
-            block: "start",
-          });
-        });
-
-        requestAnimationFrame(() => {
-          document.querySelector(`#month-${todayKey.slice(0, 7)}`)?.scrollIntoView({
-            block: "start",
-          });
-        });
+        document.querySelector("#jump-today").addEventListener(
+          "click",
+          () => scrollToToday("smooth"),
+        );
+        window.addEventListener("scroll", extendTimelineIfNeeded, { passive: true });
+        requestAnimationFrame(extendTimelineIfNeeded);
       }
 
       // Load from the server API.

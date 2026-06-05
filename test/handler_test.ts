@@ -4,6 +4,7 @@ import { assert, assertEquals, assertStringIncludes } from "./asserts.ts";
 Deno.env.set("KV_PATH", ":memory:");
 
 const indexRoute = await import("../routes/index.ts");
+const aboutRoute = await import("../routes/about.ts");
 const editRoute = await import("../routes/edit.html.ts");
 const healthRoute = await import("../routes/health.ts");
 const dataRoute = await import("../routes/api/data.ts");
@@ -123,6 +124,15 @@ routeTest("GET / serves the calendar page", async () => {
   assertEquals(res.status, 200);
   assertStringIncludes(res.headers.get("content-type") ?? "", "text/html");
   assertStringIncludes(await res.text(), "<title>Family Calendar</title>");
+});
+
+routeTest("GET /about serves docs and API links", async () => {
+  const res = await aboutRoute.handler.GET();
+  assertEquals(res.status, 200);
+  const body = await res.text();
+  assertStringIncludes(body, "<title>About Family Calendar</title>");
+  assertStringIncludes(body, "GET /api/data");
+  assertStringIncludes(body, "/cal/&lt;token&gt;.ics");
 });
 
 routeTest("GET /edit.html serves the editor", async () => {

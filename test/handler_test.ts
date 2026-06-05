@@ -4,7 +4,7 @@ import { assert, assertEquals, assertStringIncludes } from "./asserts.ts";
 Deno.env.set("KV_PATH", ":memory:");
 
 const aboutRoute = await import("../routes/about.ts");
-const editRoute = await import("../routes/edit.html.ts");
+const editRoute = await import("../routes/edit.html.tsx");
 const healthRoute = await import("../routes/health.ts");
 const dataRoute = await import("../routes/api/data.ts");
 const peopleRoute = await import("../routes/api/people.ts");
@@ -127,10 +127,10 @@ routeTest("GET /about serves docs and API links", async () => {
   assertStringIncludes(body, "/cal/&lt;token&gt;.ics");
 });
 
-routeTest("GET /edit.html serves the editor", async () => {
-  const res = await editRoute.handler.GET();
-  assertEquals(res.status, 200);
-  assertStringIncludes(await res.text(), "<title>Edit Family Dates</title>");
+routeTest("GET /edit.html loads editor data", async () => {
+  const result = await editRoute.handlers.GET();
+  assert(Array.isArray(result.data.people) && result.data.people.length > 0);
+  assert(Array.isArray(result.data.groups) && result.data.groups.length === 2);
 });
 
 routeTest("GET /health returns ok", async () => {

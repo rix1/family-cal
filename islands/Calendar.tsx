@@ -296,6 +296,13 @@ export function Calendar({ groups, people, holidays }: CalendarViewData) {
   const birthdaysCelebratedThisYear =
     birthdayPeopleThisYear.filter((person) => `${currentYear}-${monthDayOf(person)}` <= todayKey)
       .length;
+  const birthdaysRemainingThisYear = Math.max(
+    birthdayPeopleThisYear.length - birthdaysCelebratedThisYear,
+    0,
+  );
+  const birthdayProgressPercent = birthdayPeopleThisYear.length
+    ? Math.round((birthdaysCelebratedThisYear / birthdayPeopleThisYear.length) * 100)
+    : 0;
   const lastRenderedMonth = monthKey(firstMonthOffset + renderedMonthCount - 1);
 
   function scrollToToday() {
@@ -580,13 +587,38 @@ export function Calendar({ groups, people, holidays }: CalendarViewData) {
         <section class="mb-6 grid gap-3 sm:grid-cols-3">
           <article class="surface-raised rounded-2xl p-5">
             <p class="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--soft-muted)]">
-              Today
+              Birthdays this year
             </p>
-            <p class="mt-4 text-4xl font-semibold tracking-normal">
-              {birthdaysCelebratedThisYear}/{birthdayPeopleThisYear.length}
-            </p>
-            <p class="mt-2 text-sm text-[color:var(--muted)]">
-              birthdays celebrated this year · timeline through {lastRenderedMonth}
+            <div class="mt-4 flex items-end justify-between gap-3">
+              <div>
+                <p class="text-4xl font-semibold tracking-normal">
+                  {birthdaysCelebratedThisYear}
+                  <span class="text-2xl text-[color:var(--soft-muted)]">
+                    /{birthdayPeopleThisYear.length}
+                  </span>
+                </p>
+                <p class="mt-1 text-sm font-medium text-[color:var(--ink)]">
+                  celebrated so far
+                </p>
+              </div>
+              <div class="rounded-full bg-[color:var(--teal-soft)] px-3 py-1 text-sm font-semibold text-[color:var(--teal-ink)]">
+                {birthdayProgressPercent}%
+              </div>
+            </div>
+            <div
+              class="mt-4 h-2 overflow-hidden rounded-full bg-[color:var(--line)]"
+              aria-hidden="true"
+            >
+              <div
+                class="h-full rounded-full bg-[color:var(--teal)]"
+                style={{ width: `${birthdayProgressPercent}%` }}
+              />
+            </div>
+            <p class="mt-3 text-sm text-[color:var(--muted)]">
+              {birthdaysRemainingThisYear === 0
+                ? "All known birthdays for this year are behind us."
+                : `${birthdaysRemainingThisYear} still ahead this year`} · timeline through{" "}
+              {lastRenderedMonth}
             </p>
           </article>
           <article class="surface-raised rounded-2xl p-5 sm:col-span-2">

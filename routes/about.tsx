@@ -1,9 +1,5 @@
 import { define } from "@/utils.ts";
 
-const feedUrl = "/cal/demo-all.ics";
-const calendarUrl = "/view/demo-all";
-const editorUrl = "/edit/demo-edit";
-
 export default define.page(function About() {
   return (
     <>
@@ -32,9 +28,7 @@ export default define.page(function About() {
 
       <main class="about-main">
         <nav class="about-nav" aria-label="Main navigation">
-          <a class="about-link about-pill" href={calendarUrl}>Demo calendar</a>
-          <a class="about-link about-pill" href={editorUrl}>Demo editor</a>
-          <a class="about-link about-pill" href={feedUrl}>Demo iCal feed</a>
+          <a class="about-link about-pill" href="/">Access page</a>
         </nav>
 
         <h1 class="about-title">Family Calendar</h1>
@@ -47,17 +41,15 @@ export default define.page(function About() {
           <h2>Pages & features</h2>
           <ul>
             <li>
-              <a class="about-link" href={calendarUrl}>Calendar</a>{" "}
-              — current-month timeline, filters, search, upcoming/recent summaries.
+              Private calendar links show the current-month timeline, filters, search, and
+              upcoming/recent summaries.
             </li>
             <li>
-              <a class="about-link" href={editorUrl}>Editor</a>{" "}
-              — add/edit people, save to KV, export <code class="about-code">people.csv</code>{" "}
-              as backup.
+              Editor-capable links add/edit people, save to KV, and export{" "}
+              <code class="about-code">people.csv</code> as backup.
             </li>
             <li>
-              <a class="about-link" href={feedUrl}>iCal feed</a>{" "}
-              — subscribe from Google, Apple, Outlook, etc.
+              Each viewer link also has an iCal subscription URL for Google, Apple, Outlook, etc.
             </li>
           </ul>
         </section>
@@ -94,8 +86,8 @@ export default define.page(function About() {
               <tr>
                 <td>GET /cal/&lt;token&gt;.ics</td>
                 <td>
-                  Per-viewer iCal feed. Seed tokens: <code class="about-code">demo-all</code>,{" "}
-                  <code class="about-code">demo-no</code>, <code class="about-code">demo-dk</code>.
+                  Per-viewer iCal feed. Issue private tokens with{" "}
+                  <code class="about-code">deno task issue-link</code>.
                 </td>
               </tr>
               <tr>
@@ -135,8 +127,7 @@ export default define.page(function About() {
           <ul>
             <li>
               The checked-in <code class="about-code">demo-*</code>{" "}
-              tokens are only bootstrap examples and must be replaced before sharing a deployed
-              instance.
+              tokens are local bootstrap examples. Issuing the first real link removes them.
             </li>
             <li>
               Google Calendar may refresh subscribed feeds slowly and uses its own per-calendar

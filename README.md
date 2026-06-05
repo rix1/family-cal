@@ -58,7 +58,8 @@ KV_PATH=/path/to/famcal.db deno task issue-link \
 
 The command prints private calendar and iCal URLs. Add `--edit` to issue an editor link as well.
 Use `--groups no,dk` for both families, or omit `--groups` for everyone. Anyone holding one of
-these URLs has its access, so share it privately and issue a replacement if it leaks.
+these URLs has its access, so share it privately and issue a replacement if it leaks. Issuing the
+first real link automatically removes the checked-in `demo-*` bootstrap capabilities.
 
 ## Editing
 

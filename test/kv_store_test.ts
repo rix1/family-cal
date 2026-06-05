@@ -89,6 +89,8 @@ Deno.test("KvStore upsertViewer persists issued capabilities", async () => {
       groups: ["no"],
       canEdit: false,
     });
+    await store.deleteViewer("issued-token");
+    assertEquals(await store.getViewer("issued-token"), null);
   } finally {
     store.close();
   }

@@ -16,6 +16,7 @@ export interface Store {
 
   getViewer(token: string): Promise<Viewer | null>;
   listViewers(): Promise<Viewer[]>;
+  upsertViewer(viewer: Viewer): Promise<Viewer>;
 
   appendAudit(entry: AuditEntry): Promise<void>;
   /** Most-recent-first. */
@@ -79,6 +80,12 @@ export class SeedStore implements Store {
   // deno-lint-ignore require-await
   async listViewers(): Promise<Viewer[]> {
     return clone([...this.#viewers.values()]);
+  }
+
+  // deno-lint-ignore require-await
+  async upsertViewer(viewer: Viewer): Promise<Viewer> {
+    this.#viewers.set(viewer.token, clone(viewer));
+    return clone(viewer);
   }
 
   // deno-lint-ignore require-await

@@ -73,3 +73,23 @@ Deno.test("KvStore audit is most-recent-first", async () => {
     store.close();
   }
 });
+
+Deno.test("KvStore upsertViewer persists issued capabilities", async () => {
+  const store = await freshStore();
+  try {
+    await store.upsertViewer({
+      token: "issued-token",
+      name: "Issued viewer",
+      groups: ["no"],
+      canEdit: false,
+    });
+    assertEquals(await store.getViewer("issued-token"), {
+      token: "issued-token",
+      name: "Issued viewer",
+      groups: ["no"],
+      canEdit: false,
+    });
+  } finally {
+    store.close();
+  }
+});

@@ -91,6 +91,11 @@ export class KvStore implements Store {
     return out;
   }
 
+  async upsertViewer(viewer: Viewer): Promise<Viewer> {
+    await this.#kv.set([VIEWERS, viewer.token], viewer);
+    return viewer;
+  }
+
   async appendAudit(entry: AuditEntry): Promise<void> {
     // Time-ordered key so list({ reverse }) yields most-recent-first.
     await this.#kv.set([AUDIT, entry.at, crypto.randomUUID()], entry);

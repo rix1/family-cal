@@ -44,6 +44,22 @@ Use one of the seeded feed URLs while prototyping:
 
 In Google/Apple/Outlook Calendar, choose "Subscribe from URL" and paste one of those URLs.
 
+## Issuing private family links
+
+Set `KV_PATH` to the same database used by the app, then issue a cryptographically random
+capability:
+
+```sh
+KV_PATH=/path/to/famcal.db deno task issue-link \
+  --name "Solveig" \
+  --groups no \
+  --base-url https://family.example
+```
+
+The command prints private calendar and iCal URLs. Add `--edit` to issue an editor link as well.
+Use `--groups no,dk` for both families, or omit `--groups` for everyone. Anyone holding one of
+these URLs has its access, so share it privately and issue a replacement if it leaks.
+
 ## Editing
 
 Open `/edit/demo-edit`, edit the table, and click **Save**. Changes are written to KV and audited

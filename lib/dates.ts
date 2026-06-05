@@ -27,6 +27,13 @@ export function addDays(date: CalDate, delta: number): CalDate {
   return { year: dt.getUTCFullYear(), month: dt.getUTCMonth() + 1, day: dt.getUTCDate() };
 }
 
+export function ageAtDate(born: string | null, at: string | null): number | null {
+  if (!born || !at || born.length !== 10 || at.length !== 10) return null;
+  let age = Number(at.slice(0, 4)) - Number(born.slice(0, 4));
+  if (at.slice(5) < born.slice(5)) age--;
+  return age >= 0 ? age : null;
+}
+
 /** `YYYYMMDD` for an all-day DATE value. */
 export function compactDate(date: CalDate): string {
   return `${date.year}${pad2(date.month)}${pad2(date.day)}`;

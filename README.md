@@ -66,6 +66,10 @@ Open `/edit/demo-edit`, edit the table, and click **Save**. Changes are written 
 under the editor capability's name. **Download CSV** exports a `people.csv` backup that can also be
 used as seed material later.
 
+Death dates use full `YYYY-MM-DD` values. Deceased relatives keep their birthday with
+“would have turned” wording and also receive a yearly remembrance event on the anniversary of
+their death.
+
 ## Testing / build
 
 ```sh

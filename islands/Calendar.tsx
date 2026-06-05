@@ -1,4 +1,5 @@
 import type { CalendarViewData, ViewPerson } from "@/lib/view_data.ts";
+import { ageAtDate } from "@/lib/dates.ts";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 
 type CalendarEvent =
@@ -15,6 +16,12 @@ type CalendarEvent =
     type: "holiday";
     name: string;
     countries: Array<"NO" | "DK">;
+  }
+  | {
+    date: string;
+    type: "memorial";
+    name: string;
+    person: ViewPerson;
   };
 
 const dayMs = 86_400_000;
@@ -63,12 +70,14 @@ function milestone(age: number | null): string {
 }
 
 function typeIcon(type: string): string {
+  if (type === "memorial") return "🕯️";
   if (type === "anniversary") return "💍";
   return "🎂";
 }
 
 function typeLabel(type: string): string {
   if (type === "birthday") return "🎂 Birthdays";
+  if (type === "memorial") return "🕯️ Remembrances";
   if (type === "anniversary") return "💍 Anniversaries";
   if (type === "holiday") return "🇳🇴🇩🇰 Holidays";
   return type;
@@ -101,7 +110,11 @@ export function Calendar({ groups, people, holidays, editUrl }: CalendarProps) {
   const allTypes = useMemo(
     () =>
       Array.from(
-        new Set([...people.map((p) => p.type || "birthday"), "holiday"]),
+        new Set([
+          ...people.map((p) => p.type || "birthday"),
+          ...(people.some((person) => person.died) ? ["memorial"] : []),
+          "holiday",
+        ]),
       ),
     [people],
   );
@@ -172,19 +185,33 @@ export function Calendar({ groups, people, holidays, editUrl }: CalendarProps) {
 
     for (let year = startYear; year <= endYear; year++) {
       for (const person of people) {
-        if (!person.date) continue;
-        const md = monthDayOf(person);
-        const date = `${year}-${md}`;
-        if (hasYear(person) && date < person.date) continue;
-        const age = ageOn(person, year);
-        out.push({
-          date,
-          type: "birthday",
-          name: person.name,
-          person,
-          age,
-          flare: milestone(age),
-        });
+        if (person.date) {
+          const md = monthDayOf(person);
+          const date = `${year}-${md}`;
+          if (!hasYear(person) || date >= person.date) {
+            const age = ageOn(person, year);
+            out.push({
+              date,
+              type: "birthday",
+              name: person.name,
+              person,
+              age,
+              flare: milestone(age),
+            });
+          }
+        }
+        if (person.died) {
+          const diedMonthDay = person.died.slice(5);
+          const memorialDate = `${year}-${diedMonthDay}`;
+          if (memorialDate >= person.died) {
+            out.push({
+              date: memorialDate,
+              type: "memorial",
+              name: `In memory of ${person.name}`,
+              person,
+            });
+          }
+        }
       }
     }
 
@@ -204,11 +231,11 @@ export function Calendar({ groups, people, holidays, editUrl }: CalendarProps) {
     const q = query.trim().toLowerCase();
     return rawEvents.filter((event) => {
       if (!activeTypes.has(event.type)) return false;
-      if (event.type === "birthday" && !activeGroups.has(event.person.group)) {
+      if (event.type !== "holiday" && !activeGroups.has(event.person.group)) {
         return false;
       }
       if (q) {
-        const haystack = event.type === "birthday"
+        const haystack = event.type !== "holiday"
           ? `${event.name} ${event.person.notes || ""}`.toLowerCase()
           : event.name.toLowerCase();
         if (!haystack.includes(q)) return false;
@@ -308,7 +335,7 @@ export function Calendar({ groups, people, holidays, editUrl }: CalendarProps) {
   }
 
   const upcoming = events.filter(
-    (e) => e.type !== "holiday" && e.date >= todayKey,
+    (e) => e.type === "birthday" && !e.person.died && e.date >= todayKey,
   );
   const nextWindow = upcoming
     .filter((e) => e.date <= toKey(addDays(today, 120)))
@@ -316,7 +343,8 @@ export function Calendar({ groups, people, holidays, editUrl }: CalendarProps) {
   const recent = events
     .filter(
       (e) =>
-        e.type !== "holiday" &&
+        e.type === "birthday" &&
+        !e.person.died &&
         e.date < todayKey &&
         e.date >= toKey(addDays(today, -90)),
     )
@@ -324,7 +352,7 @@ export function Calendar({ groups, people, holidays, editUrl }: CalendarProps) {
     .slice(0, 5) as Extract<CalendarEvent, { type: "birthday" }>[];
   const missing = people.filter((p) => !p.date && activeGroups.has(p.group));
   const birthdayPeopleThisYear = people.filter((person) => {
-    if (!person.date || !activeGroups.has(person.group)) return false;
+    if (!person.date || person.died || !activeGroups.has(person.group)) return false;
     const date = `${currentYear}-${monthDayOf(person)}`;
     return !hasYear(person) || date >= person.date;
   });
@@ -346,6 +374,13 @@ export function Calendar({ groups, people, holidays, editUrl }: CalendarProps) {
     const thisYear = `${currentYear}-${md}`;
     if ((!hasYear(person) || thisYear >= person.date) && thisYear >= todayKey) return thisYear;
     return `${currentYear + 1}-${md}`;
+  }
+
+  function nextMemorialDate(person: ViewPerson): string | null {
+    if (!person.died) return null;
+    const md = person.died.slice(5);
+    const thisYear = `${currentYear}-${md}`;
+    return thisYear >= todayKey ? thisYear : `${currentYear + 1}-${md}`;
   }
 
   function openPerson(person: ViewPerson) {
@@ -499,6 +534,41 @@ export function Calendar({ groups, people, holidays, editUrl }: CalendarProps) {
         </div>
       );
     }
+    if (event.type === "memorial") {
+      const group = groups[event.person.group];
+      return (
+        <div
+          id={`event-${event.person.id}-${event.date}-memorial`}
+          class="rounded-xl border border-stone-300 bg-stone-100/80 px-3.5 py-3 shadow-sm"
+        >
+          <div class="flex items-start gap-3">
+            <div class="grid size-10 shrink-0 place-items-center rounded-xl bg-stone-200 text-lg">
+              🕯️
+            </div>
+            <div class="min-w-0 flex-1">
+              <div class="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  class="font-semibold hover:underline"
+                  onClick={() => openPerson(event.person)}
+                >
+                  In memory of {event.person.name}
+                </button>
+                {group && (
+                  <span class="rounded-full bg-white/70 px-2 py-0.5 text-xs font-medium text-[color:var(--muted)]">
+                    {group.flag} {group.label}
+                  </span>
+                )}
+              </div>
+              <p class="text-sm text-[color:var(--muted)]">
+                Anniversary of their death
+                {event.person.notes ? ` · ${event.person.notes}` : ""}
+              </p>
+            </div>
+          </div>
+        </div>
+      );
+    }
     const group = groups[event.person.group];
     const milestoneClass = event.flare
       ? "border-[color:var(--amber)] bg-[color:var(--amber-soft)]"
@@ -577,10 +647,12 @@ export function Calendar({ groups, people, holidays, editUrl }: CalendarProps) {
 
   function personDetail(person: ViewPerson) {
     const next = nextBirthdayDate(person);
+    const nextMemorial = nextMemorialDate(person);
     const group = groups[person.group];
     const age = hasYear(person) ? currentYear - Number(person.date.slice(0, 4)) : null;
     const born = person.date || "Unknown";
-    return { next, group, age, born };
+    const ageAtDeath = ageAtDate(person.date || null, person.died || null);
+    return { next, nextMemorial, group, age, ageAtDeath, born };
   }
 
   function DayGroup({
@@ -980,12 +1052,32 @@ export function Calendar({ groups, people, holidays, editUrl }: CalendarProps) {
               </div>
               <div class="rounded-xl border border-[color:var(--line)] bg-white/60 p-3">
                 <dt class="text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--soft-muted)]">
-                  Age this year
+                  {selectedPerson.died ? "Would be this year" : "Age this year"}
                 </dt>
                 <dd class="mt-1 font-medium text-[color:var(--ink)]">
                   {selectedDetail.age ?? "Unknown"}
                 </dd>
               </div>
+              {selectedPerson.died && (
+                <>
+                  <div class="rounded-xl border border-[color:var(--line)] bg-white/60 p-3">
+                    <dt class="text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--soft-muted)]">
+                      Died
+                    </dt>
+                    <dd class="mt-1 font-medium text-[color:var(--ink)]">
+                      {selectedPerson.died}
+                    </dd>
+                  </div>
+                  <div class="rounded-xl border border-[color:var(--line)] bg-white/60 p-3">
+                    <dt class="text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--soft-muted)]">
+                      Age at death
+                    </dt>
+                    <dd class="mt-1 font-medium text-[color:var(--ink)]">
+                      {selectedDetail.ageAtDeath ?? "Unknown"}
+                    </dd>
+                  </div>
+                </>
+              )}
               <div class="col-span-2 rounded-xl border border-[color:var(--line)] bg-white/60 p-3">
                 <dt class="text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--soft-muted)]">
                   Next birthday
@@ -996,6 +1088,16 @@ export function Calendar({ groups, people, holidays, editUrl }: CalendarProps) {
                     : "Unknown"}
                 </dd>
               </div>
+              {selectedDetail.nextMemorial && (
+                <div class="col-span-2 rounded-xl border border-[color:var(--line)] bg-white/60 p-3">
+                  <dt class="text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--soft-muted)]">
+                    Next remembrance
+                  </dt>
+                  <dd class="mt-1 font-medium text-[color:var(--ink)]">
+                    {selectedDetail.nextMemorial} · {relativeLabel(selectedDetail.nextMemorial)}
+                  </dd>
+                </div>
+              )}
             </dl>
 
             <div class="mt-6 rounded-2xl border border-[color:var(--line)] bg-white/60 p-4">

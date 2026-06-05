@@ -111,6 +111,8 @@ export function Calendar({ groups, people, holidays }: CalendarViewData) {
   const [renderedMonthCount, setRenderedMonthCount] = useState(24);
   const [toast, setToast] = useState("");
   const [selectedPerson, setSelectedPerson] = useState<ViewPerson | null>(null);
+  const closePersonButton = useRef<HTMLButtonElement | null>(null);
+  const personTrigger = useRef<HTMLElement | null>(null);
   const pendingScrollToPerson = useRef<ViewPerson | null>(null);
   const restoreScroll = useRef<{ y: number; height: number } | null>(null);
 
@@ -252,6 +254,24 @@ export function Calendar({ groups, people, holidays }: CalendarViewData) {
     return () => clearTimeout(timer);
   }, [toast]);
 
+  useEffect(() => {
+    if (!selectedPerson) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    requestAnimationFrame(() => closePersonButton.current?.focus());
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setSelectedPerson(null);
+    }
+
+    globalThis.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      globalThis.removeEventListener("keydown", onKeyDown);
+      personTrigger.current?.focus();
+    };
+  }, [selectedPerson]);
+
   function toggle(
     setter: (s: Set<string>) => void,
     current: Set<string>,
@@ -325,22 +345,28 @@ export function Calendar({ groups, people, holidays }: CalendarViewData) {
   }
 
   function openPerson(person: ViewPerson) {
+    personTrigger.current = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
     setSelectedPerson(person);
+  }
+
+  function showPersonInTimeline(person: ViewPerson) {
     const next = nextBirthdayDate(person);
-    if (next) {
-      const targetYear = Number(next.slice(0, 4));
-      const targetMonth = Number(next.slice(5, 7)) - 1;
-      const monthsAhead = (targetYear - currentYear) * 12 + (targetMonth - today.getMonth());
-      if (monthsAhead >= firstMonthOffset + renderedMonthCount) {
-        setRenderedMonthCount(monthsAhead - firstMonthOffset + 1);
-      }
-      pendingScrollToPerson.current = person;
+    if (!next) return;
+    const targetYear = Number(next.slice(0, 4));
+    const targetMonth = Number(next.slice(5, 7)) - 1;
+    const monthsAhead = (targetYear - currentYear) * 12 + (targetMonth - today.getMonth());
+    if (monthsAhead >= firstMonthOffset + renderedMonthCount) {
+      setRenderedMonthCount(monthsAhead - firstMonthOffset + 1);
     }
+    pendingScrollToPerson.current = person;
+    setSelectedPerson(null);
   }
 
   useEffect(() => {
     const person = pendingScrollToPerson.current;
-    if (!person) return;
+    if (!person || selectedPerson) return;
     const next = nextBirthdayDate(person);
     if (!next) return;
     const target = document.querySelector(`#event-${person.id}-${next}`) ||
@@ -900,67 +926,88 @@ export function Calendar({ groups, people, holidays }: CalendarViewData) {
       </main>
 
       {selectedPerson && selectedDetail && (
-        <aside class="fixed inset-y-0 right-0 z-40 flex w-full max-w-md flex-col border-l border-[color:var(--line)] bg-[color:var(--paper-strong)] p-5 shadow-[var(--shadow)] sm:w-[28rem]">
-          <div class="flex items-start justify-between gap-4">
-            <div>
-              <p class="eyebrow text-xs font-semibold uppercase">Person</p>
-              <h2 class="mt-1 text-2xl font-semibold">{selectedPerson.name}</h2>
-              {selectedDetail.group && (
-                <p class="mt-2 text-sm text-[color:var(--muted)]">
-                  {selectedDetail.group.flag} {selectedDetail.group.label}
-                </p>
-              )}
+        <div
+          class="fixed inset-0 z-40 flex items-end bg-black/25 backdrop-blur-[2px] sm:items-stretch sm:justify-end"
+          onClick={() => setSelectedPerson(null)}
+        >
+          <aside
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="person-detail-title"
+            class="flex max-h-[88vh] w-full flex-col overflow-y-auto rounded-t-3xl border border-[color:var(--line)] bg-[color:var(--paper-strong)] p-5 shadow-[var(--shadow)] sm:max-h-none sm:w-[28rem] sm:rounded-none sm:border-y-0 sm:border-r-0"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div class="mx-auto mb-4 h-1.5 w-12 rounded-full bg-[color:var(--line-strong)] sm:hidden" />
+            <div class="flex items-start justify-between gap-4">
+              <div>
+                <p class="eyebrow text-xs font-semibold uppercase">Person</p>
+                <h2 id="person-detail-title" class="mt-1 text-2xl font-semibold">
+                  {selectedPerson.name}
+                </h2>
+                {selectedDetail.group && (
+                  <p class="mt-2 text-sm text-[color:var(--muted)]">
+                    {selectedDetail.group.flag} {selectedDetail.group.label}
+                  </p>
+                )}
+              </div>
+              <button
+                ref={closePersonButton}
+                type="button"
+                class="rounded-full border border-[color:var(--line)] bg-white/70 px-3 py-1 text-sm font-semibold text-[color:var(--muted)] hover:text-[color:var(--ink)]"
+                onClick={() => setSelectedPerson(null)}
+                aria-label="Close person details"
+              >
+                Close
+              </button>
             </div>
-            <button
-              type="button"
-              class="rounded-full border border-[color:var(--line)] bg-white/70 px-3 py-1 text-sm font-semibold text-[color:var(--muted)] hover:text-[color:var(--ink)]"
-              onClick={() => setSelectedPerson(null)}
-              aria-label="Close person details"
-            >
-              Close
-            </button>
-          </div>
 
-          <dl class="mt-6 grid grid-cols-2 gap-3 text-sm">
-            <div class="rounded-xl border border-[color:var(--line)] bg-white/60 p-3">
-              <dt class="text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--soft-muted)]">
-                Born
-              </dt>
-              <dd class="mt-1 font-medium text-[color:var(--ink)]">{selectedDetail.born}</dd>
-            </div>
-            <div class="rounded-xl border border-[color:var(--line)] bg-white/60 p-3">
-              <dt class="text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--soft-muted)]">
-                Age this year
-              </dt>
-              <dd class="mt-1 font-medium text-[color:var(--ink)]">
-                {selectedDetail.age ?? "Unknown"}
-              </dd>
-            </div>
-            <div class="col-span-2 rounded-xl border border-[color:var(--line)] bg-white/60 p-3">
-              <dt class="text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--soft-muted)]">
-                Next birthday
-              </dt>
-              <dd class="mt-1 font-medium text-[color:var(--ink)]">
-                {selectedDetail.next
-                  ? `${selectedDetail.next} · ${relativeLabel(selectedDetail.next)}`
-                  : "Unknown"}
-              </dd>
-            </div>
-          </dl>
+            <dl class="mt-6 grid grid-cols-2 gap-3 text-sm">
+              <div class="rounded-xl border border-[color:var(--line)] bg-white/60 p-3">
+                <dt class="text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--soft-muted)]">
+                  Born
+                </dt>
+                <dd class="mt-1 font-medium text-[color:var(--ink)]">{selectedDetail.born}</dd>
+              </div>
+              <div class="rounded-xl border border-[color:var(--line)] bg-white/60 p-3">
+                <dt class="text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--soft-muted)]">
+                  Age this year
+                </dt>
+                <dd class="mt-1 font-medium text-[color:var(--ink)]">
+                  {selectedDetail.age ?? "Unknown"}
+                </dd>
+              </div>
+              <div class="col-span-2 rounded-xl border border-[color:var(--line)] bg-white/60 p-3">
+                <dt class="text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--soft-muted)]">
+                  Next birthday
+                </dt>
+                <dd class="mt-1 font-medium text-[color:var(--ink)]">
+                  {selectedDetail.next
+                    ? `${selectedDetail.next} · ${relativeLabel(selectedDetail.next)}`
+                    : "Unknown"}
+                </dd>
+              </div>
+            </dl>
 
-          <div class="mt-6 rounded-2xl border border-[color:var(--line)] bg-white/60 p-4">
-            <p class="text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--soft-muted)]">
-              Notes
-            </p>
-            <p class="mt-2 whitespace-pre-wrap text-sm leading-6 text-[color:var(--muted)]">
-              {selectedPerson.notes ? linkedNotes(selectedPerson.notes) : "No notes yet."}
-            </p>
-          </div>
+            <div class="mt-6 rounded-2xl border border-[color:var(--line)] bg-white/60 p-4">
+              <p class="text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--soft-muted)]">
+                Notes
+              </p>
+              <p class="mt-2 whitespace-pre-wrap text-sm leading-6 text-[color:var(--muted)]">
+                {selectedPerson.notes ? linkedNotes(selectedPerson.notes) : "No notes yet."}
+              </p>
+            </div>
 
-          <p class="mt-auto pt-6 text-xs text-[color:var(--soft-muted)]">
-            Opening a person scrolls the list to their next visible birthday.
-          </p>
-        </aside>
+            {selectedDetail.next && (
+              <button
+                type="button"
+                class="action action-primary mt-6 w-full sm:mt-auto"
+                onClick={() => showPersonInTimeline(selectedPerson)}
+              >
+                Show next birthday in timeline
+              </button>
+            )}
+          </aside>
+        </div>
       )}
 
       <div

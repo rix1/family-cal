@@ -204,7 +204,6 @@ Next:
 
 ## Open questions
 
-- Port the remaining About template into a zero-JS Fresh page.
 - Token issuance/rotation UX (how a new relative gets onboarded).
 - Whether one-time life events also warrant a separate **timeline** view, or just
   live on a person profile.

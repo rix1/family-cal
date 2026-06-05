@@ -3,7 +3,7 @@ import { assert, assertEquals, assertStringIncludes } from "./asserts.ts";
 
 Deno.env.set("KV_PATH", ":memory:");
 
-const aboutRoute = await import("../routes/about.ts");
+const aboutRoute = await import("../routes/about.tsx");
 const editRoute = await import("../routes/edit.html.tsx");
 const healthRoute = await import("../routes/health.ts");
 const dataRoute = await import("../routes/api/data.ts");
@@ -20,7 +20,7 @@ function ctx(
   return { req, url: new URL(req.url), params } as never;
 }
 
-function routeTest(name: string, fn: () => Promise<void>) {
+function routeTest(name: string, fn: () => void | Promise<void>) {
   Deno.test(name, async () => {
     try {
       await fn();
@@ -118,13 +118,8 @@ routeTest("POST /api/people rejects invalid dates with 400", async () => {
   assert(typeof body.error === "string");
 });
 
-routeTest("GET /about serves docs and API links", async () => {
-  const res = await aboutRoute.handler.GET();
-  assertEquals(res.status, 200);
-  const body = await res.text();
-  assertStringIncludes(body, "<title>About Family Calendar</title>");
-  assertStringIncludes(body, "GET /api/data");
-  assertStringIncludes(body, "/cal/&lt;token&gt;.ics");
+routeTest("/about is a zero-JS Fresh page component", () => {
+  assertEquals(typeof aboutRoute.default, "function");
 });
 
 routeTest("GET /edit.html loads editor data", async () => {

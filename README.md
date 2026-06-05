@@ -23,7 +23,8 @@ The app is now a **Fresh 2 / Vite** app on Deno, backed by Deno KV. Fresh serves
 deno task dev
 ```
 
-Open `http://localhost:8000/` for the calendar and `http://localhost:8000/edit.html` to edit.
+Open `http://localhost:8000/view/demo-all` for the full demo calendar and
+`http://localhost:8000/edit/demo-edit` to edit.
 
 The server seeds an empty KV store from:
 
@@ -45,7 +46,9 @@ In Google/Apple/Outlook Calendar, choose "Subscribe from URL" and paste one of t
 
 ## Editing
 
-Open `/edit.html`, enter your name, edit the table, and click **Save**. Changes are written to KV and audited. **Download CSV** exports a `people.csv` backup that can also be used as seed material later.
+Open `/edit/demo-edit`, edit the table, and click **Save**. Changes are written to KV and audited
+under the editor capability's name. **Download CSV** exports a `people.csv` backup that can also be
+used as seed material later.
 
 ## Testing / build
 

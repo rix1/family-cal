@@ -92,7 +92,11 @@ function countryPills(countries: Array<"NO" | "DK">) {
   });
 }
 
-export function Calendar({ groups, people, holidays }: CalendarViewData) {
+interface CalendarProps extends CalendarViewData {
+  editUrl?: string;
+}
+
+export function Calendar({ groups, people, holidays, editUrl }: CalendarProps) {
   const [query, setQuery] = useState("");
   const allTypes = useMemo(
     () =>
@@ -679,14 +683,16 @@ export function Calendar({ groups, people, holidays }: CalendarViewData) {
               <span aria-hidden="true">ℹ️</span>
               <span class="hidden sm:inline">About</span>
             </a>
-            <a
-              href="/edit.html"
-              class="action action-secondary"
-              title="Add or edit people"
-            >
-              <span aria-hidden="true">✏️</span>
-              <span class="hidden sm:inline">Edit</span>
-            </a>
+            {editUrl && (
+              <a
+                href={editUrl}
+                class="action action-secondary"
+                title="Add or edit people"
+              >
+                <span aria-hidden="true">✏️</span>
+                <span class="hidden sm:inline">Edit</span>
+              </a>
+            )}
             <button
               type="button"
               class="action action-secondary"

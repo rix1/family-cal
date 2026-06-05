@@ -30,7 +30,8 @@ Professional, warm, and calm. The page should feel like a lightweight family ope
 
 - Runtime source of truth is Deno KV, accessed through Fresh routes/API.
 - Fresh KV stores are bootstrapped from CSV seed files in `seed/`.
-- The calendar page is served at `/` and reads `/api/data`.
-- The editor is served at `/edit.html`: it loads `/api/data`, saves through `POST /api/people`, and can export `people.csv` as a backup/seed artifact.
+- Private calendar pages are served at `/view/<token>` and data at `/api/data/<token>`.
+- The editor is served at `/edit/<editor-token>`, saves through `POST /api/people/<editor-token>`,
+  and can export `people.csv` as a backup/seed artifact.
 - Per-viewer iCal feeds are served from `/cal/<token>.ics` and subset by the viewer's groups.
 - Current person schema: `{ id, name, born, died, groups, notes }`, where `born` is `YYYY-MM-DD`, `MM-DD`, or `null`, and `died` is a full `YYYY-MM-DD` or `null`.

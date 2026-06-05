@@ -14,10 +14,12 @@ interface Row {
 interface Props {
   groups: GroupInfo[];
   people: Person[];
+  viewerName: string;
+  calendarUrl: string;
+  saveUrl: string;
 }
 
 const storageKey = "family-calendar-editor-draft";
-const editorNameKey = "editor-name";
 const dateValid = (v: string) =>
   v === "" || /^\d{4}-\d{2}-\d{2}$/.test(v) || /^\d{2}-\d{2}$/.test(v);
 
@@ -51,15 +53,13 @@ function buildPeopleCsv(rows: Row[]): string {
   return lines.join("\n") + "\n";
 }
 
-export function Editor({ groups, people }: Props) {
+export function Editor({ groups, people, viewerName, calendarUrl, saveUrl }: Props) {
   const fallbackGroup = groups[0]?.key || "";
   const [rows, setRows] = useState<Row[]>(() => people.map((p) => toRow(p, fallbackGroup)));
-  const [actor, setActor] = useState("");
   const [toast, setToast] = useState("");
   const [hasDraft, setHasDraft] = useState(false);
 
   useEffect(() => {
-    setActor(localStorage.getItem(editorNameKey) || "");
     try {
       const raw = localStorage.getItem(storageKey);
       if (raw) {
@@ -130,15 +130,12 @@ export function Editor({ groups, people }: Props) {
 
   async function save() {
     if (invalidCount) return setToast("Fix the highlighted dates first.");
-    const name = actor.trim();
-    if (!name) return setToast("Enter your name so changes can be attributed.");
-    localStorage.setItem(editorNameKey, name);
 
     try {
-      const res = await fetch("/api/people", {
+      const res = await fetch(saveUrl, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ actor: name, people: serverPeople() }),
+        body: JSON.stringify({ people: serverPeople() }),
       });
       const body = await res.json();
       if (!res.ok) return setToast(`Couldn't save: ${body.error || res.status}`);
@@ -146,7 +143,7 @@ export function Editor({ groups, people }: Props) {
       setRows(next);
       localStorage.removeItem(storageKey);
       setHasDraft(false);
-      setToast(`Saved ${next.length} people as ${name}.`);
+      setToast(`Saved ${next.length} people as ${viewerName}.`);
     } catch {
       setToast("Couldn't reach the server. Use Download CSV as a fallback.");
     }
@@ -187,7 +184,12 @@ export function Editor({ groups, people }: Props) {
       <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <div class="flex items-center gap-3">
-            <a href="/" class="text-sm font-medium text-zinc-500 hover:text-zinc-900">← Calendar</a>
+            <a
+              href={calendarUrl}
+              class="text-sm font-medium text-zinc-500 hover:text-zinc-900"
+            >
+              ← Calendar
+            </a>
             <a href="/about" class="text-sm font-medium text-zinc-500 hover:text-zinc-900">
               About/API
             </a>
@@ -198,14 +200,9 @@ export function Editor({ groups, people }: Props) {
           </p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
-          <input
-            type="text"
-            value={actor}
-            onInput={(e) => setActor((e.currentTarget as HTMLInputElement).value)}
-            placeholder="Your name"
-            class="w-32 rounded-md border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-900"
-            title="Used to label your changes in the history"
-          />
+          <span class="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-600">
+            Editing as <strong class="text-zinc-900">{viewerName}</strong>
+          </span>
           <button
             type="button"
             onClick={addRow}

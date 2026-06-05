@@ -56,11 +56,17 @@ function holidayWindow(): ViewHoliday[] {
   }));
 }
 
-export async function calendarViewData(store: Store): Promise<CalendarViewData> {
+export async function calendarViewData(
+  store: Store,
+  viewerGroups?: string[],
+): Promise<CalendarViewData> {
   const [groups, people] = await Promise.all([store.listGroups(), store.listPeople()]);
+  const visiblePeople = viewerGroups?.length
+    ? people.filter((person) => person.groups.some((group) => viewerGroups.includes(group)))
+    : people;
   return {
     groups: groupsToMap(groups),
-    people: peopleToView(people),
+    people: peopleToView(visiblePeople),
     holidays: holidayWindow(),
   };
 }

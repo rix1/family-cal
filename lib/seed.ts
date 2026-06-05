@@ -76,4 +76,5 @@ export const SEED_VIEWERS: Viewer[] = readSeedCsv("viewers.csv").map((row) => ({
   token: row.token,
   name: row.name,
   groups: row.groups ? row.groups.split("|").filter(Boolean) : [],
+  canEdit: row.canEdit === "true",
 }));

@@ -1,4 +1,5 @@
-token,name,groups
-demo-all,Everyone,
-demo-no,Family,no
-demo-dk,Danish family,dk
+token,name,groups,canEdit
+demo-all,Everyone,,false
+demo-no,Family,no,false
+demo-dk,Danish family,dk,false
+demo-edit,Family editor,,true

@@ -133,6 +133,7 @@ Viewer {
   token                                   // capability: access + identity
   name                                    // for attribution
   groups: ["no", "danish", "holidays-no"] // which tags this feed includes
+  canEdit: bool                           // may load editor/write/audit endpoints
   reminderPref: "off" | "morning" | "day-before" | "week+day"
 }
 ```
@@ -188,8 +189,7 @@ Completed:
 Next:
 
 1. Add real issuance/rotation UI for viewer/editor tokens.
-2. Gate read and write APIs with tokens before public deployment.
-3. Enrich the model (`died`, `Event.kind`, recurring flag).
+2. Enrich the model (`Event.kind`, recurring flag).
 
 ## Deferred / out of scope (YAGNI for now)
 

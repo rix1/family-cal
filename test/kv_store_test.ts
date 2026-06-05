@@ -13,6 +13,7 @@ Deno.test("KvStore seeds people, groups and viewers on first open", async () => 
     assertEquals((await store.listPeople()).length, SEED_PEOPLE.length);
     assertEquals((await store.listGroups()).length, 2);
     assertEquals((await store.getViewer("demo-dk"))?.groups, ["dk"]);
+    assertEquals((await store.getViewer("demo-edit"))?.canEdit, true);
     assertEquals(await store.getViewer("missing"), null);
   } finally {
     store.close();

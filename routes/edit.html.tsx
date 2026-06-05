@@ -1,24 +1,13 @@
-import { Editor } from "@/islands/Editor.tsx";
-import { getStore } from "@/lib/db.ts";
 import { define } from "@/utils.ts";
-import { page } from "fresh";
 
-export const handlers = define.handlers({
-  async GET() {
-    const store = await getStore();
-    const [groups, people] = await Promise.all([store.listGroups(), store.listPeople()]);
-    return page({ groups, people });
-  },
-});
-
-export default define.page<typeof handlers>(({ data }) => {
+export default define.page(function EditorAccessRequired() {
   return (
     <>
       <title>Edit Family Dates</title>
-      <script src="https://cdn.tailwindcss.com"></script>
-      <div class="min-h-screen bg-zinc-50 text-zinc-950">
-        <Editor groups={data.groups} people={data.people} />
-      </div>
+      <main style="max-width:36rem;margin:12vh auto;padding:2rem;font:16px/1.5 system-ui">
+        <h1>Editor access required</h1>
+        <p>Open the private editor link issued for your family.</p>
+      </main>
     </>
   );
 });

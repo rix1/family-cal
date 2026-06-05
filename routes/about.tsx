@@ -1,6 +1,8 @@
 import { define } from "@/utils.ts";
 
 const feedUrl = "/cal/demo-all.ics";
+const calendarUrl = "/view/demo-all";
+const editorUrl = "/edit/demo-edit";
 
 export default define.page(function About() {
   return (
@@ -30,8 +32,8 @@ export default define.page(function About() {
 
       <main class="about-main">
         <nav class="about-nav" aria-label="Main navigation">
-          <a class="about-link about-pill" href="/">Calendar</a>
-          <a class="about-link about-pill" href="/edit.html">Edit</a>
+          <a class="about-link about-pill" href={calendarUrl}>Demo calendar</a>
+          <a class="about-link about-pill" href={editorUrl}>Demo editor</a>
           <a class="about-link about-pill" href={feedUrl}>Demo iCal feed</a>
         </nav>
 
@@ -45,11 +47,11 @@ export default define.page(function About() {
           <h2>Pages & features</h2>
           <ul>
             <li>
-              <a class="about-link" href="/">Calendar</a>{" "}
+              <a class="about-link" href={calendarUrl}>Calendar</a>{" "}
               — current-month timeline, filters, search, upcoming/recent summaries.
             </li>
             <li>
-              <a class="about-link" href="/edit.html">Editor</a>{" "}
+              <a class="about-link" href={editorUrl}>Editor</a>{" "}
               — add/edit people, save to KV, export <code class="about-code">people.csv</code>{" "}
               as backup.
             </li>
@@ -71,22 +73,22 @@ export default define.page(function About() {
             </thead>
             <tbody>
               <tr>
-                <td>GET /api/data</td>
+                <td>GET /api/data/&lt;token&gt;</td>
                 <td>
                   Returns <code class="about-code">{"{ groups, people, holidays }"}</code>{" "}
                   for the web app. Holidays are computed for a moving year window.
                 </td>
               </tr>
               <tr>
-                <td>POST /api/people</td>
+                <td>POST /api/people/&lt;editor-token&gt;</td>
                 <td>
                   Full replacement write: body is{" "}
-                  <code class="about-code">{"{ actor, people }"}</code>. The server validates dates,
-                  diffs changes, writes KV, and appends audit entries.
+                  <code class="about-code">{"{ people }"}</code>. The server attributes the editor
+                  token, validates dates, diffs changes, writes KV, and appends audit entries.
                 </td>
               </tr>
               <tr>
-                <td>GET /api/audit?limit=100</td>
+                <td>GET /api/audit/&lt;editor-token&gt;?limit=100</td>
                 <td>Most-recent-first audit log.</td>
               </tr>
               <tr>
@@ -130,7 +132,11 @@ export default define.page(function About() {
         <section class="about-section">
           <h2>Prototype caveats</h2>
           <ul>
-            <li>Viewer feed tokens exist, but the web app and write API are not gated yet.</li>
+            <li>
+              The checked-in <code class="about-code">demo-*</code>{" "}
+              tokens are only bootstrap examples and must be replaced before sharing a deployed
+              instance.
+            </li>
             <li>
               Google Calendar may refresh subscribed feeds slowly and uses its own per-calendar
               notification settings.

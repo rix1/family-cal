@@ -39,6 +39,8 @@ export interface Viewer {
   name: string;
   /** Group tags this viewer's feed includes. Empty = everyone. */
   groups: string[];
+  /** Whether this capability may load the editor and mutate family data. */
+  canEdit: boolean;
 }
 
 /** An append-only record of a change, keyed by who made it. */

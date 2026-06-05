@@ -1,5 +1,5 @@
 import type { CalendarViewData, ViewPerson } from "@/lib/view_data.ts";
-import { useEffect, useMemo, useState } from "preact/hooks";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 
 type CalendarEvent =
   | {
@@ -19,6 +19,7 @@ type CalendarEvent =
 
 const dayMs = 86_400_000;
 const monthBatchSize = 12;
+const maxPastMonths = 120;
 
 function toKey(date: Date): string {
   const year = date.getFullYear();
@@ -106,8 +107,10 @@ export function Calendar({ groups, people, holidays }: CalendarViewData) {
   const [activeTypes, setActiveTypes] = useState<Set<string>>(
     () => new Set(allTypes),
   );
+  const [firstMonthOffset, setFirstMonthOffset] = useState(0);
   const [renderedMonthCount, setRenderedMonthCount] = useState(24);
   const [toast, setToast] = useState("");
+  const restoreScroll = useRef<{ y: number; height: number } | null>(null);
 
   const today = useMemo(() => new Date(), []);
   const todayKey = toKey(today);
@@ -144,8 +147,9 @@ export function Calendar({ groups, people, holidays }: CalendarViewData) {
   }
 
   const rawEvents = useMemo(() => {
-    const end = monthDate(renderedMonthCount - 1);
-    const startYear = Math.min(currentYear - 1, today.getFullYear());
+    const start = monthDate(firstMonthOffset);
+    const end = monthDate(firstMonthOffset + renderedMonthCount - 1);
+    const startYear = Math.min(currentYear - 1, start.getFullYear());
     const endYear = end.getFullYear();
     const out: CalendarEvent[] = [];
 
@@ -177,7 +181,7 @@ export function Calendar({ groups, people, holidays }: CalendarViewData) {
     return out.sort(
       (a, b) => a.date.localeCompare(b.date) || a.type.localeCompare(b.type),
     );
-  }, [people, holidays, renderedMonthCount]);
+  }, [people, holidays, firstMonthOffset, renderedMonthCount]);
 
   const events = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -195,6 +199,30 @@ export function Calendar({ groups, people, holidays }: CalendarViewData) {
       return true;
     });
   }, [rawEvents, activeGroups, activeTypes, query]);
+
+  function loadPastEvents() {
+    if (firstMonthOffset <= -maxPastMonths) return;
+    const delta = Math.min(monthBatchSize, maxPastMonths + firstMonthOffset);
+    if (delta <= 0) return;
+    restoreScroll.current = {
+      y: globalThis.scrollY,
+      height: document.documentElement.scrollHeight,
+    };
+    setFirstMonthOffset((n) => n - delta);
+    setRenderedMonthCount((n) => n + delta);
+  }
+
+  useLayoutEffect(() => {
+    const restore = restoreScroll.current;
+    if (!restore) return;
+    const nextHeight = document.documentElement.scrollHeight;
+    const nextY = restore.y + (nextHeight - restore.height);
+    const previousBehavior = document.documentElement.style.scrollBehavior;
+    document.documentElement.style.scrollBehavior = "auto";
+    globalThis.scrollTo(0, nextY);
+    document.documentElement.style.scrollBehavior = previousBehavior;
+    restoreScroll.current = null;
+  }, [firstMonthOffset, renderedMonthCount]);
 
   useEffect(() => {
     function onScroll() {
@@ -260,7 +288,15 @@ export function Calendar({ groups, people, holidays }: CalendarViewData) {
     .reverse()
     .slice(0, 5) as Extract<CalendarEvent, { type: "birthday" }>[];
   const missing = people.filter((p) => !p.date && activeGroups.has(p.group));
-  const lastRenderedMonth = monthKey(renderedMonthCount - 1);
+  const birthdayPeopleThisYear = people.filter((person) => {
+    if (!person.date || !activeGroups.has(person.group)) return false;
+    const date = `${currentYear}-${monthDayOf(person)}`;
+    return !hasYear(person) || date >= person.date;
+  });
+  const birthdaysCelebratedThisYear =
+    birthdayPeopleThisYear.filter((person) => `${currentYear}-${monthDayOf(person)}` <= todayKey)
+      .length;
+  const lastRenderedMonth = monthKey(firstMonthOffset + renderedMonthCount - 1);
 
   function scrollToToday() {
     const target = document.querySelector(`#day-${todayKey}`) ||
@@ -469,7 +505,7 @@ export function Calendar({ groups, people, holidays }: CalendarViewData) {
   }
 
   const months = [];
-  for (let offset = 0; offset < renderedMonthCount; offset++) {
+  for (let offset = firstMonthOffset; offset < firstMonthOffset + renderedMonthCount; offset++) {
     const d = monthDate(offset);
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
     const isCurrent = key === todayKey.slice(0, 7);
@@ -547,13 +583,10 @@ export function Calendar({ groups, people, holidays }: CalendarViewData) {
               Today
             </p>
             <p class="mt-4 text-4xl font-semibold tracking-normal">
-              {today.toLocaleDateString("en-GB", {
-                day: "2-digit",
-                month: "short",
-              })}
+              {birthdaysCelebratedThisYear}/{birthdayPeopleThisYear.length}
             </p>
             <p class="mt-2 text-sm text-[color:var(--muted)]">
-              {people.length} people · timeline through {lastRenderedMonth}
+              birthdays celebrated this year · timeline through {lastRenderedMonth}
             </p>
           </article>
           <article class="surface-raised rounded-2xl p-5 sm:col-span-2">
@@ -684,6 +717,17 @@ export function Calendar({ groups, people, holidays }: CalendarViewData) {
             </div>
           </div>
         </section>
+
+        <div class="mb-4 flex justify-center">
+          <button
+            type="button"
+            onClick={loadPastEvents}
+            disabled={firstMonthOffset <= -maxPastMonths}
+            class="rounded-full border border-[color:var(--line-strong)] bg-white/70 px-4 py-2 text-sm font-semibold text-[color:var(--teal-ink)] shadow-sm hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {firstMonthOffset <= -maxPastMonths ? "No more past events loaded" : "Load past events"}
+          </button>
+        </div>
 
         <section class="space-y-8">
           {months.length

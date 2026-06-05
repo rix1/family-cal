@@ -123,9 +123,10 @@ export default define.page(function About() {
             <code class="about-code">null</code>.
           </p>
           <p class="about-muted">
-            Notes can link to people with wiki-style references like{" "}
-            <code class="about-code">[[Solveig]]</code>. Those links open that person's detail fly-out
-            in the calendar.
+            Type <code class="about-code">@</code>{" "}
+            in editor notes to select and link another person, for example{" "}
+            <code class="about-code">@solveig</code>. Existing wiki-style links such as{" "}
+            <code class="about-code">[[Solveig]]</code> remain supported.
           </p>
         </section>
 

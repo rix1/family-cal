@@ -1,5 +1,6 @@
 import type { GroupInfo, Person } from "@/lib/model.ts";
-import { useEffect, useState } from "preact/hooks";
+import { activeMention, insertMention, type MentionMatch } from "@/lib/mentions.ts";
+import { useEffect, useRef, useState } from "preact/hooks";
 
 interface Row {
   id?: string;
@@ -17,6 +18,12 @@ interface Props {
   calendarUrl: string;
   saveUrl: string;
   focusPersonId?: string;
+}
+
+interface MentionMenu {
+  rowIndex: number;
+  match: MentionMatch;
+  activeIndex: number;
 }
 
 const storageKey = "family-calendar-editor-draft";
@@ -73,6 +80,8 @@ export function Editor({
   const [toast, setToast] = useState("");
   const [hasDraft, setHasDraft] = useState(false);
   const [focusedPersonId, setFocusedPersonId] = useState(focusPersonId);
+  const [mentionMenu, setMentionMenu] = useState<MentionMenu | null>(null);
+  const noteInputs = useRef(new Map<number, HTMLTextAreaElement>());
 
   useEffect(() => {
     try {
@@ -142,6 +151,33 @@ export function Editor({
       groups: current.includes(group)
         ? current.filter((key) => key !== group)
         : [...current, group],
+    });
+  }
+
+  function updateMentionMenu(index: number, input: HTMLTextAreaElement) {
+    const match = activeMention(input.value, input.selectionStart ?? input.value.length);
+    setMentionMenu(match ? { rowIndex: index, match, activeIndex: 0 } : null);
+  }
+
+  function mentionSuggestions(menu: MentionMenu) {
+    return people
+      .filter((person) => {
+        const query = menu.match.query;
+        return person.id.toLowerCase().includes(query) || person.name.toLowerCase().includes(query);
+      })
+      .slice(0, 6);
+  }
+
+  function chooseMention(person: Person) {
+    if (!mentionMenu) return;
+    const row = rows[mentionMenu.rowIndex];
+    const result = insertMention(row.notes, mentionMenu.match, person.id);
+    updateRow(mentionMenu.rowIndex, { notes: result.text });
+    setMentionMenu(null);
+    requestAnimationFrame(() => {
+      const input = noteInputs.current.get(mentionMenu.rowIndex);
+      input?.focus();
+      input?.setSelectionRange(result.cursor, result.cursor);
     });
   }
 
@@ -329,6 +365,9 @@ export function Editor({
             {rows.map((row, index) => {
               const bornValid = birthDateValid(row.born);
               const diedValid = deathDateValid(row.died);
+              const suggestions = mentionMenu?.rowIndex === index
+                ? mentionSuggestions(mentionMenu)
+                : [];
               return (
                 <tr
                   key={row.id || index}
@@ -393,14 +432,63 @@ export function Editor({
                       placeholder="2020-02-01"
                     />
                   </td>
-                  <td class="px-3 py-2">
+                  <td class="relative px-3 py-2">
                     <textarea
+                      ref={(input) => {
+                        if (input) noteInputs.current.set(index, input);
+                        else noteInputs.current.delete(index);
+                      }}
                       value={row.notes}
-                      onInput={(e) =>
-                        updateRow(index, { notes: (e.currentTarget as HTMLTextAreaElement).value })}
+                      onInput={(e) => {
+                        const input = e.currentTarget as HTMLTextAreaElement;
+                        updateRow(index, { notes: input.value });
+                        updateMentionMenu(index, input);
+                      }}
+                      onClick={(e) => updateMentionMenu(index, e.currentTarget)}
+                      onKeyDown={(event) => {
+                        if (!mentionMenu || mentionMenu.rowIndex !== index || !suggestions.length) {
+                          return;
+                        }
+                        if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                          event.preventDefault();
+                          const direction = event.key === "ArrowDown" ? 1 : -1;
+                          setMentionMenu({
+                            ...mentionMenu,
+                            activeIndex:
+                              (mentionMenu.activeIndex + direction + suggestions.length) %
+                              suggestions.length,
+                          });
+                        } else if (event.key === "Enter") {
+                          event.preventDefault();
+                          chooseMention(suggestions[mentionMenu.activeIndex]);
+                        } else if (event.key === "Escape") {
+                          setMentionMenu(null);
+                        }
+                      }}
+                      onBlur={() => setTimeout(() => setMentionMenu(null), 120)}
                       class="min-h-16 w-full resize-y rounded-md border border-zinc-300 px-3 py-2 outline-none focus:border-zinc-900"
-                      placeholder="Optional"
+                      placeholder="Optional; type @ to link a person"
                     />
+                    {mentionMenu?.rowIndex === index && suggestions.length > 0 && (
+                      <div class="absolute left-3 right-3 top-[calc(100%-0.5rem)] z-20 overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-xl">
+                        {suggestions.map((person, suggestionIndex) => (
+                          <button
+                            key={person.id}
+                            type="button"
+                            class={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm ${
+                              suggestionIndex === mentionMenu.activeIndex
+                                ? "bg-teal-50 text-teal-950"
+                                : "hover:bg-zinc-50"
+                            }`}
+                            onMouseDown={(event) => event.preventDefault()}
+                            onClick={() => chooseMention(person)}
+                          >
+                            <span class="font-medium">{person.name}</span>
+                            <span class="font-mono text-xs text-zinc-400">@{person.id}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </td>
                   <td class="px-3 py-2 text-right">
                     <button
@@ -421,7 +509,7 @@ export function Editor({
       <p class="mt-3 text-xs text-zinc-500">
         Born accepts <code>YYYY-MM-DD</code>, <code>MM-DD</code>, or blank. Died requires a full
         {" "}
-        <code>YYYY-MM-DD</code> date or blank.
+        <code>YYYY-MM-DD</code> date or blank. Type <code>@</code> in notes to link another person.
       </p>
 
       <div

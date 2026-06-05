@@ -545,13 +545,15 @@ export function Calendar({ groups, people, holidays, editUrl }: CalendarProps) {
 
   function linkedNotes(text: string) {
     const nodes = [];
-    const regex = /\[\[([^\]]+)\]\]/g;
+    const regex = /\[\[([^\]]+)\]\]|@([a-z0-9-]+)/gi;
     let lastIndex = 0;
     let match;
     while ((match = regex.exec(text)) !== null) {
       if (match.index > lastIndex) nodes.push(text.slice(lastIndex, match.index));
-      const label = match[1].trim();
-      const linkedPerson = personLookup.get(label.toLowerCase());
+      const wikiLabel = match[1]?.trim();
+      const mentionId = match[2]?.toLowerCase();
+      const label = wikiLabel ?? `@${mentionId}`;
+      const linkedPerson = personLookup.get((wikiLabel ?? mentionId).toLowerCase());
       nodes.push(
         linkedPerson
           ? (
@@ -560,10 +562,12 @@ export function Calendar({ groups, people, holidays, editUrl }: CalendarProps) {
               class="font-semibold text-[color:var(--teal-ink)] underline decoration-[color:var(--teal)]/30 underline-offset-2 hover:decoration-[color:var(--teal)]"
               onClick={() => openPerson(linkedPerson)}
             >
-              {label}
+              {wikiLabel ?? `@${linkedPerson.name}`}
             </button>
           )
-          : `[[${label}]]`,
+          : wikiLabel
+          ? `[[${label}]]`
+          : label,
       );
       lastIndex = regex.lastIndex;
     }

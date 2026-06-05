@@ -4,11 +4,10 @@ import { useEffect, useState } from "preact/hooks";
 interface Row {
   id?: string;
   name: string;
-  date: string;
-  type: "birthday" | "anniversary";
-  group: string;
+  born: string;
+  died: string;
+  groups: string[];
   notes: string;
-  died?: string;
 }
 
 interface Props {
@@ -17,21 +16,22 @@ interface Props {
   viewerName: string;
   calendarUrl: string;
   saveUrl: string;
+  focusPersonId?: string;
 }
 
 const storageKey = "family-calendar-editor-draft";
-const dateValid = (v: string) =>
+const birthDateValid = (v: string) =>
   v === "" || /^\d{4}-\d{2}-\d{2}$/.test(v) || /^\d{2}-\d{2}$/.test(v);
+const deathDateValid = (v: string) => v === "" || /^\d{4}-\d{2}-\d{2}$/.test(v);
 
 function toRow(p: Person, fallbackGroup = ""): Row {
   return {
     id: p.id,
     name: p.name,
-    date: p.born || "",
-    type: "birthday",
-    group: p.groups[0] || fallbackGroup,
-    notes: p.notes || "",
+    born: p.born || "",
     died: p.died || "",
+    groups: p.groups.length ? p.groups : fallbackGroup ? [fallbackGroup] : [],
+    notes: p.notes || "",
   };
 }
 
@@ -43,9 +43,16 @@ function csvEscape(value: unknown): string {
 function buildPeopleCsv(rows: Row[]): string {
   const headers = ["id", "name", "born", "died", "groups", "notes"];
   const lines = [headers.join(",")];
-  for (const row of rows.filter((r) => r.name || r.date || r.notes)) {
+  for (const row of rows.filter((r) => r.name || r.born || r.died || r.notes)) {
     lines.push(
-      [row.id || "", row.name, row.date || "", row.died || "", row.group || "", row.notes || ""]
+      [
+        row.id || "",
+        row.name,
+        row.born || "",
+        row.died || "",
+        row.groups.join("|"),
+        row.notes || "",
+      ]
         .map(csvEscape)
         .join(","),
     );
@@ -53,11 +60,19 @@ function buildPeopleCsv(rows: Row[]): string {
   return lines.join("\n") + "\n";
 }
 
-export function Editor({ groups, people, viewerName, calendarUrl, saveUrl }: Props) {
+export function Editor({
+  groups,
+  people,
+  viewerName,
+  calendarUrl,
+  saveUrl,
+  focusPersonId = "",
+}: Props) {
   const fallbackGroup = groups[0]?.key || "";
   const [rows, setRows] = useState<Row[]>(() => people.map((p) => toRow(p, fallbackGroup)));
   const [toast, setToast] = useState("");
   const [hasDraft, setHasDraft] = useState(false);
+  const [focusedPersonId, setFocusedPersonId] = useState(focusPersonId);
 
   useEffect(() => {
     try {
@@ -65,7 +80,16 @@ export function Editor({ groups, people, viewerName, calendarUrl, saveUrl }: Pro
       if (raw) {
         const draft = JSON.parse(raw) as Row[];
         if (Array.isArray(draft) && draft.length) {
-          setRows(draft);
+          setRows(draft.map((row) => ({
+            ...row,
+            born: row.born ?? (row as Row & { date?: string }).date ?? "",
+            died: row.died ?? "",
+            groups: Array.isArray(row.groups)
+              ? row.groups
+              : (row as Row & { group?: string }).group
+              ? [(row as Row & { group?: string }).group!]
+              : [],
+          })));
           setHasDraft(true);
         }
       }
@@ -75,19 +99,33 @@ export function Editor({ groups, people, viewerName, calendarUrl, saveUrl }: Pro
   }, []);
 
   useEffect(() => {
+    if (!focusedPersonId) return;
+    const row = document.getElementById(`person-row-${focusedPersonId}`);
+    if (!row) return;
+    row.scrollIntoView({ block: "center", behavior: "smooth" });
+    requestAnimationFrame(() => row.querySelector<HTMLInputElement>('input[name="name"]')?.focus());
+    const timer = setTimeout(() => setFocusedPersonId(""), 2400);
+    return () => clearTimeout(timer);
+  }, [focusedPersonId, rows]);
+
+  useEffect(() => {
     if (!toast) return;
     const timer = setTimeout(() => setToast(""), 2600);
     return () => clearTimeout(timer);
   }, [toast]);
 
-  const invalidCount = rows.filter((row) => !dateValid(row.date) && (row.name || row.date)).length;
-  const nonEmptyRows = rows.filter((row) => row.name || row.date || row.notes);
-  const datedCount = nonEmptyRows.filter((row) => row.date).length;
+  const invalidCount =
+    rows.filter((row) =>
+      (!birthDateValid(row.born) || !deathDateValid(row.died)) &&
+      (row.name || row.born || row.died)
+    ).length;
+  const nonEmptyRows = rows.filter((row) => row.name || row.born || row.died || row.notes);
+  const datedCount = nonEmptyRows.filter((row) => row.born).length;
 
   function persistDraft(next: Row[]) {
     localStorage.setItem(
       storageKey,
-      JSON.stringify(next.filter((row) => row.name || row.date || row.notes)),
+      JSON.stringify(next.filter((row) => row.name || row.born || row.died || row.notes)),
     );
     setHasDraft(true);
   }
@@ -98,10 +136,25 @@ export function Editor({ groups, people, viewerName, calendarUrl, saveUrl }: Pro
     persistDraft(next);
   }
 
+  function toggleGroup(index: number, group: string) {
+    const current = rows[index].groups;
+    updateRow(index, {
+      groups: current.includes(group)
+        ? current.filter((key) => key !== group)
+        : [...current, group],
+    });
+  }
+
   function addRow() {
     const next = [
       ...rows,
-      { name: "", date: "", type: "birthday", group: fallbackGroup, notes: "" } satisfies Row,
+      {
+        name: "",
+        born: "",
+        died: "",
+        groups: fallbackGroup ? [fallbackGroup] : [],
+        notes: "",
+      } satisfies Row,
     ];
     setRows(next);
     persistDraft(next);
@@ -110,9 +163,7 @@ export function Editor({ groups, people, viewerName, calendarUrl, saveUrl }: Pro
   function removeRow(index: number) {
     const next = rows.filter((_, i) => i !== index);
     setRows(
-      next.length
-        ? next
-        : [{ name: "", date: "", type: "birthday", group: fallbackGroup, notes: "" }],
+      next.length ? next : [{ name: "", born: "", died: "", groups: [fallbackGroup], notes: "" }],
     );
     persistDraft(next);
   }
@@ -121,9 +172,9 @@ export function Editor({ groups, people, viewerName, calendarUrl, saveUrl }: Pro
     return nonEmptyRows.map((row) => ({
       id: row.id || undefined,
       name: row.name,
-      born: row.date || "",
+      born: row.born || "",
       died: row.died || null,
-      groups: row.group ? [row.group] : [],
+      groups: row.groups,
       notes: row.notes,
     }));
   }
@@ -263,73 +314,91 @@ export function Editor({ groups, people, viewerName, calendarUrl, saveUrl }: Pro
       </div>
 
       <section class="overflow-x-auto rounded-md border border-zinc-200 bg-white">
-        <table class="w-full min-w-[820px] border-collapse text-left text-sm">
+        <table class="w-full min-w-[1120px] border-collapse text-left text-sm">
           <thead class="bg-zinc-100 text-xs uppercase tracking-wide text-zinc-600">
             <tr>
-              <th class="w-[22%] px-3 py-3 font-medium">Name</th>
-              <th class="w-[15%] px-3 py-3 font-medium">Family</th>
-              <th class="w-[14%] px-3 py-3 font-medium">Type</th>
-              <th class="w-[17%] px-3 py-3 font-medium">Date</th>
+              <th class="w-[18%] px-3 py-3 font-medium">Name</th>
+              <th class="w-[17%] px-3 py-3 font-medium">Families</th>
+              <th class="w-[15%] px-3 py-3 font-medium">Born</th>
+              <th class="w-[15%] px-3 py-3 font-medium">Died</th>
               <th class="px-3 py-3 font-medium">Notes</th>
               <th class="w-16 px-3 py-3 font-medium"></th>
             </tr>
           </thead>
           <tbody class="divide-y divide-zinc-200">
             {rows.map((row, index) => {
-              const valid = dateValid(row.date);
+              const bornValid = birthDateValid(row.born);
+              const diedValid = deathDateValid(row.died);
               return (
-                <tr key={row.id || index}>
+                <tr
+                  key={row.id || index}
+                  id={row.id ? `person-row-${row.id}` : undefined}
+                  class={focusedPersonId === row.id
+                    ? "bg-teal-50 ring-2 ring-inset ring-teal-500"
+                    : ""}
+                >
                   <td class="px-3 py-2">
                     <input
+                      name="name"
                       value={row.name}
                       onInput={(e) =>
                         updateRow(index, { name: (e.currentTarget as HTMLInputElement).value })}
                       class="w-full rounded-md border border-zinc-300 px-3 py-2 outline-none focus:border-zinc-900"
                       placeholder="Name"
                     />
+                    {row.id && (
+                      <span class="mt-1 block truncate font-mono text-[10px] text-zinc-400">
+                        {row.id}
+                      </span>
+                    )}
                   </td>
                   <td class="px-3 py-2">
-                    <select
-                      value={row.group}
-                      onChange={(e) =>
-                        updateRow(index, { group: (e.currentTarget as HTMLSelectElement).value })}
-                      class="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 outline-none focus:border-zinc-900"
-                    >
+                    <div class="flex flex-wrap gap-1">
                       {groups.map((g) => (
-                        <option key={g.key} value={g.key}>{g.flag} {g.label}</option>
+                        <button
+                          key={g.key}
+                          type="button"
+                          aria-pressed={row.groups.includes(g.key)}
+                          onClick={() => toggleGroup(index, g.key)}
+                          class={`rounded-full border px-2 py-1 text-xs font-medium ${
+                            row.groups.includes(g.key)
+                              ? "border-teal-700 bg-teal-50 text-teal-900"
+                              : "border-zinc-300 bg-white text-zinc-500"
+                          }`}
+                        >
+                          {g.flag} {g.label}
+                        </button>
                       ))}
-                    </select>
-                  </td>
-                  <td class="px-3 py-2">
-                    <select
-                      value={row.type}
-                      onChange={(e) =>
-                        updateRow(index, {
-                          type: (e.currentTarget as HTMLSelectElement).value as Row["type"],
-                        })}
-                      class="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 outline-none focus:border-zinc-900"
-                    >
-                      <option value="birthday">birthday</option>
-                      <option value="anniversary">anniversary</option>
-                    </select>
+                    </div>
                   </td>
                   <td class="px-3 py-2">
                     <input
-                      value={row.date}
+                      value={row.born}
                       onInput={(e) =>
-                        updateRow(index, { date: (e.currentTarget as HTMLInputElement).value })}
+                        updateRow(index, { born: (e.currentTarget as HTMLInputElement).value })}
                       class={`w-full rounded-md border px-3 py-2 outline-none focus:border-zinc-900 ${
-                        valid ? "border-zinc-300" : "border-red-500 bg-red-50"
+                        bornValid ? "border-zinc-300" : "border-red-500 bg-red-50"
                       }`}
                       placeholder="1990-05-17 / 05-17"
                     />
                   </td>
                   <td class="px-3 py-2">
                     <input
+                      value={row.died}
+                      onInput={(e) =>
+                        updateRow(index, { died: (e.currentTarget as HTMLInputElement).value })}
+                      class={`w-full rounded-md border px-3 py-2 outline-none focus:border-zinc-900 ${
+                        diedValid ? "border-zinc-300" : "border-red-500 bg-red-50"
+                      }`}
+                      placeholder="2020-02-01"
+                    />
+                  </td>
+                  <td class="px-3 py-2">
+                    <textarea
                       value={row.notes}
                       onInput={(e) =>
-                        updateRow(index, { notes: (e.currentTarget as HTMLInputElement).value })}
-                      class="w-full rounded-md border border-zinc-300 px-3 py-2 outline-none focus:border-zinc-900"
+                        updateRow(index, { notes: (e.currentTarget as HTMLTextAreaElement).value })}
+                      class="min-h-16 w-full resize-y rounded-md border border-zinc-300 px-3 py-2 outline-none focus:border-zinc-900"
                       placeholder="Optional"
                     />
                   </td>
@@ -350,8 +419,9 @@ export function Editor({ groups, people, viewerName, calendarUrl, saveUrl }: Pro
       </section>
 
       <p class="mt-3 text-xs text-zinc-500">
-        Date accepts <code>YYYY-MM-DD</code> (full date, enables age), <code>MM-DD</code>{" "}
-        (recurring, year unknown), or leave blank if unknown.
+        Born accepts <code>YYYY-MM-DD</code>, <code>MM-DD</code>, or blank. Died requires a full
+        {" "}
+        <code>YYYY-MM-DD</code> date or blank.
       </p>
 
       <div

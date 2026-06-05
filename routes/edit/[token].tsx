@@ -9,7 +9,12 @@ export const handlers = define.handlers({
     const viewer = await store.getViewer(ctx.params.token);
     if (!viewer?.canEdit) return new Response("Unknown editor link", { status: 404 });
     const [groups, people] = await Promise.all([store.listGroups(), store.listPeople()]);
-    return page({ groups, people, viewer });
+    return page({
+      groups,
+      people,
+      viewer,
+      focusPersonId: ctx.url.searchParams.get("person") ?? "",
+    });
   },
 });
 
@@ -25,6 +30,7 @@ export default define.page<typeof handlers>(({ data }) => {
           viewerName={data.viewer.name}
           calendarUrl={`/view/${data.viewer.token}`}
           saveUrl={`/api/people/${data.viewer.token}`}
+          focusPersonId={data.focusPersonId}
         />
       </div>
     </>

@@ -1003,14 +1003,26 @@ export function Calendar({ groups, people, holidays, editUrl }: CalendarProps) {
               </p>
             </div>
 
-            {selectedDetail.next && (
-              <button
-                type="button"
-                class="action action-primary mt-6 w-full sm:mt-auto"
-                onClick={() => showPersonInTimeline(selectedPerson)}
-              >
-                Show next birthday in timeline
-              </button>
+            {(editUrl || selectedDetail.next) && (
+              <div class="mt-6 grid gap-2 sm:mt-auto">
+                {editUrl && (
+                  <a
+                    class="action action-secondary w-full"
+                    href={`${editUrl}?person=${encodeURIComponent(selectedPerson.id)}`}
+                  >
+                    Edit person
+                  </a>
+                )}
+                {selectedDetail.next && (
+                  <button
+                    type="button"
+                    class="action action-primary w-full"
+                    onClick={() => showPersonInTimeline(selectedPerson)}
+                  >
+                    Show next birthday in timeline
+                  </button>
+                )}
+              </div>
             )}
           </aside>
         </div>

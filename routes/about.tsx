@@ -117,8 +117,13 @@ export default define.page(function About() {
             <code class="about-code">born</code> accepts <code class="about-code">YYYY-MM-DD</code>,
             {" "}
             <code class="about-code">MM-DD</code>, or <code class="about-code">null</code>.
-            <code class="about-code">died</code> is a full date or{" "}
+            <code class="about-code">died</code> is a full date or{"  "}
             <code class="about-code">null</code>.
+          </p>
+          <p class="about-muted">
+            Notes can link to people with wiki-style references like{" "}
+            <code class="about-code">[[Solveig]]</code>. Those links open that person's detail fly-out
+            in the calendar.
           </p>
         </section>
 

@@ -110,6 +110,8 @@ export function Calendar({ groups, people, holidays }: CalendarViewData) {
   const [firstMonthOffset, setFirstMonthOffset] = useState(0);
   const [renderedMonthCount, setRenderedMonthCount] = useState(24);
   const [toast, setToast] = useState("");
+  const [selectedPerson, setSelectedPerson] = useState<ViewPerson | null>(null);
+  const pendingScrollToPerson = useRef<ViewPerson | null>(null);
   const restoreScroll = useRef<{ y: number; height: number } | null>(null);
 
   const today = useMemo(() => new Date(), []);
@@ -133,6 +135,15 @@ export function Calendar({ groups, people, holidays }: CalendarViewData) {
     () => new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric" }),
     [],
   );
+  const personLookup = useMemo(() => {
+    const lookup = new Map<string, ViewPerson>();
+    for (const person of people) {
+      lookup.set(person.id.toLowerCase(), person);
+      lookup.set(person.name.toLowerCase(), person);
+      for (const alias of person.name.split("/")) lookup.set(alias.trim().toLowerCase(), person);
+    }
+    return lookup;
+  }, [people]);
 
   useEffect(() => setActiveTypes(new Set(allTypes)), [allTypes]);
   useEffect(() => setActiveGroups(new Set(Object.keys(groups))), [groups]);
@@ -305,6 +316,40 @@ export function Calendar({ groups, people, holidays }: CalendarViewData) {
     : 0;
   const lastRenderedMonth = monthKey(firstMonthOffset + renderedMonthCount - 1);
 
+  function nextBirthdayDate(person: ViewPerson): string | null {
+    const md = monthDayOf(person);
+    if (!md) return null;
+    const thisYear = `${currentYear}-${md}`;
+    if ((!hasYear(person) || thisYear >= person.date) && thisYear >= todayKey) return thisYear;
+    return `${currentYear + 1}-${md}`;
+  }
+
+  function openPerson(person: ViewPerson) {
+    setSelectedPerson(person);
+    const next = nextBirthdayDate(person);
+    if (next) {
+      const targetYear = Number(next.slice(0, 4));
+      const targetMonth = Number(next.slice(5, 7)) - 1;
+      const monthsAhead = (targetYear - currentYear) * 12 + (targetMonth - today.getMonth());
+      if (monthsAhead >= firstMonthOffset + renderedMonthCount) {
+        setRenderedMonthCount(monthsAhead - firstMonthOffset + 1);
+      }
+      pendingScrollToPerson.current = person;
+    }
+  }
+
+  useEffect(() => {
+    const person = pendingScrollToPerson.current;
+    if (!person) return;
+    const next = nextBirthdayDate(person);
+    if (!next) return;
+    const target = document.querySelector(`#event-${person.id}-${next}`) ||
+      document.querySelector(`#day-${next}`);
+    if (!target) return;
+    pendingScrollToPerson.current = null;
+    requestAnimationFrame(() => target.scrollIntoView({ block: "center", behavior: "smooth" }));
+  }, [selectedPerson, renderedMonthCount]);
+
   function scrollToToday() {
     const target = document.querySelector(`#day-${todayKey}`) ||
       document.querySelector(`#month-${todayKey.slice(0, 7)}`);
@@ -389,7 +434,13 @@ export function Calendar({ groups, people, holidays }: CalendarViewData) {
         </div>
         <div class="min-w-0">
           <p class="truncate font-medium">
-            {event.name}
+            <button
+              type="button"
+              class="text-left font-medium hover:underline"
+              onClick={() => openPerson(event.person)}
+            >
+              {event.name}
+            </button>
             {highlight && (
               <span class="text-xs font-semibold text-[color:var(--teal-ink)]">
                 · next up
@@ -423,14 +474,23 @@ export function Calendar({ groups, people, holidays }: CalendarViewData) {
       ? "border-[color:var(--amber)] bg-[color:var(--amber-soft)]"
       : "border-[color:var(--line)] bg-white/80";
     return (
-      <div class={`rounded-xl border ${milestoneClass} px-3.5 py-3 shadow-sm`}>
+      <div
+        id={`event-${event.person.id}-${event.date}`}
+        class={`rounded-xl border ${milestoneClass} px-3.5 py-3 shadow-sm`}
+      >
         <div class="flex items-start gap-3">
           <div class="grid size-10 shrink-0 place-items-center rounded-xl bg-[color:var(--teal-soft)] text-lg">
             {event.person.died ? "🕯️" : event.flare || typeIcon(event.type)}
           </div>
           <div class="min-w-0 flex-1">
             <div class="flex flex-wrap items-center gap-2">
-              <p class="font-semibold">{event.name}</p>
+              <button
+                type="button"
+                class="font-semibold hover:underline"
+                onClick={() => openPerson(event.person)}
+              >
+                {event.name}
+              </button>
               {event.flare && (
                 <span class="rounded-full bg-white/70 px-2.5 py-1 text-xs font-semibold text-amber-950">
                   {event.age} {event.flare}
@@ -451,6 +511,42 @@ export function Calendar({ groups, people, holidays }: CalendarViewData) {
         </div>
       </div>
     );
+  }
+
+  function linkedNotes(text: string) {
+    const nodes = [];
+    const regex = /\[\[([^\]]+)\]\]/g;
+    let lastIndex = 0;
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+      if (match.index > lastIndex) nodes.push(text.slice(lastIndex, match.index));
+      const label = match[1].trim();
+      const linkedPerson = personLookup.get(label.toLowerCase());
+      nodes.push(
+        linkedPerson
+          ? (
+            <button
+              type="button"
+              class="font-semibold text-[color:var(--teal-ink)] underline decoration-[color:var(--teal)]/30 underline-offset-2 hover:decoration-[color:var(--teal)]"
+              onClick={() => openPerson(linkedPerson)}
+            >
+              {label}
+            </button>
+          )
+          : `[[${label}]]`,
+      );
+      lastIndex = regex.lastIndex;
+    }
+    if (lastIndex < text.length) nodes.push(text.slice(lastIndex));
+    return nodes.length ? nodes : text;
+  }
+
+  function personDetail(person: ViewPerson) {
+    const next = nextBirthdayDate(person);
+    const group = groups[person.group];
+    const age = hasYear(person) ? currentYear - Number(person.date.slice(0, 4)) : null;
+    const born = person.date || "Unknown";
+    return { next, group, age, born };
   }
 
   function DayGroup({
@@ -510,6 +606,8 @@ export function Calendar({ groups, people, holidays }: CalendarViewData) {
       </div>
     );
   }
+
+  const selectedDetail = selectedPerson ? personDetail(selectedPerson) : null;
 
   const months = [];
   for (let offset = firstMonthOffset; offset < firstMonthOffset + renderedMonthCount; offset++) {
@@ -680,13 +778,15 @@ export function Calendar({ groups, people, holidays }: CalendarViewData) {
               {missing.length
                 ? (
                   missing.map((p) => (
-                    <span
+                    <button
                       key={p.id}
-                      class="rounded-full border border-[color:var(--line)] bg-white/70 px-3 py-1 text-sm font-medium text-[color:var(--muted)]"
+                      type="button"
+                      onClick={() => openPerson(p)}
+                      class="rounded-full border border-[color:var(--line)] bg-white/70 px-3 py-1 text-sm font-medium text-[color:var(--muted)] hover:bg-white hover:text-[color:var(--ink)]"
                       title={p.notes}
                     >
                       {p.name}
-                    </span>
+                    </button>
                   ))
                 )
                 : (
@@ -798,6 +898,70 @@ export function Calendar({ groups, people, holidays }: CalendarViewData) {
           </div>
         </section>
       </main>
+
+      {selectedPerson && selectedDetail && (
+        <aside class="fixed inset-y-0 right-0 z-40 flex w-full max-w-md flex-col border-l border-[color:var(--line)] bg-[color:var(--paper-strong)] p-5 shadow-[var(--shadow)] sm:w-[28rem]">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <p class="eyebrow text-xs font-semibold uppercase">Person</p>
+              <h2 class="mt-1 text-2xl font-semibold">{selectedPerson.name}</h2>
+              {selectedDetail.group && (
+                <p class="mt-2 text-sm text-[color:var(--muted)]">
+                  {selectedDetail.group.flag} {selectedDetail.group.label}
+                </p>
+              )}
+            </div>
+            <button
+              type="button"
+              class="rounded-full border border-[color:var(--line)] bg-white/70 px-3 py-1 text-sm font-semibold text-[color:var(--muted)] hover:text-[color:var(--ink)]"
+              onClick={() => setSelectedPerson(null)}
+              aria-label="Close person details"
+            >
+              Close
+            </button>
+          </div>
+
+          <dl class="mt-6 grid grid-cols-2 gap-3 text-sm">
+            <div class="rounded-xl border border-[color:var(--line)] bg-white/60 p-3">
+              <dt class="text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--soft-muted)]">
+                Born
+              </dt>
+              <dd class="mt-1 font-medium text-[color:var(--ink)]">{selectedDetail.born}</dd>
+            </div>
+            <div class="rounded-xl border border-[color:var(--line)] bg-white/60 p-3">
+              <dt class="text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--soft-muted)]">
+                Age this year
+              </dt>
+              <dd class="mt-1 font-medium text-[color:var(--ink)]">
+                {selectedDetail.age ?? "Unknown"}
+              </dd>
+            </div>
+            <div class="col-span-2 rounded-xl border border-[color:var(--line)] bg-white/60 p-3">
+              <dt class="text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--soft-muted)]">
+                Next birthday
+              </dt>
+              <dd class="mt-1 font-medium text-[color:var(--ink)]">
+                {selectedDetail.next
+                  ? `${selectedDetail.next} · ${relativeLabel(selectedDetail.next)}`
+                  : "Unknown"}
+              </dd>
+            </div>
+          </dl>
+
+          <div class="mt-6 rounded-2xl border border-[color:var(--line)] bg-white/60 p-4">
+            <p class="text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--soft-muted)]">
+              Notes
+            </p>
+            <p class="mt-2 whitespace-pre-wrap text-sm leading-6 text-[color:var(--muted)]">
+              {selectedPerson.notes ? linkedNotes(selectedPerson.notes) : "No notes yet."}
+            </p>
+          </div>
+
+          <p class="mt-auto pt-6 text-xs text-[color:var(--soft-muted)]">
+            Opening a person scrolls the list to their next visible birthday.
+          </p>
+        </aside>
+      )}
 
       <div
         class={`toast fixed bottom-4 left-1/2 z-30 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 rounded-2xl border border-[color:var(--line)] bg-[color:var(--paper-strong)] px-4 py-3 text-sm text-[color:var(--ink)] shadow-[var(--shadow)] ${

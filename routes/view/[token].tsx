@@ -13,6 +13,7 @@ export const handlers = define.handlers({
     return page({
       calendar: await calendarViewData(store, viewer.groups),
       editUrl: viewer.canEdit ? `/edit/${viewer.token}` : undefined,
+      saveUrl: viewer.canEdit ? `/api/people/${viewer.token}` : undefined,
     });
   },
 });
@@ -23,7 +24,7 @@ export default define.page<typeof handlers>(({ data }) => {
       <title>Family Calendar</title>
       <script src="https://cdn.tailwindcss.com"></script>
       <CalendarStyles />
-      <Calendar {...data.calendar} editUrl={data.editUrl} />
+      <Calendar {...data.calendar} editUrl={data.editUrl} saveUrl={data.saveUrl} />
     </>
   );
 });

@@ -1,4 +1,4 @@
-import { applyPeople, normalizePerson, ValidationError } from "../lib/people.ts";
+import { applyPeople, normalizePerson, updatePerson, ValidationError } from "../lib/people.ts";
 import { SeedStore } from "../lib/store.ts";
 import { assert, assertEquals } from "./asserts.ts";
 
@@ -85,4 +85,25 @@ Deno.test("applyPeople rejects duplicate ids", async () => {
     threw = e instanceof ValidationError;
   }
   assert(threw, "expected ValidationError for duplicate ids");
+});
+
+Deno.test("updatePerson changes one person and audits the editor", async () => {
+  const store = new SeedStore();
+  const before = (await store.listPeople()).length;
+  const updated = await updatePerson(
+    store,
+    "solveig",
+    {
+      name: "Solveig Updated",
+      born: "1992-05-13",
+      died: null,
+      groups: ["no", "dk"],
+      notes: "Mother of @emil",
+    },
+    "Editor",
+  );
+  assertEquals(updated.name, "Solveig Updated");
+  assertEquals((await store.listPeople()).length, before);
+  assertEquals((await store.getPerson("solveig"))?.groups, ["no", "dk"]);
+  assert((await store.listAudit()).some((entry) => entry.targetId === "solveig"));
 });

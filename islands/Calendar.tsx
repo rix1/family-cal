@@ -103,9 +103,29 @@ function countryPills(countries: Array<"NO" | "DK">) {
 
 interface CalendarProps extends CalendarViewData {
   editUrl?: string;
+  saveUrl?: string;
 }
 
-export function Calendar({ groups, people, holidays, editUrl }: CalendarProps) {
+interface PersonDraft {
+  name: string;
+  born: string;
+  died: string;
+  groups: string[];
+  notes: string;
+}
+
+const birthDateValid = (value: string) =>
+  value === "" || /^\d{4}-\d{2}-\d{2}$/.test(value) || /^\d{2}-\d{2}$/.test(value);
+const deathDateValid = (value: string) => value === "" || /^\d{4}-\d{2}-\d{2}$/.test(value);
+
+export function Calendar({
+  groups,
+  people: initialPeople,
+  holidays,
+  editUrl,
+  saveUrl,
+}: CalendarProps) {
+  const [people, setPeople] = useState(initialPeople);
   const [query, setQuery] = useState("");
   const allTypes = useMemo(
     () =>
@@ -128,10 +148,15 @@ export function Calendar({ groups, people, holidays, editUrl }: CalendarProps) {
   const [renderedMonthCount, setRenderedMonthCount] = useState(24);
   const [toast, setToast] = useState("");
   const [selectedPerson, setSelectedPerson] = useState<ViewPerson | null>(null);
+  const [personClosing, setPersonClosing] = useState(false);
+  const [personDraft, setPersonDraft] = useState<PersonDraft | null>(null);
+  const [personSaveState, setPersonSaveState] = useState<"idle" | "saving">("idle");
+  const [personSaveError, setPersonSaveError] = useState("");
   const closePersonButton = useRef<HTMLButtonElement | null>(null);
   const personTrigger = useRef<HTMLElement | null>(null);
   const pendingScrollToPerson = useRef<ViewPerson | null>(null);
   const restoreScroll = useRef<{ y: number; height: number } | null>(null);
+  const closePersonTimer = useRef<number | null>(null);
 
   const today = useMemo(() => new Date(), []);
   const todayKey = toKey(today);
@@ -292,7 +317,7 @@ export function Calendar({ groups, people, holidays, editUrl }: CalendarProps) {
     requestAnimationFrame(() => closePersonButton.current?.focus());
 
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setSelectedPerson(null);
+      if (event.key === "Escape") closePerson();
     }
 
     globalThis.addEventListener("keydown", onKeyDown);
@@ -301,7 +326,13 @@ export function Calendar({ groups, people, holidays, editUrl }: CalendarProps) {
       globalThis.removeEventListener("keydown", onKeyDown);
       personTrigger.current?.focus();
     };
-  }, [selectedPerson]);
+  }, [selectedPerson?.id]);
+
+  useEffect(() => {
+    return () => {
+      if (closePersonTimer.current !== null) clearTimeout(closePersonTimer.current);
+    };
+  }, []);
 
   function toggle(
     setter: (s: Set<string>) => void,
@@ -384,10 +415,100 @@ export function Calendar({ groups, people, holidays, editUrl }: CalendarProps) {
   }
 
   function openPerson(person: ViewPerson) {
+    if (closePersonTimer.current !== null) clearTimeout(closePersonTimer.current);
     personTrigger.current = document.activeElement instanceof HTMLElement
       ? document.activeElement
       : null;
+    setPersonClosing(false);
+    setPersonDraft(null);
+    setPersonSaveError("");
     setSelectedPerson(person);
+  }
+
+  function closePerson() {
+    if (!selectedPerson || personClosing) return;
+    setPersonClosing(true);
+    closePersonTimer.current = setTimeout(() => {
+      setSelectedPerson(null);
+      setPersonClosing(false);
+      setPersonDraft(null);
+      closePersonTimer.current = null;
+    }, 180);
+  }
+
+  function startPersonEdit(person: ViewPerson) {
+    setPersonSaveError("");
+    setPersonDraft({
+      name: person.name,
+      born: person.date,
+      died: person.died,
+      groups: person.groups,
+      notes: person.notes,
+    });
+  }
+
+  function togglePersonGroup(group: string) {
+    if (!personDraft) return;
+    setPersonDraft({
+      ...personDraft,
+      groups: personDraft.groups.includes(group)
+        ? personDraft.groups.filter((key) => key !== group)
+        : [...personDraft.groups, group],
+    });
+  }
+
+  async function savePerson() {
+    if (!selectedPerson || !personDraft || !saveUrl) return;
+    if (!personDraft.name.trim()) return setPersonSaveError("Name is required.");
+    if (!birthDateValid(personDraft.born)) {
+      return setPersonSaveError("Born must be YYYY-MM-DD, MM-DD, or empty.");
+    }
+    if (!deathDateValid(personDraft.died)) {
+      return setPersonSaveError("Died must be YYYY-MM-DD or empty.");
+    }
+
+    setPersonSaveState("saving");
+    setPersonSaveError("");
+    try {
+      const response = await fetch(saveUrl, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          id: selectedPerson.id,
+          person: {
+            name: personDraft.name,
+            born: personDraft.born || null,
+            died: personDraft.died || null,
+            groups: personDraft.groups,
+            notes: personDraft.notes,
+          },
+        }),
+      });
+      const body = await response.json();
+      if (!response.ok) {
+        setPersonSaveError(body.error || `Couldn't save (${response.status}).`);
+        return;
+      }
+      const saved = body.person;
+      const next: ViewPerson = {
+        id: saved.id,
+        name: saved.name,
+        date: saved.born || "",
+        died: saved.died || "",
+        groups: saved.groups || [],
+        group: saved.groups?.[0] || "",
+        notes: saved.notes || "",
+        type: "birthday",
+      };
+      setPeople((current) => current.map((person) => person.id === next.id ? next : person));
+      setSelectedPerson((current) => current?.id === next.id ? next : current);
+      setPersonDraft(null);
+      setToast(`Saved ${next.name}.`);
+    } catch {
+      setPersonSaveError("Couldn't reach the server.");
+    } finally {
+      setPersonSaveState("idle");
+    }
   }
 
   function showPersonInTimeline(person: ViewPerson) {
@@ -400,7 +521,7 @@ export function Calendar({ groups, people, holidays, editUrl }: CalendarProps) {
       setRenderedMonthCount(monthsAhead - firstMonthOffset + 1);
     }
     pendingScrollToPerson.current = person;
-    setSelectedPerson(null);
+    closePerson();
   }
 
   useEffect(() => {
@@ -1009,14 +1130,18 @@ export function Calendar({ groups, people, holidays, editUrl }: CalendarProps) {
 
       {selectedPerson && selectedDetail && (
         <div
-          class="fixed inset-0 z-40 flex items-end bg-black/25 backdrop-blur-[2px] sm:items-stretch sm:justify-end"
-          onClick={() => setSelectedPerson(null)}
+          class={`person-backdrop fixed inset-0 z-40 flex items-end bg-black/25 backdrop-blur-[2px] sm:items-stretch sm:justify-end ${
+            personClosing ? "is-closing" : ""
+          }`}
+          onClick={closePerson}
         >
           <aside
             role="dialog"
             aria-modal="true"
             aria-labelledby="person-detail-title"
-            class="flex max-h-[88vh] w-full flex-col overflow-y-auto rounded-t-3xl border border-[color:var(--line)] bg-[color:var(--paper-strong)] p-5 shadow-[var(--shadow)] sm:max-h-none sm:w-[28rem] sm:rounded-none sm:border-y-0 sm:border-r-0"
+            class={`person-sheet flex max-h-[88vh] w-full flex-col overflow-y-auto rounded-t-3xl border border-[color:var(--line)] bg-[color:var(--paper-strong)] p-5 shadow-[var(--shadow)] sm:max-h-none sm:w-[28rem] sm:rounded-none sm:border-y-0 sm:border-r-0 ${
+              personClosing ? "is-closing" : ""
+            }`}
             onClick={(event) => event.stopPropagation()}
           >
             <div class="mx-auto mb-4 h-1.5 w-12 rounded-full bg-[color:var(--line-strong)] sm:hidden" />
@@ -1036,100 +1161,228 @@ export function Calendar({ groups, people, holidays, editUrl }: CalendarProps) {
                 ref={closePersonButton}
                 type="button"
                 class="rounded-full border border-[color:var(--line)] bg-white/70 px-3 py-1 text-sm font-semibold text-[color:var(--muted)] hover:text-[color:var(--ink)]"
-                onClick={() => setSelectedPerson(null)}
+                onClick={closePerson}
                 aria-label="Close person details"
               >
                 Close
               </button>
             </div>
 
-            <dl class="mt-6 grid grid-cols-2 gap-3 text-sm">
-              <div class="rounded-xl border border-[color:var(--line)] bg-white/60 p-3">
-                <dt class="text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--soft-muted)]">
-                  Born
-                </dt>
-                <dd class="mt-1 font-medium text-[color:var(--ink)]">{selectedDetail.born}</dd>
-              </div>
-              <div class="rounded-xl border border-[color:var(--line)] bg-white/60 p-3">
-                <dt class="text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--soft-muted)]">
-                  {selectedPerson.died ? "Would be this year" : "Age this year"}
-                </dt>
-                <dd class="mt-1 font-medium text-[color:var(--ink)]">
-                  {selectedDetail.age ?? "Unknown"}
-                </dd>
-              </div>
-              {selectedPerson.died && (
-                <>
-                  <div class="rounded-xl border border-[color:var(--line)] bg-white/60 p-3">
-                    <dt class="text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--soft-muted)]">
+            {personDraft
+              ? (
+                <form
+                  class="mt-6 grid gap-4"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    savePerson();
+                  }}
+                >
+                  <label class="grid gap-1.5 text-sm font-medium">
+                    Name
+                    <input
+                      value={personDraft.name}
+                      onInput={(event) =>
+                        setPersonDraft({
+                          ...personDraft,
+                          name: event.currentTarget.value,
+                        })}
+                      class="rounded-xl border border-[color:var(--line-strong)] bg-white/80 px-3 py-2.5 outline-none focus:border-[color:var(--teal)]"
+                    />
+                  </label>
+                  <label class="grid gap-1.5 text-sm font-medium">
+                    ID
+                    <input
+                      value={selectedPerson.id}
+                      readOnly
+                      class="rounded-xl border border-[color:var(--line)] bg-black/[0.035] px-3 py-2.5 font-mono text-xs text-[color:var(--muted)]"
+                    />
+                  </label>
+                  <div class="grid grid-cols-2 gap-3">
+                    <label class="grid gap-1.5 text-sm font-medium">
+                      Born
+                      <input
+                        value={personDraft.born}
+                        onInput={(event) =>
+                          setPersonDraft({
+                            ...personDraft,
+                            born: event.currentTarget.value,
+                          })}
+                        placeholder="YYYY-MM-DD / MM-DD"
+                        class="min-w-0 rounded-xl border border-[color:var(--line-strong)] bg-white/80 px-3 py-2.5 outline-none focus:border-[color:var(--teal)]"
+                      />
+                    </label>
+                    <label class="grid gap-1.5 text-sm font-medium">
                       Died
-                    </dt>
-                    <dd class="mt-1 font-medium text-[color:var(--ink)]">
-                      {selectedPerson.died}
-                    </dd>
+                      <input
+                        value={personDraft.died}
+                        onInput={(event) =>
+                          setPersonDraft({
+                            ...personDraft,
+                            died: event.currentTarget.value,
+                          })}
+                        placeholder="YYYY-MM-DD"
+                        class="min-w-0 rounded-xl border border-[color:var(--line-strong)] bg-white/80 px-3 py-2.5 outline-none focus:border-[color:var(--teal)]"
+                      />
+                    </label>
                   </div>
-                  <div class="rounded-xl border border-[color:var(--line)] bg-white/60 p-3">
-                    <dt class="text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--soft-muted)]">
-                      Age at death
-                    </dt>
-                    <dd class="mt-1 font-medium text-[color:var(--ink)]">
-                      {selectedDetail.ageAtDeath ?? "Unknown"}
-                    </dd>
+                  <fieldset>
+                    <legend class="text-sm font-medium">Families</legend>
+                    <div class="mt-2 flex flex-wrap gap-2">
+                      {Object.entries(groups).map(([key, group]) => (
+                        <button
+                          key={key}
+                          type="button"
+                          class="chip"
+                          aria-pressed={personDraft.groups.includes(key)}
+                          onClick={() => togglePersonGroup(key)}
+                        >
+                          {group.flag} {group.label}
+                        </button>
+                      ))}
+                    </div>
+                  </fieldset>
+                  <label class="grid gap-1.5 text-sm font-medium">
+                    Notes
+                    <textarea
+                      value={personDraft.notes}
+                      onInput={(event) =>
+                        setPersonDraft({
+                          ...personDraft,
+                          notes: event.currentTarget.value,
+                        })}
+                      rows={5}
+                      class="resize-y rounded-xl border border-[color:var(--line-strong)] bg-white/80 px-3 py-2.5 leading-6 outline-none focus:border-[color:var(--teal)]"
+                    />
+                  </label>
+                  {personSaveError && (
+                    <p class="rounded-xl bg-red-50 px-3 py-2 text-sm font-medium text-red-800">
+                      {personSaveError}
+                    </p>
+                  )}
+                  <div class="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      class="action action-secondary"
+                      onClick={() => {
+                        setPersonDraft(null);
+                        setPersonSaveError("");
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      class="action action-primary"
+                      disabled={personSaveState === "saving"}
+                    >
+                      {personSaveState === "saving" ? "Saving…" : "Save changes"}
+                    </button>
                   </div>
+                </form>
+              )
+              : (
+                <>
+                  <dl class="mt-6 grid grid-cols-2 gap-3 text-sm">
+                    <div class="rounded-xl border border-[color:var(--line)] bg-white/60 p-3">
+                      <dt class="text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--soft-muted)]">
+                        Born
+                      </dt>
+                      <dd class="mt-1 font-medium text-[color:var(--ink)]">
+                        {selectedDetail.born}
+                      </dd>
+                    </div>
+                    <div class="rounded-xl border border-[color:var(--line)] bg-white/60 p-3">
+                      <dt class="text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--soft-muted)]">
+                        {selectedPerson.died ? "Would be this year" : "Age this year"}
+                      </dt>
+                      <dd class="mt-1 font-medium text-[color:var(--ink)]">
+                        {selectedDetail.age ?? "Unknown"}
+                      </dd>
+                    </div>
+                    {selectedPerson.died && (
+                      <>
+                        <div class="rounded-xl border border-[color:var(--line)] bg-white/60 p-3">
+                          <dt class="text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--soft-muted)]">
+                            Died
+                          </dt>
+                          <dd class="mt-1 font-medium text-[color:var(--ink)]">
+                            {selectedPerson.died}
+                          </dd>
+                        </div>
+                        <div class="rounded-xl border border-[color:var(--line)] bg-white/60 p-3">
+                          <dt class="text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--soft-muted)]">
+                            Age at death
+                          </dt>
+                          <dd class="mt-1 font-medium text-[color:var(--ink)]">
+                            {selectedDetail.ageAtDeath ?? "Unknown"}
+                          </dd>
+                        </div>
+                      </>
+                    )}
+                    <div class="col-span-2 rounded-xl border border-[color:var(--line)] bg-white/60 p-3">
+                      <dt class="text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--soft-muted)]">
+                        Next birthday
+                      </dt>
+                      <dd class="mt-1 font-medium text-[color:var(--ink)]">
+                        {selectedDetail.next
+                          ? `${selectedDetail.next} · ${relativeLabel(selectedDetail.next)}`
+                          : "Unknown"}
+                      </dd>
+                    </div>
+                    {selectedDetail.nextMemorial && (
+                      <div class="col-span-2 rounded-xl border border-[color:var(--line)] bg-white/60 p-3">
+                        <dt class="text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--soft-muted)]">
+                          Next remembrance
+                        </dt>
+                        <dd class="mt-1 font-medium text-[color:var(--ink)]">
+                          {selectedDetail.nextMemorial} ·{" "}
+                          {relativeLabel(selectedDetail.nextMemorial)}
+                        </dd>
+                      </div>
+                    )}
+                  </dl>
+
+                  <div class="mt-6 rounded-2xl border border-[color:var(--line)] bg-white/60 p-4">
+                    <p class="text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--soft-muted)]">
+                      Notes
+                    </p>
+                    <p class="mt-2 whitespace-pre-wrap text-sm leading-6 text-[color:var(--muted)]">
+                      {selectedPerson.notes ? linkedNotes(selectedPerson.notes) : "No notes yet."}
+                    </p>
+                  </div>
+
+                  {(saveUrl || editUrl || selectedDetail.next) && (
+                    <div class="mt-6 grid gap-2 sm:mt-auto">
+                      {saveUrl && (
+                        <button
+                          type="button"
+                          class="action action-secondary w-full"
+                          onClick={() => startPersonEdit(selectedPerson)}
+                        >
+                          Edit person
+                        </button>
+                      )}
+                      {!saveUrl && editUrl && (
+                        <a
+                          class="action action-secondary w-full"
+                          href={`${editUrl}?person=${encodeURIComponent(selectedPerson.id)}`}
+                        >
+                          Edit person
+                        </a>
+                      )}
+                      {selectedDetail.next && (
+                        <button
+                          type="button"
+                          class="action action-primary w-full"
+                          onClick={() => showPersonInTimeline(selectedPerson)}
+                        >
+                          Show next birthday in timeline
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </>
               )}
-              <div class="col-span-2 rounded-xl border border-[color:var(--line)] bg-white/60 p-3">
-                <dt class="text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--soft-muted)]">
-                  Next birthday
-                </dt>
-                <dd class="mt-1 font-medium text-[color:var(--ink)]">
-                  {selectedDetail.next
-                    ? `${selectedDetail.next} · ${relativeLabel(selectedDetail.next)}`
-                    : "Unknown"}
-                </dd>
-              </div>
-              {selectedDetail.nextMemorial && (
-                <div class="col-span-2 rounded-xl border border-[color:var(--line)] bg-white/60 p-3">
-                  <dt class="text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--soft-muted)]">
-                    Next remembrance
-                  </dt>
-                  <dd class="mt-1 font-medium text-[color:var(--ink)]">
-                    {selectedDetail.nextMemorial} · {relativeLabel(selectedDetail.nextMemorial)}
-                  </dd>
-                </div>
-              )}
-            </dl>
-
-            <div class="mt-6 rounded-2xl border border-[color:var(--line)] bg-white/60 p-4">
-              <p class="text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--soft-muted)]">
-                Notes
-              </p>
-              <p class="mt-2 whitespace-pre-wrap text-sm leading-6 text-[color:var(--muted)]">
-                {selectedPerson.notes ? linkedNotes(selectedPerson.notes) : "No notes yet."}
-              </p>
-            </div>
-
-            {(editUrl || selectedDetail.next) && (
-              <div class="mt-6 grid gap-2 sm:mt-auto">
-                {editUrl && (
-                  <a
-                    class="action action-secondary w-full"
-                    href={`${editUrl}?person=${encodeURIComponent(selectedPerson.id)}`}
-                  >
-                    Edit person
-                  </a>
-                )}
-                {selectedDetail.next && (
-                  <button
-                    type="button"
-                    class="action action-primary w-full"
-                    onClick={() => showPersonInTimeline(selectedPerson)}
-                  >
-                    Show next birthday in timeline
-                  </button>
-                )}
-              </div>
-            )}
           </aside>
         </div>
       )}

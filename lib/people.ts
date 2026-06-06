@@ -94,3 +94,28 @@ export async function applyPeople(
 
   return await store.listPeople();
 }
+
+/** Validate and update one existing person without replacing the full collection. */
+export async function updatePerson(
+  store: Store,
+  id: string,
+  input: PersonInput,
+  actor: string,
+): Promise<Person> {
+  const current = await store.getPerson(id);
+  if (!current) throw new ValidationError("person not found");
+
+  const knownGroups = new Set((await store.listGroups()).map((group) => group.key));
+  const next = normalizePerson({ ...input, id }, knownGroups);
+  await store.upsertPerson(next);
+  if (JSON.stringify(current) !== JSON.stringify(next)) {
+    await store.appendAudit({
+      at: new Date().toISOString(),
+      actor,
+      action: "update",
+      targetId: id,
+      detail: next.name,
+    });
+  }
+  return next;
+}

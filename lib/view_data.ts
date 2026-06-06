@@ -13,6 +13,7 @@ export interface ViewPerson {
   date: string;
   type: "birthday";
   group: string;
+  groups: string[];
   notes: string;
   died: string;
 }
@@ -40,6 +41,7 @@ function peopleToView(people: Person[]): ViewPerson[] {
     date: p.born || "",
     type: "birthday",
     group: p.groups[0] || "",
+    groups: p.groups,
     notes: p.notes || "",
     died: p.died || "",
   }));

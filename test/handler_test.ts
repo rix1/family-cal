@@ -149,6 +149,31 @@ routeTest("POST /api/people rejects invalid dates with 400", async () => {
   assert(typeof body.error === "string");
 });
 
+routeTest("PATCH /api/people updates one person for editor tokens", async () => {
+  const res = await peopleRoute.handler.PATCH(
+    ctx(
+      "http://localhost/api/people/demo-edit",
+      {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          id: "solveig",
+          person: {
+            name: "Solveig Updated",
+            born: "1992-05-13",
+            died: null,
+            groups: ["no"],
+            notes: "Updated inline",
+          },
+        }),
+      },
+      { token: "demo-edit" },
+    ),
+  );
+  assertEquals(res.status, 200);
+  assertEquals((await res.json()).person.name, "Solveig Updated");
+});
+
 routeTest("/about is a zero-JS Fresh page component", () => {
   assertEquals(typeof aboutRoute.default, "function");
 });

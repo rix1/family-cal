@@ -8,7 +8,8 @@ import type { GroupInfo, Person, Viewer } from "./model.ts";
  * data in CSV makes it easy to inspect, diff, and bulk-edit outside the app.
  */
 
-const seedRoot = `${Deno.cwd()}/seed/`;
+const seedDir = (Deno.env.get("SEED_DIR") ?? "seed").replace(/\/+$/, "");
+const seedRoot = `${Deno.cwd()}/${seedDir}/`;
 
 function parseCsv(text: string): Record<string, string>[] {
   const rows: string[][] = [];
@@ -51,30 +52,39 @@ function parseCsv(text: string): Record<string, string>[] {
   return body.map((r) => Object.fromEntries(header.map((h, i) => [h, r[i] ?? ""])));
 }
 
-function readSeedCsv(name: string): Record<string, string>[] {
-  return parseCsv(Deno.readTextFileSync(`${seedRoot}${name}`));
+function readSeedCsv(root: string, name: string): Record<string, string>[] {
+  return parseCsv(Deno.readTextFileSync(`${root}${name}`));
 }
 
-export const SEED_GROUPS: GroupInfo[] = readSeedCsv("groups.csv").map(
-  (row) => ({
+export function loadSeedData(root: string): {
+  groups: GroupInfo[];
+  people: Person[];
+  viewers: Viewer[];
+} {
+  const normalizedRoot = root.endsWith("/") ? root : `${root}/`;
+  const groups: GroupInfo[] = readSeedCsv(normalizedRoot, "groups.csv").map((row) => ({
     key: row.key,
     label: row.label,
     flag: row.flag,
-  }),
-);
+  }));
+  const people: Person[] = readSeedCsv(normalizedRoot, "people.csv").map((row) => ({
+    id: row.id,
+    name: row.name,
+    born: row.born || null,
+    died: row.died || null,
+    groups: row.groups ? row.groups.split("|").filter(Boolean) : [],
+    notes: row.notes || "",
+  }));
+  const viewers: Viewer[] = readSeedCsv(normalizedRoot, "viewers.csv").map((row) => ({
+    token: row.token,
+    name: row.name,
+    groups: row.groups ? row.groups.split("|").filter(Boolean) : [],
+    canEdit: row.canEdit === "true",
+  }));
+  return { groups, people, viewers };
+}
 
-export const SEED_PEOPLE: Person[] = readSeedCsv("people.csv").map((row) => ({
-  id: row.id,
-  name: row.name,
-  born: row.born || null,
-  died: row.died || null,
-  groups: row.groups ? row.groups.split("|").filter(Boolean) : [],
-  notes: row.notes || "",
-}));
-
-export const SEED_VIEWERS: Viewer[] = readSeedCsv("viewers.csv").map((row) => ({
-  token: row.token,
-  name: row.name,
-  groups: row.groups ? row.groups.split("|").filter(Boolean) : [],
-  canEdit: row.canEdit === "true",
-}));
+const seed = loadSeedData(seedRoot);
+export const SEED_GROUPS = seed.groups;
+export const SEED_PEOPLE = seed.people;
+export const SEED_VIEWERS = seed.viewers;

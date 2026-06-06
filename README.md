@@ -23,6 +23,8 @@ The app is now a **Fresh 2 / Vite** app on Deno, backed by Deno KV. Fresh serves
 deno task dev
 ```
 
+There is no username/password form. A private capability URL is the login.
+
 Open `http://localhost:8000/view/demo-all` for the full demo calendar and
 `http://localhost:8000/edit/demo-edit` to edit.
 
@@ -33,6 +35,28 @@ The server seeds an empty KV store from:
 - `seed/viewers.csv`
 
 Use `KV_PATH=/tmp/famcal.db deno task dev` if you want an explicit local database file.
+
+### Feature demo
+
+Run an isolated in-memory dataset that exercises every implemented feature:
+
+```sh
+deno task demo
+```
+
+Then use these access links:
+
+- Demo access screen: `http://localhost:8000/`
+- Full calendar: `http://localhost:8000/view/demo-feature-all`
+- Editor: `http://localhost:8000/edit/demo-feature-editor`
+- Norwegian-only view: `http://localhost:8000/view/demo-feature-no`
+- Danish-only view: `http://localhost:8000/view/demo-feature-dk`
+- Full iCal feed: `http://localhost:8000/cal/demo-feature-all.ics`
+
+The demo includes current/recent/upcoming birthdays, milestone ages, an unknown birth year,
+missing dates, aliases, multiple family groups, deceased relatives and remembrance events,
+`@mentions`, legacy `[[Name]]` links, scoped viewers, and editor permissions. Because it uses
+in-memory KV, changes disappear when the demo server stops.
 
 ## Subscribing
 

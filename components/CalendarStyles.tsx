@@ -164,8 +164,7 @@ const styles = `
     transform: translateY(0);
   }
 
-  @media (prefers-color-scheme: dark) {
-    :root {
+  html[data-theme="dark"] {
       --paper: #111412;
       --paper-strong: #191e1b;
       --ink: #edf2ef;
@@ -184,9 +183,9 @@ const styles = `
       --red-ink: #ffb4ad;
       --shadow: 0 18px 55px rgba(0, 0, 0, 0.3), 0 2px 10px rgba(0, 0, 0, 0.24);
       --shadow-tight: 0 10px 30px rgba(0, 0, 0, 0.24), 0 1px 4px rgba(0, 0, 0, 0.2);
-    }
+  }
 
-    body {
+  html[data-theme="dark"] body {
       background:
         linear-gradient(
           180deg,
@@ -195,23 +194,22 @@ const styles = `
           rgba(14, 17, 15, 1) 100%
         ),
         var(--paper);
-    }
+  }
 
-    .topbar,
-    .month-bar {
+  html[data-theme="dark"] .topbar,
+  html[data-theme="dark"] .month-bar {
       border-color: rgba(65, 74, 69, 0.86);
       background: rgba(17, 20, 18, 0.9);
-    }
-
-    .surface { background: rgba(25, 30, 27, 0.88); }
-    .surface-raised { background: rgba(27, 32, 29, 0.96); }
-    .action-primary { background: #edf2ef; color: #17201c; }
-    .action-primary:hover { background: white; }
-    .action-secondary { background: rgba(25, 30, 27, 0.88); }
-    .action-secondary:hover { background: #242a26; }
-    .chip { background: rgba(25, 30, 27, 0.8); }
-    .chip:hover { background: #242a26; }
   }
+
+  html[data-theme="dark"] .surface { background: rgba(25, 30, 27, 0.88); }
+  html[data-theme="dark"] .surface-raised { background: rgba(27, 32, 29, 0.96); }
+  html[data-theme="dark"] .action-primary { background: #edf2ef; color: #17201c; }
+  html[data-theme="dark"] .action-primary:hover { background: white; }
+  html[data-theme="dark"] .action-secondary { background: rgba(25, 30, 27, 0.88); }
+  html[data-theme="dark"] .action-secondary:hover { background: #242a26; }
+  html[data-theme="dark"] .chip { background: rgba(25, 30, 27, 0.8); }
+  html[data-theme="dark"] .chip:hover { background: #242a26; }
 `;
 
 export function CalendarStyles() {

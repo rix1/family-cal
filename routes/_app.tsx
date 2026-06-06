@@ -1,4 +1,5 @@
 import { AppStyles } from "@/components/AppStyles.tsx";
+import { ThemeToggle } from "@/islands/ThemeToggle.tsx";
 import { define } from "@/utils.ts";
 
 export default define.page(function App({ Component }) {
@@ -8,6 +9,12 @@ export default define.page(function App({ Component }) {
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="color-scheme" content="light dark" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              `try{const saved=localStorage.getItem("family-calendar-theme");const theme=saved==="light"||saved==="dark"?saved:matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";document.documentElement.dataset.theme=theme;document.documentElement.style.colorScheme=theme}catch{}`,
+          }}
+        />
         <AppStyles />
       </head>
       <body
@@ -18,6 +25,7 @@ export default define.page(function App({ Component }) {
         }}
       >
         <Component />
+        <ThemeToggle />
       </body>
     </html>
   );

@@ -17,6 +17,7 @@
 
 ## other
 - [x] add dark mode
+- [x] add a persistent theme toggle button
 
 ## calendard > filters
 - [x] need to fix the filters: make them dropdown checkbox select instead of pills

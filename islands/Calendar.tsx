@@ -1,5 +1,6 @@
 import type { CalendarViewData, ViewPerson } from "@/lib/view_data.ts";
 import { ageAtDate } from "@/lib/dates.ts";
+import { retainAvailable, toggleSelection } from "@/lib/filter_selection.ts";
 import { activeMention, insertMention, type MentionMatch } from "@/lib/mentions.ts";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 
@@ -124,6 +125,69 @@ const birthDateValid = (value: string) =>
   value === "" || /^\d{4}-\d{2}-\d{2}$/.test(value) || /^\d{2}-\d{2}$/.test(value);
 const deathDateValid = (value: string) => value === "" || /^\d{4}-\d{2}-\d{2}$/.test(value);
 
+function FilterDropdown({
+  label,
+  options,
+  active,
+  onToggle,
+}: {
+  label: string;
+  options: Array<{ key: string; label: string }>;
+  active: Set<string>;
+  onToggle: (key: string) => void;
+}) {
+  const details = useRef<HTMLDetailsElement | null>(null);
+
+  useEffect(() => {
+    function closeOnOutsideClick(event: PointerEvent) {
+      if (!details.current?.contains(event.target as Node)) {
+        details.current?.removeAttribute("open");
+      }
+    }
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") details.current?.removeAttribute("open");
+    }
+
+    document.addEventListener("pointerdown", closeOnOutsideClick);
+    globalThis.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsideClick);
+      globalThis.removeEventListener("keydown", closeOnEscape);
+    };
+  }, []);
+
+  return (
+    <details ref={details} class="filter-dropdown relative">
+      <summary class="flex min-h-10 cursor-pointer list-none items-center gap-2 rounded-full border border-[color:var(--line-strong)] bg-white/70 px-4 py-2 text-sm font-semibold text-[color:var(--ink)] hover:bg-white">
+        <span>{label}</span>
+        <span class="text-xs font-medium text-[color:var(--soft-muted)]">
+          {active.size}/{options.length}
+        </span>
+        <span class="ml-auto text-[10px] text-[color:var(--soft-muted)]" aria-hidden="true">
+          ▼
+        </span>
+      </summary>
+      <div class="absolute right-0 z-30 mt-2 min-w-56 rounded-2xl border border-[color:var(--line)] bg-[color:var(--paper-strong)] p-2 shadow-[var(--shadow)]">
+        {options.map((option) => (
+          <label
+            key={option.key}
+            class="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-sm hover:bg-black/[0.04]"
+          >
+            <input
+              type="checkbox"
+              checked={active.has(option.key)}
+              onChange={() => onToggle(option.key)}
+              class="size-4 accent-[color:var(--teal)]"
+            />
+            <span>{option.label}</span>
+          </label>
+        ))}
+      </div>
+    </details>
+  );
+}
+
 export function Calendar({
   groups,
   people: initialPeople,
@@ -198,8 +262,12 @@ export function Calendar({
     return lookup;
   }, [people]);
 
-  useEffect(() => setActiveTypes(new Set(allTypes)), [allTypes]);
-  useEffect(() => setActiveGroups(new Set(Object.keys(groups))), [groups]);
+  useEffect(() => {
+    setActiveTypes((current) => retainAvailable(current, allTypes));
+  }, [allTypes]);
+  useEffect(() => {
+    setActiveGroups((current) => retainAvailable(current, Object.keys(groups)));
+  }, [groups]);
 
   function monthDate(offset: number) {
     return csvDateForMonthOffset(today, offset);
@@ -345,60 +413,6 @@ export function Calendar({
       if (closePersonTimer.current !== null) clearTimeout(closePersonTimer.current);
     };
   }, []);
-
-  function toggle(
-    setter: (s: Set<string>) => void,
-    current: Set<string>,
-    key: string,
-    fallback: string[],
-  ) {
-    const next = new Set(current);
-    next.has(key) ? next.delete(key) : next.add(key);
-    if (!next.size) fallback.forEach((x) => next.add(x));
-    setter(next);
-  }
-
-  function FilterDropdown({
-    label,
-    options,
-    active,
-    onToggle,
-  }: {
-    label: string;
-    options: Array<{ key: string; label: string }>;
-    active: Set<string>;
-    onToggle: (key: string) => void;
-  }) {
-    return (
-      <details class="filter-dropdown relative">
-        <summary class="flex min-h-10 cursor-pointer list-none items-center gap-2 rounded-full border border-[color:var(--line-strong)] bg-white/70 px-4 py-2 text-sm font-semibold text-[color:var(--ink)] hover:bg-white">
-          <span>{label}</span>
-          <span class="text-xs font-medium text-[color:var(--soft-muted)]">
-            {active.size}/{options.length}
-          </span>
-          <span class="ml-auto text-[10px] text-[color:var(--soft-muted)]" aria-hidden="true">
-            ▼
-          </span>
-        </summary>
-        <div class="absolute right-0 z-30 mt-2 min-w-56 rounded-2xl border border-[color:var(--line)] bg-[color:var(--paper-strong)] p-2 shadow-[var(--shadow)]">
-          {options.map((option) => (
-            <label
-              key={option.key}
-              class="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-sm hover:bg-black/[0.04]"
-            >
-              <input
-                type="checkbox"
-                checked={active.has(option.key)}
-                onChange={() => onToggle(option.key)}
-                class="size-4 accent-[color:var(--teal)]"
-              />
-              <span>{option.label}</span>
-            </label>
-          ))}
-        </div>
-      </details>
-    );
-  }
 
   function relativeLabel(dateKey: string): string {
     const days = Math.round(
@@ -1133,13 +1147,13 @@ export function Calendar({
                   label: `${group.flag} ${group.label}`,
                 }))}
                 active={activeGroups}
-                onToggle={(key) => toggle(setActiveGroups, activeGroups, key, Object.keys(groups))}
+                onToggle={(key) => setActiveGroups((current) => toggleSelection(current, key))}
               />
               <FilterDropdown
                 label="Events"
                 options={allTypes.map((type) => ({ key: type, label: typeLabel(type) }))}
                 active={activeTypes}
-                onToggle={(type) => toggle(setActiveTypes, activeTypes, type, allTypes)}
+                onToggle={(type) => setActiveTypes((current) => toggleSelection(current, type))}
               />
             </div>
           </div>

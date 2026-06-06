@@ -21,3 +21,5 @@
 
 ## calendard > filters
 - [x] need to fix the filters: make them dropdown checkbox select instead of pills
+- [x] deselecting the final filter must not reselect every option
+- [x] clicking outside a filter popover closes it

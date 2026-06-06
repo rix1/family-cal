@@ -24,7 +24,11 @@ export default define.page<typeof handlers>(({ data }) => (
   <>
     <title>People | Family Calendar Admin</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <AdminShell current="people" viewerName={data.viewer.name}>
+    <AdminShell
+      current="people"
+      viewerName={data.viewer.name}
+      calendarUrl={`/view/${data.viewer.token}`}
+    >
       <Editor
         groups={data.groups}
         people={data.people}

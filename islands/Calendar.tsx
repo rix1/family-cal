@@ -1,5 +1,6 @@
 import type { CalendarViewData, ViewPerson } from "@/lib/view_data.ts";
 import { ageAtDate } from "@/lib/dates.ts";
+import { activeMention, insertMention, type MentionMatch } from "@/lib/mentions.ts";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 
 type CalendarEvent =
@@ -114,6 +115,11 @@ interface PersonDraft {
   notes: string;
 }
 
+interface PersonMentionMenu {
+  match: MentionMatch;
+  activeIndex: number;
+}
+
 const birthDateValid = (value: string) =>
   value === "" || /^\d{4}-\d{2}-\d{2}$/.test(value) || /^\d{2}-\d{2}$/.test(value);
 const deathDateValid = (value: string) => value === "" || /^\d{4}-\d{2}-\d{2}$/.test(value);
@@ -149,10 +155,13 @@ export function Calendar({
   const [toast, setToast] = useState("");
   const [selectedPerson, setSelectedPerson] = useState<ViewPerson | null>(null);
   const [personClosing, setPersonClosing] = useState(false);
+  const [personOpen, setPersonOpen] = useState(false);
   const [personDraft, setPersonDraft] = useState<PersonDraft | null>(null);
+  const [personMentionMenu, setPersonMentionMenu] = useState<PersonMentionMenu | null>(null);
   const [personSaveState, setPersonSaveState] = useState<"idle" | "saving">("idle");
   const [personSaveError, setPersonSaveError] = useState("");
   const closePersonButton = useRef<HTMLButtonElement | null>(null);
+  const personNotesInput = useRef<HTMLTextAreaElement | null>(null);
   const personTrigger = useRef<HTMLElement | null>(null);
   const pendingScrollToPerson = useRef<ViewPerson | null>(null);
   const restoreScroll = useRef<{ y: number; height: number } | null>(null);
@@ -314,7 +323,10 @@ export function Calendar({
     if (!selectedPerson) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    requestAnimationFrame(() => closePersonButton.current?.focus());
+    requestAnimationFrame(() => {
+      setPersonOpen(true);
+      closePersonButton.current?.focus();
+    });
 
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") closePerson();
@@ -420,20 +432,24 @@ export function Calendar({
       ? document.activeElement
       : null;
     setPersonClosing(false);
+    setPersonOpen(false);
     setPersonDraft(null);
+    setPersonMentionMenu(null);
     setPersonSaveError("");
     setSelectedPerson(person);
   }
 
   function closePerson() {
     if (!selectedPerson || personClosing) return;
+    setPersonOpen(false);
     setPersonClosing(true);
     closePersonTimer.current = setTimeout(() => {
       setSelectedPerson(null);
       setPersonClosing(false);
       setPersonDraft(null);
+      setPersonMentionMenu(null);
       closePersonTimer.current = null;
-    }, 180);
+    }, 190);
   }
 
   function startPersonEdit(person: ViewPerson) {
@@ -454,6 +470,32 @@ export function Calendar({
       groups: personDraft.groups.includes(group)
         ? personDraft.groups.filter((key) => key !== group)
         : [...personDraft.groups, group],
+    });
+  }
+
+  function updatePersonMentionMenu(input: HTMLTextAreaElement) {
+    const match = activeMention(input.value, input.selectionStart ?? input.value.length);
+    setPersonMentionMenu(match ? { match, activeIndex: 0 } : null);
+  }
+
+  function personMentionSuggestions(menu: PersonMentionMenu) {
+    return people
+      .filter((person) => {
+        const query = menu.match.query;
+        return person.id.toLowerCase().includes(query) ||
+          person.name.toLowerCase().includes(query);
+      })
+      .slice(0, 6);
+  }
+
+  function choosePersonMention(person: ViewPerson) {
+    if (!personDraft || !personMentionMenu) return;
+    const result = insertMention(personDraft.notes, personMentionMenu.match, person.id);
+    setPersonDraft({ ...personDraft, notes: result.text });
+    setPersonMentionMenu(null);
+    requestAnimationFrame(() => {
+      personNotesInput.current?.focus();
+      personNotesInput.current?.setSelectionRange(result.cursor, result.cursor);
     });
   }
 
@@ -884,10 +926,10 @@ export function Calendar({
               <a
                 href={editUrl}
                 class="action action-secondary"
-                title="Add or edit people"
+                title="Open administration"
               >
                 <span aria-hidden="true">✏️</span>
-                <span class="hidden sm:inline">Edit</span>
+                <span class="hidden sm:inline">Admin</span>
               </a>
             )}
             <button
@@ -1130,7 +1172,7 @@ export function Calendar({
 
       {selectedPerson && selectedDetail && (
         <div
-          class={`person-backdrop fixed inset-0 z-40 flex items-end bg-black/25 backdrop-blur-[2px] sm:items-stretch sm:justify-end ${
+          class={`person-backdrop fixed inset-0 z-40 flex items-end bg-black/25 sm:items-stretch sm:justify-end ${
             personClosing ? "is-closing" : ""
           }`}
           onClick={closePerson}
@@ -1140,7 +1182,7 @@ export function Calendar({
             aria-modal="true"
             aria-labelledby="person-detail-title"
             class={`person-sheet flex max-h-[88vh] w-full flex-col overflow-y-auto rounded-t-3xl border border-[color:var(--line)] bg-[color:var(--paper-strong)] p-5 shadow-[var(--shadow)] sm:max-h-none sm:w-[28rem] sm:rounded-none sm:border-y-0 sm:border-r-0 ${
-              personClosing ? "is-closing" : ""
+              personOpen ? "is-open" : ""
             }`}
             onClick={(event) => event.stopPropagation()}
           >
@@ -1241,19 +1283,72 @@ export function Calendar({
                       ))}
                     </div>
                   </fieldset>
-                  <label class="grid gap-1.5 text-sm font-medium">
-                    Notes
+                  <div class="relative grid gap-1.5 text-sm font-medium">
+                    <label for="person-notes">Notes</label>
                     <textarea
+                      id="person-notes"
+                      ref={personNotesInput}
                       value={personDraft.notes}
-                      onInput={(event) =>
+                      onInput={(event) => {
                         setPersonDraft({
                           ...personDraft,
                           notes: event.currentTarget.value,
-                        })}
+                        });
+                        updatePersonMentionMenu(event.currentTarget);
+                      }}
+                      onClick={(event) => updatePersonMentionMenu(event.currentTarget)}
+                      onKeyDown={(event) => {
+                        if (!personMentionMenu) return;
+                        const suggestions = personMentionSuggestions(personMentionMenu);
+                        if (!suggestions.length) return;
+                        if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                          event.preventDefault();
+                          const direction = event.key === "ArrowDown" ? 1 : -1;
+                          setPersonMentionMenu({
+                            ...personMentionMenu,
+                            activeIndex:
+                              (personMentionMenu.activeIndex + direction + suggestions.length) %
+                              suggestions.length,
+                          });
+                        } else if (event.key === "Enter") {
+                          event.preventDefault();
+                          choosePersonMention(suggestions[personMentionMenu.activeIndex]);
+                        } else if (event.key === "Escape") {
+                          setPersonMentionMenu(null);
+                        }
+                      }}
+                      onBlur={() => setTimeout(() => setPersonMentionMenu(null), 120)}
                       rows={5}
                       class="resize-y rounded-xl border border-[color:var(--line-strong)] bg-white/80 px-3 py-2.5 leading-6 outline-none focus:border-[color:var(--teal)]"
+                      placeholder="Optional; type @ to link a person"
                     />
-                  </label>
+                    {personMentionMenu &&
+                      personMentionSuggestions(personMentionMenu).length > 0 && (
+                      <div class="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-xl border border-[color:var(--line)] bg-white shadow-[var(--shadow)]">
+                        {personMentionSuggestions(personMentionMenu).map((
+                          person,
+                          suggestionIndex,
+                        ) => (
+                          <button
+                            key={person.id}
+                            type="button"
+                            class={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm ${
+                              suggestionIndex === personMentionMenu.activeIndex
+                                ? "bg-[color:var(--teal-soft)] text-[color:var(--teal-ink)]"
+                                : "hover:bg-black/[0.03]"
+                            }`}
+                            onMouseDown={(event) => event.preventDefault()}
+                            onClick={() => choosePersonMention(person)}
+                          >
+                            <span class="font-medium">{person.name}</span>
+                            <span class="font-mono text-xs text-[color:var(--soft-muted)]">
+                              @{person.id}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                   {personSaveError && (
                     <p class="rounded-xl bg-red-50 px-3 py-2 text-sm font-medium text-red-800">
                       {personSaveError}

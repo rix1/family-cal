@@ -1,4 +1,5 @@
 import { AdminShell } from "@/components/AdminShell.tsx";
+import { Toast } from "@/islands/Toast.tsx";
 import { adminDenied, adminViewer } from "@/lib/admin_auth.ts";
 import { getStore } from "@/lib/db.ts";
 import type { GroupInfo } from "@/lib/model.ts";
@@ -10,7 +11,11 @@ export const handlers = define.handlers({
     const store = await getStore();
     const viewer = await adminViewer(ctx.req, store);
     if (!viewer) return adminDenied();
-    return page({ viewer, groups: await store.listGroups() });
+    return page({
+      viewer,
+      groups: await store.listGroups(),
+      saved: ctx.url.searchParams.get("saved") === "1",
+    });
   },
   async POST(ctx) {
     const store = await getStore();
@@ -28,7 +33,10 @@ export const handlers = define.handlers({
       }))
       .filter((group) => group.key && group.label);
     await store.setGroups(groups);
-    return new Response(null, { status: 303, headers: { location: "/admin/groups/" } });
+    return new Response(null, {
+      status: 303,
+      headers: { location: "/admin/groups/?saved=1" },
+    });
   },
 });
 
@@ -38,7 +46,11 @@ export default define.page<typeof handlers>(({ data }) => {
     <>
       <title>Groups | Family Calendar Admin</title>
       <script src="https://cdn.tailwindcss.com"></script>
-      <AdminShell current="groups" viewerName={data.viewer.name}>
+      <AdminShell
+        current="groups"
+        viewerName={data.viewer.name}
+        calendarUrl={`/view/${data.viewer.token}`}
+      >
         <h1 class="text-3xl font-semibold">Groups</h1>
         <p class="mt-2 text-zinc-600">Family tags used for viewer-specific calendars.</p>
         <form method="post" class="mt-8">
@@ -83,6 +95,7 @@ export default define.page<typeof handlers>(({ data }) => {
             Save groups
           </button>
         </form>
+        {data.saved && <Toast message="Saved groups." />}
       </AdminShell>
     </>
   );

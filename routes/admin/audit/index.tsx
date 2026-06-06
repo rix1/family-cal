@@ -17,7 +17,11 @@ export default define.page<typeof handlers>(({ data }) => (
   <>
     <title>Audit | Family Calendar Admin</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <AdminShell current="audit" viewerName={data.viewer.name}>
+    <AdminShell
+      current="audit"
+      viewerName={data.viewer.name}
+      calendarUrl={`/view/${data.viewer.token}`}
+    >
       <h1 class="text-3xl font-semibold">Audit</h1>
       <p class="mt-2 text-zinc-600">Most recent changes first.</p>
       <div class="mt-8 overflow-x-auto rounded-xl border border-zinc-200 bg-white">

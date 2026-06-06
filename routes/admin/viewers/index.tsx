@@ -17,7 +17,11 @@ export default define.page<typeof handlers>(({ data }) => (
   <>
     <title>Viewers | Family Calendar Admin</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <AdminShell current="viewers" viewerName={data.viewer.name}>
+    <AdminShell
+      current="viewers"
+      viewerName={data.viewer.name}
+      calendarUrl={`/view/${data.viewer.token}`}
+    >
       <h1 class="text-3xl font-semibold">Viewers</h1>
       <p class="mt-2 text-zinc-600">Capability links and their permissions.</p>
       <div class="mt-8 overflow-x-auto rounded-xl border border-zinc-200 bg-white">
@@ -28,6 +32,7 @@ export default define.page<typeof handlers>(({ data }) => (
               <th class="px-4 py-3">Token</th>
               <th class="px-4 py-3">Groups</th>
               <th class="px-4 py-3">Editor</th>
+              <th class="px-4 py-3">Status</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-zinc-200">
@@ -37,6 +42,7 @@ export default define.page<typeof handlers>(({ data }) => (
                 <td class="px-4 py-3 font-mono text-xs">{item.token}</td>
                 <td class="px-4 py-3">{item.groups.join(", ") || "All"}</td>
                 <td class="px-4 py-3">{item.canEdit ? "Yes" : "No"}</td>
+                <td class="px-4 py-3">{item.expiredAt ? "Expired" : "Active"}</td>
               </tr>
             ))}
           </tbody>

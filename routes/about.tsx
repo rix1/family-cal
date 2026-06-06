@@ -7,7 +7,7 @@ export default define.page(function About() {
       <style>
         {`
           :root { color-scheme: light; --paper:#f6f1e8; --ink:#1d2422; --muted:#68736f; --line:#e4dccf; --teal:#0f766e; --surface:#fffaf1; }
-          body { margin:0; background:var(--paper); color:var(--ink); font:16px/1.55 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+          body { margin:0; background:var(--paper); color:var(--ink); font-size:16px; line-height:1.55; }
           .about-main { max-width: 860px; margin: 0 auto; padding: 40px 20px 80px; }
           .about-nav { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:28px; }
           .about-link { color: var(--teal); font-weight: 650; text-decoration: none; }

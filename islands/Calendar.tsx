@@ -358,6 +358,48 @@ export function Calendar({
     setter(next);
   }
 
+  function FilterDropdown({
+    label,
+    options,
+    active,
+    onToggle,
+  }: {
+    label: string;
+    options: Array<{ key: string; label: string }>;
+    active: Set<string>;
+    onToggle: (key: string) => void;
+  }) {
+    return (
+      <details class="filter-dropdown relative">
+        <summary class="flex min-h-10 cursor-pointer list-none items-center gap-2 rounded-full border border-[color:var(--line-strong)] bg-white/70 px-4 py-2 text-sm font-semibold text-[color:var(--ink)] hover:bg-white">
+          <span>{label}</span>
+          <span class="text-xs font-medium text-[color:var(--soft-muted)]">
+            {active.size}/{options.length}
+          </span>
+          <span class="ml-auto text-[10px] text-[color:var(--soft-muted)]" aria-hidden="true">
+            ▼
+          </span>
+        </summary>
+        <div class="absolute right-0 z-30 mt-2 min-w-56 rounded-2xl border border-[color:var(--line)] bg-[color:var(--paper-strong)] p-2 shadow-[var(--shadow)]">
+          {options.map((option) => (
+            <label
+              key={option.key}
+              class="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-sm hover:bg-black/[0.04]"
+            >
+              <input
+                type="checkbox"
+                checked={active.has(option.key)}
+                onChange={() => onToggle(option.key)}
+                class="size-4 accent-[color:var(--teal)]"
+              />
+              <span>{option.label}</span>
+            </label>
+          ))}
+        </div>
+      </details>
+    );
+  }
+
   function relativeLabel(dateKey: string): string {
     const days = Math.round(
       (parseDate(dateKey).getTime() - parseDate(todayKey).getTime()) / dayMs,
@@ -1084,39 +1126,21 @@ export function Calendar({
               />
             </label>
             <div class="flex flex-wrap items-center gap-2">
-              <div class="flex flex-wrap items-center gap-2">
-                {Object.entries(groups).map(([key, g]) => (
-                  <button
-                    key={key}
-                    type="button"
-                    class="chip"
-                    aria-pressed={activeGroups.has(key)}
-                    onClick={() =>
-                      toggle(
-                        setActiveGroups,
-                        activeGroups,
-                        key,
-                        Object.keys(groups),
-                      )}
-                  >
-                    {g.flag} {g.label}
-                  </button>
-                ))}
-              </div>
-              <span class="hidden h-5 w-px bg-[color:var(--line-strong)] sm:inline-block"></span>
-              <div class="flex flex-wrap items-center gap-2">
-                {allTypes.map((type) => (
-                  <button
-                    key={type}
-                    type="button"
-                    class="chip"
-                    aria-pressed={activeTypes.has(type)}
-                    onClick={() => toggle(setActiveTypes, activeTypes, type, allTypes)}
-                  >
-                    {typeLabel(type)}
-                  </button>
-                ))}
-              </div>
+              <FilterDropdown
+                label="Families"
+                options={Object.entries(groups).map(([key, group]) => ({
+                  key,
+                  label: `${group.flag} ${group.label}`,
+                }))}
+                active={activeGroups}
+                onToggle={(key) => toggle(setActiveGroups, activeGroups, key, Object.keys(groups))}
+              />
+              <FilterDropdown
+                label="Events"
+                options={allTypes.map((type) => ({ key: type, label: typeLabel(type) }))}
+                active={activeTypes}
+                onToggle={(type) => toggle(setActiveTypes, activeTypes, type, allTypes)}
+              />
             </div>
           </div>
         </section>

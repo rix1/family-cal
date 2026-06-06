@@ -14,3 +14,9 @@
 ## auth
 - [x] issuing a new link for the same user does not expire the old one. expired links should say something like "expired - ask for a new oen"
 - [x] add 404 and error page templates and ensure consistent usage.
+
+## other
+- [] add dark mode
+
+## calendard > filters
+- [x] need to fix the filters: make them dropdown checkbox select instead of pills

@@ -46,6 +46,11 @@ export function ErrorPage({ status, title, message }: Props) {
             color: #0f766e;
             font-weight: 650;
           }
+          @media (prefers-color-scheme: dark) {
+            .error-page { color: #edf2ef; }
+            .error-code, .error-page a { color: #8edbd0; }
+            .error-page p:not(.error-code) { color: #a8b1ac; }
+          }
         `}
       </style>
     </>

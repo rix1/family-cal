@@ -16,7 +16,7 @@
 - [x] add 404 and error page templates and ensure consistent usage.
 
 ## other
-- [] add dark mode
+- [x] add dark mode
 
 ## calendard > filters
 - [x] need to fix the filters: make them dropdown checkbox select instead of pills

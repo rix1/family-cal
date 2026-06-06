@@ -1,3 +1,4 @@
+import { AppStyles } from "@/components/AppStyles.tsx";
 import { define } from "@/utils.ts";
 
 export default define.page(function App({ Component }) {
@@ -6,6 +7,8 @@ export default define.page(function App({ Component }) {
       <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="color-scheme" content="light dark" />
+        <AppStyles />
       </head>
       <body
         style={{

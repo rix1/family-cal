@@ -163,6 +163,55 @@ const styles = `
     opacity: 1;
     transform: translateY(0);
   }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #111412;
+      --paper-strong: #191e1b;
+      --ink: #edf2ef;
+      --muted: #a8b1ac;
+      --soft-muted: #858e89;
+      --line: #303733;
+      --line-strong: #414a45;
+      --teal: #45b8a9;
+      --teal-ink: #8edbd0;
+      --teal-soft: #15352f;
+      --amber: #d9a441;
+      --amber-soft: #3b2f17;
+      --blue-soft: #172d43;
+      --blue-ink: #a8d2ff;
+      --red-soft: #402321;
+      --red-ink: #ffb4ad;
+      --shadow: 0 18px 55px rgba(0, 0, 0, 0.3), 0 2px 10px rgba(0, 0, 0, 0.24);
+      --shadow-tight: 0 10px 30px rgba(0, 0, 0, 0.24), 0 1px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    body {
+      background:
+        linear-gradient(
+          180deg,
+          rgba(25, 30, 27, 0.96) 0%,
+          rgba(17, 20, 18, 0.98) 48%,
+          rgba(14, 17, 15, 1) 100%
+        ),
+        var(--paper);
+    }
+
+    .topbar,
+    .month-bar {
+      border-color: rgba(65, 74, 69, 0.86);
+      background: rgba(17, 20, 18, 0.9);
+    }
+
+    .surface { background: rgba(25, 30, 27, 0.88); }
+    .surface-raised { background: rgba(27, 32, 29, 0.96); }
+    .action-primary { background: #edf2ef; color: #17201c; }
+    .action-primary:hover { background: white; }
+    .action-secondary { background: rgba(25, 30, 27, 0.88); }
+    .action-secondary:hover { background: #242a26; }
+    .chip { background: rgba(25, 30, 27, 0.8); }
+    .chip:hover { background: #242a26; }
+  }
 `;
 
 export function CalendarStyles() {

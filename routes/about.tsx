@@ -23,6 +23,11 @@ export default define.page(function About() {
           .about-table th { color:var(--ink); }
           .about-table td:first-child { white-space:nowrap; font-family: ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.9rem; color:var(--ink); }
           .about-muted { color: var(--muted); }
+          @media (prefers-color-scheme: dark) {
+            :root { --paper:#111412; --ink:#edf2ef; --muted:#a8b1ac; --line:#303733; --teal:#8edbd0; --surface:#191e1b; }
+            .about-section { background:rgba(25,30,27,.82); }
+            .about-code { background:#252b27; }
+          }
         `}
       </style>
 

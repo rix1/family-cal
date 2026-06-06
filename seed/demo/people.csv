@@ -1,0 +1,15 @@
+id,name,born,died,groups,notes
+today-tina,Today Tina,1990-06-06,,no,Has a birthday today and links to @tomorrow-tom
+tomorrow-tom,Tomorrow Tom,2000-06-07,,no,Birthday tomorrow; child of @alias-aase
+recent-rune,Recent Rune,1988-06-01,,no,Appears in Recently celebrated
+milestone-mia,Milestone Mia,1986-06-15,,no,Turns 40 in 2026 and exercises milestone styling
+unknown-year-ulla,Unknown-year Ulla,06-20,,no,Birth year is unknown
+alias-aase,Åse / Mamma,1957-08-05,,no,Alias lookup works for Åse and Mamma
+missing-gustav,Missing-date Gustav,,,no,Exercises the missing-date list
+memorial-petra,Memorial Petra,1930-09-10,2020-06-08,no,Deceased relative; mother of @legacy-karl
+legacy-karl,Legacy-link Karl,1960-10-08,,no,Old link syntax remains compatible: [[Memorial Petra]]
+danish-dorte,Danish Dorte,1976-06-12,,dk,Danish-only viewer can see this person
+danish-missing,Danish Missing,,,dk,Missing date in the Danish family
+both-families,Both Families Bo,1995-07-01,,no|dk,Exercises multiple family tags and links @danish-dorte
+future-child,Future Child,2025-12-31,,dk,Young child for age calculation
+century-cecilia,Century Cecilia,1926-12-20,,no,Turns 100 in 2026

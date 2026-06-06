@@ -45,8 +45,9 @@ export default define.page(function About() {
               upcoming/recent summaries.
             </li>
             <li>
-              Editor-capable links add/edit people, save to KV, and export{" "}
-              <code class="about-code">people.csv</code> as backup.
+              Editor-capable links open{" "}
+              <code class="about-code">/admin/</code>, where people, groups, viewers, and audit
+              history can be managed or inspected.
             </li>
             <li>
               Each viewer link also has an iCal subscription URL for Google, Apple, Outlook, etc.
@@ -72,11 +73,11 @@ export default define.page(function About() {
                 </td>
               </tr>
               <tr>
-                <td>POST /api/people/&lt;editor-token&gt;</td>
+                <td>POST/PATCH /api/people/&lt;editor-token&gt;</td>
                 <td>
-                  Full replacement write: body is{" "}
-                  <code class="about-code">{"{ people }"}</code>. The server attributes the editor
-                  token, validates dates, diffs changes, writes KV, and appends audit entries.
+                  POST replaces the people collection with{" "}
+                  <code class="about-code">{"{ people }"}</code>; PATCH updates one person. Both
+                  validate and audit changes under the editor token.
                 </td>
               </tr>
               <tr>
@@ -101,7 +102,8 @@ export default define.page(function About() {
         <section class="about-section">
           <h2>Data model</h2>
           <p>
-            Runtime data lives in Deno KV. Fresh KV stores are bootstrapped from CSV files in{" "}
+            Runtime data lives in Deno KV. New stores are empty; the optional{" "}
+            <code class="about-code">deno task seed</code> command loads CSV files from{" "}
             <code class="about-code">seed/</code>. Current people shape:
           </p>
           <p>
@@ -123,11 +125,11 @@ export default define.page(function About() {
         </section>
 
         <section class="about-section">
-          <h2>Prototype caveats</h2>
+          <h2>Operational notes</h2>
           <ul>
             <li>
-              The checked-in <code class="about-code">demo-*</code>{" "}
-              tokens are local bootstrap examples. Issuing the first real link removes them.
+              Private links are capabilities. Anyone holding one has its access, so share it
+              privately and replace it if it leaks.
             </li>
             <li>
               Google Calendar may refresh subscribed feeds slowly and uses its own per-calendar

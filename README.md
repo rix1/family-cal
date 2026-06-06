@@ -1,8 +1,9 @@
 # Family Calendar
 
-A family calendar for birthdays and other important dates across the extended family and our Danish family.
+A private calendar for birthdays and other important dates across the family.
 
-The app is now a **Fresh 2 / Vite** app on Deno, backed by Deno KV. Fresh serves the web pages, JSON API, and per-viewer iCal subscription feeds from one root project. Fresh KV stores are bootstrapped from CSV seed files in `seed/`.
+The app is a **Fresh 2 / Vite** app on Deno, backed by Deno KV. Fresh serves the
+web pages, admin pages, JSON API, and per-viewer iCal subscription feeds.
 
 ## Files
 
@@ -10,7 +11,7 @@ The app is now a **Fresh 2 / Vite** app on Deno, backed by Deno KV. Fresh serves
 | --- | --- |
 | `routes/` | Fresh file routes for pages, JSON API, health check, and iCal feeds. |
 | `lib/` | Domain logic: store, KV adapter, seed loading, iCal, holidays, validation. |
-| `seed/*.csv` | CSV seed data for bootstrapping a fresh KV store. |
+| `seed/*.csv` | Optional CSV data loaded by the explicit seed command. |
 | `test/` | Deno tests for domain logic and Fresh route handlers. |
 | `main.ts` | Fresh `App` entry point. |
 | `vite.config.ts` | Fresh 2 Vite plugin config. |
@@ -20,55 +21,22 @@ The app is now a **Fresh 2 / Vite** app on Deno, backed by Deno KV. Fresh serves
 ## Running
 
 ```sh
-deno task dev
+KV_PATH=/path/to/family-cal.db deno task dev
 ```
 
-There is no username/password form. A private capability URL is the login.
+The database starts empty. There are two ways to populate it:
 
-Open `http://localhost:8000/view/demo-all` for the full demo calendar and
-`http://localhost:8000/edit/demo-edit` to edit.
+1. Run `KV_PATH=/path/to/family-cal.db deno task seed` to load `seed/*.csv`.
+2. Issue an editor link, open the admin, and enter your own groups and people.
 
-The server seeds an empty KV store from:
-
-- `seed/people.csv`
-- `seed/groups.csv`
-- `seed/viewers.csv`
-
-Use `KV_PATH=/tmp/famcal.db deno task dev` if you want an explicit local database file.
-
-### Feature demo
-
-Run an isolated in-memory dataset that exercises every implemented feature:
+The seed command refuses to modify a non-empty database. Use `--force` to clear
+people and viewers and replace groups before loading:
 
 ```sh
-deno task demo
+KV_PATH=/path/to/family-cal.db deno task seed --force
 ```
 
-Then use these access links:
-
-- Demo access screen: `http://localhost:8000/`
-- Full calendar: `http://localhost:8000/view/demo-feature-all`
-- Editor: `http://localhost:8000/edit/demo-feature-editor`
-- Norwegian-only view: `http://localhost:8000/view/demo-feature-no`
-- Danish-only view: `http://localhost:8000/view/demo-feature-dk`
-- Full iCal feed: `http://localhost:8000/cal/demo-feature-all.ics`
-
-The demo includes current/recent/upcoming birthdays, milestone ages, an unknown birth year,
-missing dates, aliases, multiple family groups, deceased relatives and remembrance events,
-`@mentions`, legacy `[[Name]]` links, scoped viewers, and editor permissions. Because it uses
-in-memory KV, changes disappear when the demo server stops.
-
-## Subscribing
-
-Use one of the seeded feed URLs while prototyping:
-
-- `http://localhost:8000/cal/demo-all.ics` — everyone
-- `http://localhost:8000/cal/demo-no.ics` — Family
-- `http://localhost:8000/cal/demo-dk.ics` — Danish family
-
-In Google/Apple/Outlook Calendar, choose "Subscribe from URL" and paste one of those URLs.
-
-## Issuing private family links
+## Access links
 
 Set `KV_PATH` to the same database used by the app, then issue a cryptographically random
 capability:
@@ -80,20 +48,64 @@ KV_PATH=/path/to/famcal.db deno task issue-link \
   --base-url https://family.example
 ```
 
-The command prints private calendar and iCal URLs. Add `--edit` to issue an editor link as well.
-Use `--groups no,dk` for both families, or omit `--groups` for everyone. Anyone holding one of
-these URLs has its access, so share it privately and issue a replacement if it leaks. Issuing the
-first real link automatically removes the checked-in `demo-*` bootstrap capabilities.
+The command prints private calendar and iCal URLs. Use `--groups no,dk` for selected
+groups, or omit `--groups` for all groups. Add `--edit` to make the viewer an editor
+and print an admin URL. On an empty database, create the first editor without
+`--groups`, then add groups at `/admin/groups/`.
 
-## Editing
+There is no username/password form. Possession of a private capability URL is the
+login. Share these URLs privately and replace a viewer token if it leaks.
 
-Open `/edit/demo-edit`, edit the table, and click **Save**. Changes are written to KV and audited
-under the editor capability's name. **Download CSV** exports a `people.csv` backup that can also be
-used as seed material later.
+## Administration
+
+Open the admin URL printed by `issue-link --edit`. It validates the editor token,
+stores it in an HttpOnly session cookie, and redirects to `/admin/`.
+
+- `/admin/people/` edits people in a batch table and exports `people.csv`.
+- `/admin/groups/` edits family groups.
+- `/admin/viewers/` lists issued capabilities and their permissions.
+- `/admin/audit/` shows person changes attributed to editors.
+
+Person details can also be edited directly from the calendar flyout by an editor.
+Changes are written to KV and audited under the editor capability's name.
 
 Death dates use full `YYYY-MM-DD` values. Deceased relatives keep their birthday with
 “would have turned” wording and also receive a yearly remembrance event on the anniversary of
 their death.
+
+## Permissions
+
+Every issued viewer is view-only by default. The stored property is
+`Viewer.canEdit`, which defaults to `false`.
+
+Create an editor at issuance time:
+
+```sh
+KV_PATH=/path/to/family-cal.db deno task issue-link \
+  --name "Family admin" \
+  --edit \
+  --base-url https://family.example
+```
+
+Grant or remove editor access for an existing viewer by updating that property:
+
+```sh
+KV_PATH=/path/to/family-cal.db deno task set-permission \
+  --token "the-viewer-token" \
+  --edit true
+
+KV_PATH=/path/to/family-cal.db deno task set-permission \
+  --token "the-viewer-token" \
+  --edit false
+```
+
+An editor can use the admin pages and person write APIs. A view-only viewer can
+only open their scoped calendar and iCal feed.
+
+## Subscribing
+
+In Google, Apple, or Outlook Calendar, choose "Subscribe from URL" and paste the
+iCal URL printed by `issue-link`.
 
 ## Testing / build
 
@@ -104,9 +116,4 @@ deno lint
 deno task build
 ```
 
-## Notes
-
-- `family-dates.js` was removed. KV is now the runtime source of truth; CSV files are only seed/bootstrap material.
-- Calendar, editor, and about are now Fresh routes. Calendar/editor hydrate islands; About remains zero-JS.
-- Generated Fresh output lives in `_fresh/` and is git-ignored.
-- Original raw CSV files at the repo root remain git-ignored historical inputs.
+Generated Fresh output lives in `_fresh/` and is git-ignored.

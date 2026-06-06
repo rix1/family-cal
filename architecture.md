@@ -2,7 +2,8 @@
 
 > **Status:** Implemented baseline. The repo now runs as a Fresh 2 / Vite app:
 > structured store (Deno KV) → Fresh routes/generator/API → per-viewer iCal
-> feeds and web app. CSV files in `seed/` bootstrap fresh KV stores.
+> feeds, web app, and admin. New KV stores are empty; CSV files in `seed/` are
+> loaded only by the explicit `deno task seed` command.
 
 ## Decision
 
@@ -181,14 +182,17 @@ interface so the engine stays swappable.
 Completed:
 
 1. Deno server serves the web app and JSON API.
-2. Deno KV is the runtime source of truth, seeded from `seed/*.csv`.
+2. Deno KV is the runtime source of truth, with optional explicit seeding from
+   `seed/*.csv`.
 3. Per-viewer iCal feeds exist at `/cal/<token>.ics` and subset by viewer groups.
 4. Holidays are computed with Computus instead of stored.
 5. Edit API writes to KV and records audit entries.
+6. Capability issuance is available through `deno task issue-link`; editors use
+   `/admin/*` and can manage people and groups.
 
 Next:
 
-1. Add real issuance/rotation UI for viewer/editor tokens.
+1. Add token rotation and revocation tooling.
 2. Enrich the model (`Event.kind`, recurring flag).
 
 ## Deferred / out of scope (YAGNI for now)

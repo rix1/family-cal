@@ -12,7 +12,7 @@ export const handlers = define.handlers({
     if (!viewer) return new Response("Unknown family calendar link", { status: 404 });
     return page({
       calendar: await calendarViewData(store, viewer.groups),
-      editUrl: viewer.canEdit ? `/edit/${viewer.token}` : undefined,
+      editUrl: viewer.canEdit ? `/admin/?token=${viewer.token}` : undefined,
       saveUrl: viewer.canEdit ? `/api/people/${viewer.token}` : undefined,
     });
   },

@@ -33,7 +33,7 @@ export function accessUrls(viewer: Viewer, baseUrl: string) {
   const base = baseUrl.replace(/\/+$/, "");
   return {
     calendar: `${base}/view/${viewer.token}`,
-    editor: viewer.canEdit ? `${base}/edit/${viewer.token}` : null,
+    editor: viewer.canEdit ? `${base}/admin/?token=${viewer.token}` : null,
     ical: `${base}/cal/${viewer.token}.ics`,
   };
 }

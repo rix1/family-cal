@@ -1,5 +1,0 @@
-token,name,groups,canEdit
-demo-feature-all,Feature demo,,false
-demo-feature-no,Norwegian demo,no,false
-demo-feature-dk,Danish demo,dk,false
-demo-feature-editor,Feature demo editor,,true

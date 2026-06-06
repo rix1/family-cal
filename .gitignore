@@ -1,7 +1,6 @@
 _chat.txt
 *.csv
 !seed/*.csv
-!seed/**/*.csv
 
 # Generated / dependency output
 _fresh/

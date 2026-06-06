@@ -1,5 +1,4 @@
 import type { AuditEntry, GroupInfo, Person, Viewer } from "./model.ts";
-import { SEED_GROUPS, SEED_PEOPLE, SEED_VIEWERS } from "./seed.ts";
 import type { Store } from "./store.ts";
 
 const PEOPLE = "people";
@@ -15,40 +14,10 @@ export class KvStore implements Store {
     this.#kv = kv;
   }
 
-  /** Open KV (default DB or an explicit path / ":memory:") and seed if empty. */
+  /** Open KV (default DB or an explicit path / ":memory:"). */
   static async create(path?: string): Promise<KvStore> {
     const kv = await Deno.openKv(path);
-    const store = new KvStore(kv);
-    await store.seedIfEmpty();
-    return store;
-  }
-
-  async seedIfEmpty(): Promise<void> {
-    const existing = await this.#kv
-      .list({ prefix: [PEOPLE] }, { limit: 1 })
-      .next();
-    if (existing.done) {
-      const tx = this.#kv.atomic();
-      for (const person of SEED_PEOPLE) tx.set([PEOPLE, person.id], person);
-      for (const viewer of SEED_VIEWERS) tx.set([VIEWERS, viewer.token], viewer);
-      tx.set([GROUPS], SEED_GROUPS);
-      await tx.commit();
-      return;
-    }
-
-    // Add new seeded capabilities and fill fields introduced after an existing
-    // local KV database was created, without replacing customized records.
-    for (const viewer of SEED_VIEWERS) {
-      const current = await this.#kv.get<Viewer>([VIEWERS, viewer.token]);
-      if (!current.value) {
-        await this.#kv.set([VIEWERS, viewer.token], viewer);
-      } else if (typeof current.value.canEdit !== "boolean") {
-        await this.#kv.set([VIEWERS, viewer.token], {
-          ...current.value,
-          canEdit: viewer.canEdit,
-        });
-      }
-    }
+    return new KvStore(kv);
   }
 
   async listPeople(): Promise<Person[]> {
@@ -75,7 +44,11 @@ export class KvStore implements Store {
 
   async listGroups(): Promise<GroupInfo[]> {
     const res = await this.#kv.get<GroupInfo[]>([GROUPS]);
-    return res.value ?? SEED_GROUPS;
+    return res.value ?? [];
+  }
+
+  async setGroups(groups: GroupInfo[]): Promise<void> {
+    await this.#kv.set([GROUPS], groups);
   }
 
   async getViewer(token: string): Promise<Viewer | null> {

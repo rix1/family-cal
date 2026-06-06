@@ -1,5 +1,1 @@
 token,name,groups,canEdit
-demo-all,Everyone,,false
-demo-no,Family,no,false
-demo-dk,Danish family,dk,false
-demo-edit,Family editor,,true

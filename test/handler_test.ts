@@ -1,12 +1,17 @@
-import { closeStoreForTests } from "../lib/db.ts";
+import { closeStoreForTests, getStore } from "../lib/db.ts";
 import { assert, assertEquals, assertStringIncludes } from "./asserts.ts";
+import { populateTestStore } from "./fixtures.ts";
 
 Deno.env.set("KV_PATH", ":memory:");
 
 const aboutRoute = await import("../routes/about.tsx");
 const healthRoute = await import("../routes/health.ts");
 const viewRoute = await import("../routes/view/[token].tsx");
-const editRoute = await import("../routes/edit/[token].tsx");
+const adminRoute = await import("../routes/admin/index.tsx");
+const adminAuditRoute = await import("../routes/admin/audit/index.tsx");
+const adminGroupsRoute = await import("../routes/admin/groups/index.tsx");
+const adminPeopleRoute = await import("../routes/admin/people/index.tsx");
+const adminViewersRoute = await import("../routes/admin/viewers/index.tsx");
 const dataRoute = await import("../routes/api/data/[token].ts");
 const peopleRoute = await import("../routes/api/people/[token].ts");
 const auditRoute = await import("../routes/api/audit/[token].ts");
@@ -24,6 +29,7 @@ function ctx(
 function routeTest(name: string, fn: () => void | Promise<void>) {
   Deno.test(name, async () => {
     try {
+      await populateTestStore(await getStore());
       await fn();
     } finally {
       await closeStoreForTests();
@@ -33,7 +39,7 @@ function routeTest(name: string, fn: () => void | Promise<void>) {
 
 routeTest("GET /cal/<token>.ics returns that viewer's calendar", async () => {
   const res = await calRoute.handler.GET(
-    ctx("http://localhost/cal/demo-all.ics", {}, { token: "demo-all" }),
+    ctx("http://localhost/cal/view-all.ics", {}, { token: "view-all" }),
   );
   assertEquals(res.status, 200);
   assertEquals(res.headers.get("content-type"), "text/calendar; charset=utf-8");
@@ -45,7 +51,7 @@ routeTest("GET /cal/<token>.ics returns that viewer's calendar", async () => {
 routeTest("scoped token subsets people; unknown token is 404", async () => {
   const dk = await (
     await calRoute.handler.GET(
-      ctx("http://localhost/cal/demo-dk.ics", {}, { token: "demo-dk" }),
+      ctx("http://localhost/cal/view-dk.ics", {}, { token: "view-dk" }),
     )
   ).text();
   assertStringIncludes(dk, "🎂 Mette Dahl");
@@ -63,7 +69,7 @@ routeTest("scoped token subsets people; unknown token is 404", async () => {
 
 routeTest("GET /api/data/<token> scopes data and rejects unknown tokens", async () => {
   const res = await dataRoute.handler.GET(
-    ctx("http://localhost/api/data/demo-dk", {}, { token: "demo-dk" }),
+    ctx("http://localhost/api/data/view-dk", {}, { token: "view-dk" }),
   );
   assertEquals(res.status, 200);
   const data = await res.json();
@@ -83,20 +89,20 @@ routeTest(
   async () => {
     const denied = await peopleRoute.handler.POST(
       ctx(
-        "http://localhost/api/people/demo-all",
+        "http://localhost/api/people/view-all",
         {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ people: [] }),
         },
-        { token: "demo-all" },
+        { token: "view-all" },
       ),
     );
     assertEquals(denied.status, 404);
 
     const res = await peopleRoute.handler.POST(
       ctx(
-        "http://localhost/api/people/demo-edit",
+        "http://localhost/api/people/editor",
         {
           method: "POST",
           headers: { "content-type": "application/json" },
@@ -112,7 +118,7 @@ routeTest(
             ],
           }),
         },
-        { token: "demo-edit" },
+        { token: "editor" },
       ),
     );
     assertEquals(res.status, 200);
@@ -121,7 +127,7 @@ routeTest(
 
     const audit = await (
       await auditRoute.handler.GET(
-        ctx("http://localhost/api/audit/demo-edit", {}, { token: "demo-edit" }),
+        ctx("http://localhost/api/audit/editor", {}, { token: "editor" }),
       )
     ).json();
     assert(audit.audit.length > 0, "changes should be audited");
@@ -133,7 +139,7 @@ routeTest(
 routeTest("POST /api/people rejects invalid dates with 400", async () => {
   const res = await peopleRoute.handler.POST(
     ctx(
-      "http://localhost/api/people/demo-edit",
+      "http://localhost/api/people/editor",
       {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -141,7 +147,7 @@ routeTest("POST /api/people rejects invalid dates with 400", async () => {
           people: [{ name: "Bad", born: "13-40-99" }],
         }),
       },
-      { token: "demo-edit" },
+      { token: "editor" },
     ),
   );
   assertEquals(res.status, 400);
@@ -152,7 +158,7 @@ routeTest("POST /api/people rejects invalid dates with 400", async () => {
 routeTest("PATCH /api/people updates one person for editor tokens", async () => {
   const res = await peopleRoute.handler.PATCH(
     ctx(
-      "http://localhost/api/people/demo-edit",
+      "http://localhost/api/people/editor",
       {
         method: "PATCH",
         headers: { "content-type": "application/json" },
@@ -167,7 +173,7 @@ routeTest("PATCH /api/people updates one person for editor tokens", async () => 
           },
         }),
       },
-      { token: "demo-edit" },
+      { token: "editor" },
     ),
   );
   assertEquals(res.status, 200);
@@ -178,24 +184,46 @@ routeTest("/about is a zero-JS Fresh page component", () => {
   assertEquals(typeof aboutRoute.default, "function");
 });
 
-routeTest("private calendar and editor pages enforce viewer capabilities", async () => {
+routeTest("private calendar and admin pages enforce viewer capabilities", async () => {
   const calendar = await viewRoute.handlers.GET(
-    ctx("http://localhost/view/demo-dk", {}, { token: "demo-dk" }),
+    ctx("http://localhost/view/view-dk", {}, { token: "view-dk" }),
   );
   assert(!(calendar instanceof Response));
   assert(calendar.data.calendar.people.every((person) => person.group === "dk"));
   assertEquals(calendar.data.editUrl, undefined);
 
-  const result = await editRoute.handlers.GET(
-    ctx("http://localhost/edit/demo-edit", {}, { token: "demo-edit" }),
+  const entry = await adminRoute.handlers.GET(
+    ctx("http://localhost/admin/?token=editor"),
+  );
+  assert(entry instanceof Response);
+  assertEquals(entry.status, 303);
+  const cookie = entry.headers.get("set-cookie");
+  assert(cookie);
+
+  const result = await adminPeopleRoute.handlers.GET(
+    ctx("http://localhost/admin/people/", { headers: { cookie } }),
   );
   assert(!(result instanceof Response));
   assert(Array.isArray(result.data.people) && result.data.people.length > 0);
   assert(Array.isArray(result.data.groups) && result.data.groups.length === 2);
   assertEquals(result.data.viewer.name, "Family editor");
 
-  const denied = await editRoute.handlers.GET(
-    ctx("http://localhost/edit/demo-all", {}, { token: "demo-all" }),
+  for (
+    const [route, path] of [
+      [adminGroupsRoute, "groups"],
+      [adminViewersRoute, "viewers"],
+      [adminAuditRoute, "audit"],
+    ] as const
+  ) {
+    const page = await route.handlers.GET(
+      ctx(`http://localhost/admin/${path}/`, { headers: { cookie } }),
+    );
+    assert(!(page instanceof Response));
+    assertEquals(page.data.viewer.name, "Family editor");
+  }
+
+  const denied = await adminRoute.handlers.GET(
+    ctx("http://localhost/admin/?token=view-all"),
   );
   assert(denied instanceof Response);
   assertEquals(denied.status, 404);

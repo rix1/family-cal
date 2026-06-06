@@ -1,20 +1,23 @@
 import { buildFeed } from "../lib/feed.ts";
 import { SeedStore } from "../lib/store.ts";
-import { SEED_PEOPLE } from "../lib/seed.ts";
 import { assert, assertEquals, assertStringIncludes } from "./asserts.ts";
+import { TEST_GROUPS, TEST_PEOPLE, TEST_VIEWERS } from "./fixtures.ts";
 
 const fixedNow = new Date(Date.UTC(2026, 5, 1));
 const fixedStamp = new Date(Date.UTC(2026, 5, 1, 0, 0, 0));
 
 Deno.test("buildFeed produces a well-formed calendar from the seed store", async () => {
-  const ics = await buildFeed(new SeedStore(), { now: fixedNow, dtstamp: fixedStamp });
+  const ics = await buildFeed(new SeedStore(TEST_PEOPLE, TEST_GROUPS, TEST_VIEWERS), {
+    now: fixedNow,
+    dtstamp: fixedStamp,
+  });
 
   assertStringIncludes(ics, "BEGIN:VCALENDAR");
   assertStringIncludes(ics, "X-WR-CALNAME:Family Calendar");
   assert(!/[^\r]\n/.test(ics), "all newlines must be CRLF");
 
   // One recurring birthday per dated person.
-  const datedPeople = SEED_PEOPLE.filter((p) => p.born).length;
+  const datedPeople = TEST_PEOPLE.filter((p) => p.born).length;
   const rrules = (ics.match(/RRULE:FREQ=YEARLY/g) ?? []).length;
   assertEquals(rrules, datedPeople);
 
@@ -29,7 +32,7 @@ Deno.test("buildFeed produces a well-formed calendar from the seed store", async
 });
 
 Deno.test("buildFeed group filter subsets people (the per-viewer seam)", async () => {
-  const dkOnly = await buildFeed(new SeedStore(), {
+  const dkOnly = await buildFeed(new SeedStore(TEST_PEOPLE, TEST_GROUPS, TEST_VIEWERS), {
     groups: ["dk"],
     now: fixedNow,
     dtstamp: fixedStamp,
@@ -42,7 +45,7 @@ Deno.test("buildFeed group filter subsets people (the per-viewer seam)", async (
 });
 
 Deno.test("buildFeed holiday window scales with past/future years", async () => {
-  const wide = await buildFeed(new SeedStore(), {
+  const wide = await buildFeed(new SeedStore(TEST_PEOPLE, TEST_GROUPS, TEST_VIEWERS), {
     now: fixedNow,
     dtstamp: fixedStamp,
     pastYears: 0,

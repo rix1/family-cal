@@ -1,5 +1,4 @@
 import { KvStore } from "../lib/kv_store.ts";
-import { SEED_PEOPLE } from "../lib/seed.ts";
 import { assert, assertEquals } from "./asserts.ts";
 
 async function freshStore(): Promise<KvStore> {
@@ -7,13 +6,12 @@ async function freshStore(): Promise<KvStore> {
   return await KvStore.create(":memory:");
 }
 
-Deno.test("KvStore seeds people, groups and viewers on first open", async () => {
+Deno.test("KvStore is empty on first open", async () => {
   const store = await freshStore();
   try {
-    assertEquals((await store.listPeople()).length, SEED_PEOPLE.length);
-    assertEquals((await store.listGroups()).length, 2);
-    assertEquals((await store.getViewer("demo-dk"))?.groups, ["dk"]);
-    assertEquals((await store.getViewer("demo-edit"))?.canEdit, true);
+    assertEquals(await store.listPeople(), []);
+    assertEquals(await store.listGroups(), []);
+    assertEquals(await store.listViewers(), []);
     assertEquals(await store.getViewer("missing"), null);
   } finally {
     store.close();
@@ -45,6 +43,16 @@ Deno.test("KvStore upsert/get/delete round-trips a person", async () => {
 
     await store.deletePerson("test-1");
     assertEquals(await store.getPerson("test-1"), null);
+  } finally {
+    store.close();
+  }
+});
+
+Deno.test("KvStore setGroups replaces group configuration", async () => {
+  const store = await freshStore();
+  try {
+    await store.setGroups([{ key: "family", label: "Family", flag: "F" }]);
+    assertEquals(await store.listGroups(), [{ key: "family", label: "Family", flag: "F" }]);
   } finally {
     store.close();
   }

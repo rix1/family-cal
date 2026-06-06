@@ -18,6 +18,7 @@ interface Props {
   calendarUrl: string;
   saveUrl: string;
   focusPersonId?: string;
+  embedded?: boolean;
 }
 
 interface MentionMenu {
@@ -74,6 +75,7 @@ export function Editor({
   calendarUrl,
   saveUrl,
   focusPersonId = "",
+  embedded = false,
 }: Props) {
   const fallbackGroup = groups[0]?.key || "";
   const [rows, setRows] = useState<Row[]>(() => people.map((p) => toRow(p, fallbackGroup)));
@@ -267,18 +269,12 @@ export function Editor({
   }
 
   return (
-    <main class="mx-auto max-w-6xl px-4 py-8">
+    <main class={embedded ? "" : "mx-auto max-w-6xl px-4 py-8"}>
       <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <div class="flex items-center gap-3">
-            <a
-              href={calendarUrl}
-              class="text-sm font-medium text-zinc-500 hover:text-zinc-900"
-            >
-              ← Calendar
-            </a>
-            <a href="/about" class="text-sm font-medium text-zinc-500 hover:text-zinc-900">
-              About/API
+            <a href={calendarUrl} class="text-sm font-medium text-zinc-500 hover:text-zinc-900">
+              View calendar
             </a>
           </div>
           <h1 class="mt-1 text-2xl font-semibold tracking-normal">Edit family dates</h1>

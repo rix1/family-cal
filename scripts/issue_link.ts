@@ -39,16 +39,8 @@ try {
   }
 
   await store.upsertViewer(viewer);
-  const demoViewers = (await store.listViewers()).filter((existing) =>
-    existing.token.startsWith("demo-")
-  );
-  for (const demo of demoViewers) await store.deleteViewer(demo.token);
-
   const urls = accessUrls(viewer, baseUrl);
   console.log(`Issued access for ${viewer.name}`);
-  if (demoViewers.length) {
-    console.log(`Retired ${demoViewers.length} bootstrap demo capabilities`);
-  }
   console.log(`Calendar: ${urls.calendar}`);
   console.log(`iCal: ${urls.ical}`);
   if (urls.editor) console.log(`Editor: ${urls.editor}`);

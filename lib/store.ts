@@ -1,5 +1,4 @@
 import type { AuditEntry, GroupInfo, Person, Viewer } from "./model.ts";
-import { SEED_GROUPS, SEED_PEOPLE, SEED_VIEWERS } from "./seed.ts";
 
 /**
  * Storage seam. The generator, feed and edit API depend only on this interface,
@@ -13,6 +12,7 @@ export interface Store {
   deletePerson(id: string): Promise<void>;
 
   listGroups(): Promise<GroupInfo[]>;
+  setGroups(groups: GroupInfo[]): Promise<void>;
 
   getViewer(token: string): Promise<Viewer | null>;
   listViewers(): Promise<Viewer[]>;
@@ -28,7 +28,7 @@ function clone<T>(value: T): T {
   return structuredClone(value);
 }
 
-/** In-memory store backed by the seed data. Mutable; used in tests and as a fallback. */
+/** Mutable in-memory store used by domain tests. Empty unless fixtures are provided. */
 export class SeedStore implements Store {
   #people: Map<string, Person>;
   #groups: GroupInfo[];
@@ -36,9 +36,9 @@ export class SeedStore implements Store {
   #audit: AuditEntry[] = [];
 
   constructor(
-    people: Person[] = SEED_PEOPLE,
-    groups: GroupInfo[] = SEED_GROUPS,
-    viewers: Viewer[] = SEED_VIEWERS,
+    people: Person[] = [],
+    groups: GroupInfo[] = [],
+    viewers: Viewer[] = [],
   ) {
     this.#people = new Map(clone(people).map((p) => [p.id, p]));
     this.#groups = clone(groups);
@@ -70,6 +70,11 @@ export class SeedStore implements Store {
   // deno-lint-ignore require-await
   async listGroups(): Promise<GroupInfo[]> {
     return clone(this.#groups);
+  }
+
+  // deno-lint-ignore require-await
+  async setGroups(groups: GroupInfo[]): Promise<void> {
+    this.#groups = clone(groups);
   }
 
   // deno-lint-ignore require-await

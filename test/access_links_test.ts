@@ -23,6 +23,6 @@ Deno.test("accessUrls returns viewer URLs and editor URL only for editors", () =
 
   assertEquals(
     accessUrls({ ...readOnly, canEdit: true }, "https://family.example").editor,
-    "https://family.example/edit/test-token",
+    "https://family.example/admin/?token=test-token",
   );
 });

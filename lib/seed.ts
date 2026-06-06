@@ -1,15 +1,6 @@
 import type { GroupInfo, Person, Viewer } from "./model.ts";
 
-/**
- * CSV-backed seed data.
- *
- * KV is the real source of truth at runtime. These files are only used to
- * initialize a fresh KV database (and by tests/in-memory stores). Keeping seed
- * data in CSV makes it easy to inspect, diff, and bulk-edit outside the app.
- */
-
-const seedDir = (Deno.env.get("SEED_DIR") ?? "seed").replace(/\/+$/, "");
-const seedRoot = `${Deno.cwd()}/${seedDir}/`;
+/** CSV seed-file parser used only by the explicit seed command and tests. */
 
 function parseCsv(text: string): Record<string, string>[] {
   const rows: string[][] = [];
@@ -83,8 +74,3 @@ export function loadSeedData(root: string): {
   }));
   return { groups, people, viewers };
 }
-
-const seed = loadSeedData(seedRoot);
-export const SEED_GROUPS = seed.groups;
-export const SEED_PEOPLE = seed.people;
-export const SEED_VIEWERS = seed.viewers;

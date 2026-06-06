@@ -1,6 +1,7 @@
 import { applyPeople, normalizePerson, updatePerson, ValidationError } from "../lib/people.ts";
 import { SeedStore } from "../lib/store.ts";
 import { assert, assertEquals } from "./asserts.ts";
+import { TEST_GROUPS, TEST_PEOPLE, TEST_VIEWERS } from "./fixtures.ts";
 
 const groups = new Set(["no", "dk"]);
 
@@ -51,7 +52,7 @@ Deno.test("normalizePerson rejects MM-DD as a death date", () => {
 });
 
 Deno.test("applyPeople performs a full replace with audit", async () => {
-  const store = new SeedStore();
+  const store = new SeedStore(TEST_PEOPLE, TEST_GROUPS, TEST_VIEWERS);
   const before = (await store.listPeople()).length;
   assert(before > 2);
 
@@ -73,7 +74,7 @@ Deno.test("applyPeople performs a full replace with audit", async () => {
 });
 
 Deno.test("applyPeople rejects duplicate ids", async () => {
-  const store = new SeedStore();
+  const store = new SeedStore(TEST_PEOPLE, TEST_GROUPS, TEST_VIEWERS);
   let threw = false;
   try {
     await applyPeople(
@@ -88,7 +89,7 @@ Deno.test("applyPeople rejects duplicate ids", async () => {
 });
 
 Deno.test("updatePerson changes one person and audits the editor", async () => {
-  const store = new SeedStore();
+  const store = new SeedStore(TEST_PEOPLE, TEST_GROUPS, TEST_VIEWERS);
   const before = (await store.listPeople()).length;
   const updated = await updatePerson(
     store,

@@ -1,4 +1,4 @@
-import { accessUrls, createViewer } from "@/lib/access_links.ts";
+import { accessUrls, createViewer, expirePreviousViewerLinks } from "@/lib/access_links.ts";
 import { KvStore } from "@/lib/kv_store.ts";
 
 function option(name: string): string | undefined {
@@ -38,9 +38,13 @@ try {
     Deno.exit(1);
   }
 
+  const matchingViewers = await expirePreviousViewerLinks(store, viewer);
   await store.upsertViewer(viewer);
   const urls = accessUrls(viewer, baseUrl);
   console.log(`Issued access for ${viewer.name}`);
+  if (matchingViewers.length) {
+    console.log(`Expired ${matchingViewers.length} previous link(s) for ${viewer.name}`);
+  }
   console.log(`Calendar: ${urls.calendar}`);
   console.log(`iCal: ${urls.ical}`);
   if (urls.editor) console.log(`Editor: ${urls.editor}`);

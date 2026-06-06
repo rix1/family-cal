@@ -41,6 +41,12 @@ export interface Viewer {
   groups: string[];
   /** Whether this capability may load the editor and mutate family data. */
   canEdit: boolean;
+  /** Set when a newer capability is issued for the same named viewer. */
+  expiredAt?: string;
+}
+
+export function viewerIsActive(viewer: Viewer): boolean {
+  return !viewer.expiredAt;
 }
 
 /** An append-only record of a change, keyed by who made it. */

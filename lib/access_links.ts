@@ -1,4 +1,5 @@
-import type { Viewer } from "./model.ts";
+import { type Viewer, viewerIsActive } from "./model.ts";
+import type { Store } from "./store.ts";
 
 export interface AccessLinkOptions {
   name: string;
@@ -36,4 +37,20 @@ export function accessUrls(viewer: Viewer, baseUrl: string) {
     editor: viewer.canEdit ? `${base}/admin/?token=${viewer.token}` : null,
     ical: `${base}/cal/${viewer.token}.ics`,
   };
+}
+
+export async function expirePreviousViewerLinks(
+  store: Store,
+  viewer: Viewer,
+  expiredAt = new Date().toISOString(),
+): Promise<Viewer[]> {
+  const matching = (await store.listViewers()).filter((existing) =>
+    existing.token !== viewer.token &&
+    viewerIsActive(existing) &&
+    existing.name.trim().toLocaleLowerCase() === viewer.name.trim().toLocaleLowerCase()
+  );
+  for (const existing of matching) {
+    await store.upsertViewer({ ...existing, expiredAt });
+  }
+  return matching;
 }

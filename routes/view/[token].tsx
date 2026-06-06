@@ -1,15 +1,19 @@
 import { CalendarStyles } from "@/components/CalendarStyles.tsx";
 import { Calendar } from "@/islands/Calendar.tsx";
 import { getStore } from "@/lib/db.ts";
+import { viewerIsActive } from "@/lib/model.ts";
 import { calendarViewData } from "@/lib/view_data.ts";
 import { define } from "@/utils.ts";
-import { page } from "fresh";
+import { HttpError, page } from "fresh";
 
 export const handlers = define.handlers({
   async GET(ctx) {
     const store = await getStore();
     const viewer = await store.getViewer(ctx.params.token);
-    if (!viewer) return new Response("Unknown family calendar link", { status: 404 });
+    if (!viewer) throw new HttpError(404, "This family calendar link was not found.");
+    if (!viewerIsActive(viewer)) {
+      throw new HttpError(410, "This family access link has expired. Ask for a new one.");
+    }
     return page({
       calendar: await calendarViewData(store, viewer.groups),
       editUrl: viewer.canEdit ? `/admin/?token=${viewer.token}` : undefined,

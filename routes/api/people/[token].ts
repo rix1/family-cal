@@ -1,5 +1,6 @@
 import { getStore } from "@/lib/db.ts";
 import { json } from "@/lib/http.ts";
+import { viewerIsActive } from "@/lib/model.ts";
 import { applyPeople, type PersonInput, updatePerson, ValidationError } from "@/lib/people.ts";
 import { define } from "@/utils.ts";
 
@@ -7,7 +8,9 @@ export const handler = define.handlers({
   async POST(ctx) {
     const store = await getStore();
     const viewer = await store.getViewer(ctx.params.token);
-    if (!viewer?.canEdit) return json({ error: "unknown editor link" }, 404);
+    if (!viewer) return json({ error: "unknown editor link" }, 404);
+    if (!viewerIsActive(viewer)) return json({ error: "editor link expired" }, 410);
+    if (!viewer.canEdit) return json({ error: "unknown editor link" }, 404);
 
     let payload: { people?: PersonInput[] };
     try {
@@ -27,7 +30,9 @@ export const handler = define.handlers({
   async PATCH(ctx) {
     const store = await getStore();
     const viewer = await store.getViewer(ctx.params.token);
-    if (!viewer?.canEdit) return json({ error: "unknown editor link" }, 404);
+    if (!viewer) return json({ error: "unknown editor link" }, 404);
+    if (!viewerIsActive(viewer)) return json({ error: "editor link expired" }, 410);
+    if (!viewer.canEdit) return json({ error: "unknown editor link" }, 404);
 
     let payload: { id?: string; person?: PersonInput };
     try {

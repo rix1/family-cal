@@ -1,6 +1,6 @@
 import { closeStoreForTests, getStore } from "../lib/db.ts";
 import { assert, assertEquals, assertStringIncludes } from "./asserts.ts";
-import { populateTestStore } from "./fixtures.ts";
+import { populateTestStore, TEST_GROUPS } from "./fixtures.ts";
 
 Deno.env.set("KV_PATH", ":memory:");
 
@@ -16,6 +16,7 @@ const dataRoute = await import("../routes/api/data/[token].ts");
 const peopleRoute = await import("../routes/api/people/[token].ts");
 const auditRoute = await import("../routes/api/audit/[token].ts");
 const calRoute = await import("../routes/cal/[token].ics.ts");
+const main = await import("../main.ts");
 
 function ctx(
   url: string,
@@ -222,11 +223,80 @@ routeTest("private calendar and admin pages enforce viewer capabilities", async 
     assertEquals(page.data.viewer.name, "Family editor");
   }
 
+  const groupForm = new FormData();
+  for (const group of TEST_GROUPS) {
+    groupForm.append("key", group.key);
+    groupForm.append("label", group.label);
+    groupForm.append("flag", group.flag);
+  }
+  const groupSave = await adminGroupsRoute.handlers.POST(
+    ctx("http://localhost/admin/groups/", {
+      method: "POST",
+      headers: { cookie },
+      body: groupForm,
+    }),
+  );
+  assertEquals(groupSave.status, 303);
+  assertEquals(groupSave.headers.get("location"), "/admin/groups/?saved=1");
+
   const denied = await adminRoute.handlers.GET(
     ctx("http://localhost/admin/?token=view-all"),
+  ).then(
+    () => null,
+    (error) => error,
   );
-  assert(denied instanceof Response);
-  assertEquals(denied.status, 404);
+  assert(denied instanceof Error);
+  assertEquals((denied as Error & { status: number }).status, 404);
+});
+
+routeTest("expired capabilities return a specific expired response", async () => {
+  const store = await getStore();
+  await store.upsertViewer({
+    token: "expired",
+    name: "Expired viewer",
+    groups: [],
+    canEdit: true,
+    expiredAt: "2026-06-06T12:00:00Z",
+  });
+
+  const data = await dataRoute.handler.GET(
+    ctx("http://localhost/api/data/expired", {}, { token: "expired" }),
+  );
+  assertEquals(data.status, 410);
+  assertStringIncludes((await data.json()).error, "expired");
+
+  const calendar = await calRoute.handler.GET(
+    ctx("http://localhost/cal/expired.ics", {}, { token: "expired" }),
+  );
+  assertEquals(calendar.status, 410);
+  assertStringIncludes(await calendar.text(), "expired");
+
+  const pageError = await viewRoute.handlers.GET(
+    ctx("http://localhost/view/expired", {}, { token: "expired" }),
+  ).then(
+    () => null,
+    (error) => error,
+  );
+  assertEquals((pageError as Error & { status: number }).status, 410);
+  assertStringIncludes((pageError as Error).message, "Ask for a new one");
+
+  const adminError = await adminPeopleRoute.handlers.GET(
+    ctx("http://localhost/admin/people/", {
+      headers: { cookie: "family_admin=expired" },
+    }),
+  ).then(
+    () => null,
+    (error) => error,
+  );
+  assertEquals((adminError as Error & { status: number }).status, 410);
+});
+
+routeTest("unknown pages use the shared 404 template", async () => {
+  const response = await main.app.handler()(new Request("http://localhost/does-not-exist"));
+  assertEquals(response.status, 404);
+  const body = await response.text();
+  assertStringIncludes(body, "Page not found");
+  assertStringIncludes(body, "Family Calendar");
 });
 
 routeTest("GET /health returns ok", async () => {

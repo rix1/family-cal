@@ -1,5 +1,6 @@
+import { HttpError } from "fresh";
+import { type Viewer, viewerIsActive } from "./model.ts";
 import type { Store } from "./store.ts";
-import type { Viewer } from "./model.ts";
 
 const ADMIN_COOKIE = "family_admin";
 
@@ -16,13 +17,17 @@ export async function adminViewer(request: Request, store: Store): Promise<Viewe
   const token = cookieValue(request, ADMIN_COOKIE);
   if (!token) return null;
   const viewer = await store.getViewer(token);
-  return viewer?.canEdit ? viewer : null;
+  if (!viewer) return null;
+  if (!viewerIsActive(viewer)) {
+    throw new HttpError(410, "This family access link has expired. Ask for a new one.");
+  }
+  return viewer.canEdit ? viewer : null;
 }
 
 export function adminCookie(token: string): string {
   return `${ADMIN_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax`;
 }
 
-export function adminDenied(): Response {
-  return new Response("Admin access required", { status: 404 });
+export function adminDenied(): never {
+  throw new HttpError(404, "Admin access requires a current editor link.");
 }

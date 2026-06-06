@@ -54,7 +54,8 @@ and print an admin URL. On an empty database, create the first editor without
 `--groups`, then add groups at `/admin/groups/`.
 
 There is no username/password form. Possession of a private capability URL is the
-login. Share these URLs privately and replace a viewer token if it leaks.
+login. Share these URLs privately and replace a viewer token if it leaks. Issuing
+a new link with the same viewer name expires that viewer's previous active link.
 
 ## Administration
 

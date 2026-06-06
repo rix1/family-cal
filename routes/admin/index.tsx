@@ -1,7 +1,9 @@
 import { AdminShell } from "@/components/AdminShell.tsx";
 import { adminCookie, adminDenied, adminViewer } from "@/lib/admin_auth.ts";
 import { getStore } from "@/lib/db.ts";
+import { viewerIsActive } from "@/lib/model.ts";
 import { define } from "@/utils.ts";
+import { HttpError } from "fresh";
 import { page } from "fresh";
 
 export const handlers = define.handlers({
@@ -10,6 +12,9 @@ export const handlers = define.handlers({
     const token = ctx.url.searchParams.get("token");
     if (token) {
       const viewer = await store.getViewer(token);
+      if (viewer && !viewerIsActive(viewer)) {
+        throw new HttpError(410, "This family access link has expired. Ask for a new one.");
+      }
       if (!viewer?.canEdit) return adminDenied();
       return new Response(null, {
         status: 303,
@@ -42,7 +47,11 @@ export default define.page<typeof handlers>(({ data }) => (
   <>
     <title>Administration | Family Calendar</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <AdminShell current="home" viewerName={data.viewer.name}>
+    <AdminShell
+      current="home"
+      viewerName={data.viewer.name}
+      calendarUrl={`/view/${data.viewer.token}`}
+    >
       <h1 class="text-3xl font-semibold">Administration</h1>
       <p class="mt-2 text-zinc-600">Manage the family calendar's stored data.</p>
       <div class="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">

@@ -49,6 +49,19 @@ export function viewerIsActive(viewer: Viewer): boolean {
   return !viewer.expiredAt;
 }
 
+/** A reusable signup capability that creates viewer links until it expires. */
+export interface Invite {
+  token: string;
+  createdAt: string;
+  expiresAt: string;
+  /** Permission inherited by every viewer created through this invite. */
+  canEdit: boolean;
+}
+
+export function inviteIsActive(invite: Invite, now = new Date()): boolean {
+  return new Date(invite.expiresAt).getTime() > now.getTime();
+}
+
 /** An append-only record of a change, keyed by who made it. */
 export interface AuditEntry {
   /** ISO timestamp. */

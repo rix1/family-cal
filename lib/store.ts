@@ -1,4 +1,4 @@
-import type { AuditEntry, GroupInfo, Person, Viewer } from "./model.ts";
+import type { AuditEntry, GroupInfo, Invite, Person, Viewer } from "./model.ts";
 
 /**
  * Storage seam. The generator, feed and edit API depend only on this interface,
@@ -19,6 +19,11 @@ export interface Store {
   upsertViewer(viewer: Viewer): Promise<Viewer>;
   deleteViewer(token: string): Promise<void>;
 
+  getInvite(token: string): Promise<Invite | null>;
+  listInvites(): Promise<Invite[]>;
+  upsertInvite(invite: Invite): Promise<Invite>;
+  deleteInvite(token: string): Promise<void>;
+
   appendAudit(entry: AuditEntry): Promise<void>;
   /** Most-recent-first. */
   listAudit(limit?: number): Promise<AuditEntry[]>;
@@ -33,16 +38,19 @@ export class SeedStore implements Store {
   #people: Map<string, Person>;
   #groups: GroupInfo[];
   #viewers: Map<string, Viewer>;
+  #invites: Map<string, Invite>;
   #audit: AuditEntry[] = [];
 
   constructor(
     people: Person[] = [],
     groups: GroupInfo[] = [],
     viewers: Viewer[] = [],
+    invites: Invite[] = [],
   ) {
     this.#people = new Map(clone(people).map((p) => [p.id, p]));
     this.#groups = clone(groups);
     this.#viewers = new Map(clone(viewers).map((v) => [v.token, v]));
+    this.#invites = new Map(clone(invites).map((invite) => [invite.token, invite]));
   }
 
   // deno-lint-ignore require-await
@@ -97,6 +105,28 @@ export class SeedStore implements Store {
   // deno-lint-ignore require-await
   async deleteViewer(token: string): Promise<void> {
     this.#viewers.delete(token);
+  }
+
+  // deno-lint-ignore require-await
+  async getInvite(token: string): Promise<Invite | null> {
+    const invite = this.#invites.get(token);
+    return invite ? clone(invite) : null;
+  }
+
+  // deno-lint-ignore require-await
+  async listInvites(): Promise<Invite[]> {
+    return clone([...this.#invites.values()]);
+  }
+
+  // deno-lint-ignore require-await
+  async upsertInvite(invite: Invite): Promise<Invite> {
+    this.#invites.set(invite.token, clone(invite));
+    return clone(invite);
+  }
+
+  // deno-lint-ignore require-await
+  async deleteInvite(token: string): Promise<void> {
+    this.#invites.delete(token);
   }
 
   // deno-lint-ignore require-await

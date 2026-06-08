@@ -13,6 +13,8 @@ Deno.test("KvStore is empty on first open", async () => {
     assertEquals(await store.listGroups(), []);
     assertEquals(await store.listViewers(), []);
     assertEquals(await store.getViewer("missing"), null);
+    assertEquals(await store.listInvites(), []);
+    assertEquals(await store.getInvite("missing"), null);
   } finally {
     store.close();
   }
@@ -99,6 +101,25 @@ Deno.test("KvStore upsertViewer persists issued capabilities", async () => {
     });
     await store.deleteViewer("issued-token");
     assertEquals(await store.getViewer("issued-token"), null);
+  } finally {
+    store.close();
+  }
+});
+
+Deno.test("KvStore persists invite capabilities", async () => {
+  const store = await freshStore();
+  try {
+    const invite = {
+      token: "family-invite",
+      createdAt: "2026-06-08T12:00:00Z",
+      expiresAt: "2026-06-15T12:00:00Z",
+      canEdit: true,
+    };
+    await store.upsertInvite(invite);
+    assertEquals(await store.getInvite(invite.token), invite);
+    assertEquals(await store.listInvites(), [invite]);
+    await store.deleteInvite(invite.token);
+    assertEquals(await store.getInvite(invite.token), null);
   } finally {
     store.close();
   }

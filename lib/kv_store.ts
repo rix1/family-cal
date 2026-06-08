@@ -1,9 +1,10 @@
-import type { AuditEntry, GroupInfo, Person, Viewer } from "./model.ts";
+import type { AuditEntry, GroupInfo, Invite, Person, Viewer } from "./model.ts";
 import type { Store } from "./store.ts";
 
 const PEOPLE = "people";
 const GROUPS = "groups";
 const VIEWERS = "viewers";
+const INVITES = "invites";
 const AUDIT = "audit";
 
 /** Store backed by Deno KV. Same contract as SeedStore; the deploy target. */
@@ -71,6 +72,28 @@ export class KvStore implements Store {
 
   async deleteViewer(token: string): Promise<void> {
     await this.#kv.delete([VIEWERS, token]);
+  }
+
+  async getInvite(token: string): Promise<Invite | null> {
+    const res = await this.#kv.get<Invite>([INVITES, token]);
+    return res.value ?? null;
+  }
+
+  async listInvites(): Promise<Invite[]> {
+    const out: Invite[] = [];
+    for await (const entry of this.#kv.list<Invite>({ prefix: [INVITES] })) {
+      out.push(entry.value);
+    }
+    return out;
+  }
+
+  async upsertInvite(invite: Invite): Promise<Invite> {
+    await this.#kv.set([INVITES, invite.token], invite);
+    return invite;
+  }
+
+  async deleteInvite(token: string): Promise<void> {
+    await this.#kv.delete([INVITES, token]);
   }
 
   async appendAudit(entry: AuditEntry): Promise<void> {

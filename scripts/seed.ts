@@ -6,12 +6,14 @@ const seedDir = Deno.args.find((arg) => !arg.startsWith("--")) ?? "seed";
 const store = await KvStore.create(Deno.env.get("KV_PATH"));
 
 try {
-  const [people, groups, viewers] = await Promise.all([
+  const [people, groups, viewers, invites] = await Promise.all([
     store.listPeople(),
     store.listGroups(),
     store.listViewers(),
+    store.listInvites(),
   ]);
-  const hasData = people.length > 0 || groups.length > 0 || viewers.length > 0;
+  const hasData = people.length > 0 || groups.length > 0 || viewers.length > 0 ||
+    invites.length > 0;
   if (hasData && !force) {
     console.error("Database is not empty. Re-run with --force to replace its seeded records.");
     Deno.exit(1);
@@ -21,6 +23,7 @@ try {
   if (force) {
     for (const person of people) await store.deletePerson(person.id);
     for (const viewer of viewers) await store.deleteViewer(viewer.token);
+    for (const invite of invites) await store.deleteInvite(invite.token);
   }
   await store.setGroups(seed.groups);
   for (const person of seed.people) await store.upsertPerson(person);

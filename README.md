@@ -30,7 +30,7 @@ The database starts empty. There are two ways to populate it:
 2. Issue an editor link, open the admin, and enter your own groups and people.
 
 The seed command refuses to modify a non-empty database. Use `--force` to clear
-people and viewers and replace groups before loading:
+people, viewers, and invites and replace groups before loading:
 
 ```sh
 KV_PATH=/path/to/family-cal.db deno task seed --force
@@ -60,6 +60,20 @@ sessions. Share capability URLs privately and replace a viewer token if it leaks
 Issuing a new link with the same viewer name expires that viewer's previous active
 link.
 
+## Family invites
+
+Editors can create reusable, expiring signup links at `/admin/invites/`. Choose an
+expiry and share the generated URL privately. Until it expires, each person who
+opens it:
+
+1. Enters their name.
+2. Selects the family groups that apply to them.
+3. Receives a new private viewer link and is signed in automatically.
+
+Viewer links created through family invites have administrator permission by
+default. Each person receives an independent capability, while the invite itself
+can be reused by multiple family members until its expiry.
+
 ## Administration
 
 Open the admin URL printed by `issue-link --edit`. It validates the editor token,
@@ -68,6 +82,7 @@ stores it in an HttpOnly session cookie, and redirects to `/admin/`.
 - `/admin/people/` edits people in a batch table and exports `people.csv`.
 - `/admin/groups/` edits family groups.
 - `/admin/viewers/` lists issued capabilities and their permissions.
+- `/admin/invites/` creates and lists expiring family signup links.
 - `/admin/audit/` shows person changes attributed to editors.
 
 Person details can also be edited directly from the calendar flyout by an editor.
@@ -79,8 +94,9 @@ their death.
 
 ## Permissions
 
-Every issued viewer is view-only by default. The stored property is
-`Viewer.canEdit`, which defaults to `false`.
+Viewer links issued directly are view-only by default. The stored property is
+`Viewer.canEdit`, which defaults to `false` for direct issuance. Viewer links
+created by family invite signup default to `true`.
 
 Create an editor at issuance time:
 

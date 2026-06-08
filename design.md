@@ -35,5 +35,8 @@ Professional, warm, and calm. The page should feel like a lightweight family ope
 - Editors enter through `/admin/?token=<editor-token>` and then use the canonical `/admin/*`
   pages. The people admin saves through `POST /api/people/<editor-token>` and can export
   `people.csv` as a backup/seed artifact.
+- Reusable `/invite/<token>` links expire at a configured time. Each signup creates
+  a separate editor viewer using the person's submitted name and selected groups,
+  then redirects through the normal viewer login route.
 - Per-viewer iCal feeds are served from `/cal/<token>.ics` and subset by the viewer's groups.
 - Current person schema: `{ id, name, born, died, groups, notes }`, where `born` is `YYYY-MM-DD`, `MM-DD`, or `null`, and `died` is a full `YYYY-MM-DD` or `null`.

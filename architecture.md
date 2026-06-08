@@ -189,6 +189,9 @@ Completed:
 5. Edit API writes to KV and records audit entries.
 6. Capability issuance is available through `deno task issue-link`; editors use
    `/admin/*` and can manage people and groups.
+7. Editors can create reusable expiring invite capabilities. Each redemption
+   creates an independent editor viewer with user-selected groups and establishes
+   the normal viewer session.
 
 Next:
 
@@ -208,6 +211,5 @@ Next:
 
 ## Open questions
 
-- Token issuance/rotation UX (how a new relative gets onboarded).
 - Whether one-time life events also warrant a separate **timeline** view, or just
   live on a person profile.

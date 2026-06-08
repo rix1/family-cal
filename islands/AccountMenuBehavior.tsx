@@ -6,13 +6,14 @@ export function AccountMenuBehavior() {
   useEffect(() => {
     const menu = marker.current?.closest("details");
     if (!menu) return;
+    const accountMenu = menu;
 
     function closeOnOutsideClick(event: PointerEvent) {
-      if (!menu.contains(event.target as Node)) menu.removeAttribute("open");
+      if (!accountMenu.contains(event.target as Node)) accountMenu.removeAttribute("open");
     }
 
     function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") menu.removeAttribute("open");
+      if (event.key === "Escape") accountMenu.removeAttribute("open");
     }
 
     document.addEventListener("pointerdown", closeOnOutsideClick);

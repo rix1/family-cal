@@ -8,6 +8,7 @@ const aboutRoute = await import("../routes/about.tsx");
 const calendarPageRoute = await import("../routes/calendar/index.tsx");
 const healthRoute = await import("../routes/health.ts");
 const indexRoute = await import("../routes/index.tsx");
+const inviteRoute = await import("../routes/invite/[token].tsx");
 const logoutRoute = await import("../routes/logout.ts");
 const viewRoute = await import("../routes/view/[token].tsx");
 const adminRoute = await import("../routes/admin/index.tsx");
@@ -326,6 +327,70 @@ routeTest("admin can issue a new viewer link", async () => {
   assertEquals(result.data.created?.viewer.token, token);
   assertStringIncludes(result.data.created?.urls.calendar ?? "", `/view/${token}`);
   assertStringIncludes(result.data.created?.urls.editor ?? "", `/admin/?token=${token}`);
+});
+
+routeTest("family members can redeem an active invite and sign in as editors", async () => {
+  const store = await getStore();
+  await store.upsertInvite({
+    token: "join-family",
+    createdAt: "2026-06-08T10:00:00Z",
+    expiresAt: "2099-06-15T10:00:00Z",
+    canEdit: true,
+  });
+
+  const invitePage = await inviteRoute.handlers.GET(
+    ctx("http://localhost/invite/join-family", {}, { token: "join-family" }),
+  );
+  assert(!(invitePage instanceof Response));
+  assertEquals(invitePage.data.groups, TEST_GROUPS);
+
+  const form = new FormData();
+  form.set("name", "New family member");
+  form.append("groups", "no");
+  const signup = await inviteRoute.handlers.POST(
+    ctx(
+      "http://localhost/invite/join-family",
+      { method: "POST", body: form },
+      { token: "join-family" },
+    ),
+  );
+  assertEquals(signup.status, 303);
+  const location = signup.headers.get("location") ?? "";
+  assertStringIncludes(location, "/view/");
+  const viewerToken = location.split("/").at(-1);
+  assert(viewerToken);
+  const viewer = await store.getViewer(viewerToken);
+  assertEquals(viewer?.name, "New family member");
+  assertEquals(viewer?.groups, ["no"]);
+  assertEquals(viewer?.canEdit, true);
+
+  const login = await viewRoute.handlers.GET(
+    ctx(`http://localhost${location}`, {}, { token: viewerToken }),
+  );
+  assertEquals(login.status, 303);
+  const cookies = responseCookies(login);
+  assertStringIncludes(cookies, `family_viewer=${viewerToken}`);
+  assertStringIncludes(cookies, `family_admin=${viewerToken}`);
+});
+
+routeTest("expired family invites cannot be redeemed", async () => {
+  const store = await getStore();
+  await store.upsertInvite({
+    token: "expired-invite",
+    createdAt: "2020-01-01T00:00:00Z",
+    expiresAt: "2020-01-02T00:00:00Z",
+    canEdit: true,
+  });
+  let error: unknown;
+  try {
+    await inviteRoute.handlers.GET(
+      ctx("http://localhost/invite/expired-invite", {}, { token: "expired-invite" }),
+    );
+  } catch (cause) {
+    error = cause;
+  }
+  assert(error instanceof Error);
+  assertEquals((error as { status?: number }).status, 410);
 });
 
 routeTest("expired capabilities return a specific expired response", async () => {

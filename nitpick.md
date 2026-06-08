@@ -17,7 +17,6 @@
 - [x] UX improvement: store token in cookie or localstorage. Means we also need a way to "log out"
 - [x] Invite improvement: Add a "new" button to /admin/viewers/ to issue new links (with click to copy)
 
-
 ## other
 - [x] add dark mode
 - [x] add a persistent theme toggle button
@@ -26,3 +25,9 @@
 - [x] need to fix the filters: make them dropdown checkbox select instead of pills
 - [x] deselecting the final filter must not reselect every option
 - [x] clicking outside a filter popover closes it
+
+
+## Nav
+
+- [x] Redesign right part of the navbar: Move most items into a dropdown (keep today), under the viewer name with initials as avatar. and ditch the silly emojis.
+- [x] Use the same nav across all pages (/about)

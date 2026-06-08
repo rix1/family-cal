@@ -188,8 +188,16 @@ routeTest("PATCH /api/people updates one person for editor tokens", async () => 
   assertEquals((await res.json()).person.name, "Solveig Updated");
 });
 
-routeTest("/about is a zero-JS Fresh page component", () => {
+routeTest("/about uses the current viewer session in shared navigation", async () => {
   assertEquals(typeof aboutRoute.default, "function");
+  const result = await aboutRoute.handlers.GET(
+    ctx("http://localhost/about", {
+      headers: { cookie: "family_viewer=editor" },
+    }),
+  );
+  assert(!(result instanceof Response));
+  assertEquals(result.data.viewerName, "Family editor");
+  assertEquals(result.data.adminUrl, "/admin/");
 });
 
 routeTest("private calendar and admin pages enforce viewer capabilities", async () => {
@@ -207,6 +215,7 @@ routeTest("private calendar and admin pages enforce viewer capabilities", async 
   );
   assert(!(calendar instanceof Response));
   assert(calendar.data.calendar.people.every((person) => person.group === "dk"));
+  assertEquals(calendar.data.viewerName, "Danish family");
   assertEquals(calendar.data.editUrl, undefined);
 
   const entry = await adminRoute.handlers.GET(

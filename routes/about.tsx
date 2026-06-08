@@ -1,6 +1,20 @@
+import { AppHeader } from "@/components/AppHeader.tsx";
+import { getStore } from "@/lib/db.ts";
+import { sessionViewer } from "@/lib/viewer_auth.ts";
 import { define } from "@/utils.ts";
+import { page } from "fresh";
 
-export default define.page(function About() {
+export const handlers = define.handlers({
+  async GET(ctx) {
+    const viewer = await sessionViewer(ctx.req, await getStore());
+    return page({
+      viewerName: viewer?.name,
+      adminUrl: viewer?.canEdit ? "/admin/" : undefined,
+    });
+  },
+});
+
+export default define.page<typeof handlers>(function About({ data }) {
   return (
     <>
       <title>About Family Calendar</title>
@@ -9,14 +23,10 @@ export default define.page(function About() {
           :root { color-scheme: light; --paper:#f6f1e8; --ink:#1d2422; --muted:#68736f; --line:#e4dccf; --teal:#0f766e; --surface:#fffaf1; }
           body { margin:0; background:var(--paper); color:var(--ink); font-size:16px; line-height:1.55; }
           .about-main { max-width: 860px; margin: 0 auto; padding: 40px 20px 80px; }
-          .about-nav { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:28px; }
-          .about-link { color: var(--teal); font-weight: 650; text-decoration: none; }
-          .about-link:hover { text-decoration: underline; }
-          .about-pill { border:1px solid var(--line); background:var(--surface); border-radius:999px; padding:8px 12px; color:var(--ink); }
           .about-title { font-size: clamp(2rem, 5vw, 3.5rem); line-height:1; margin: 0 0 12px; }
           .about-section h2 { margin-top:0; }
           .about-main p, .about-main li { color: var(--muted); }
-          .about-section { border:1px solid var(--line); background:rgba(255,250,241,.72); border-radius:18px; padding:18px 20px; margin:16px 0; }
+          .about-section { overflow-x:auto; border:1px solid var(--line); background:rgba(255,250,241,.72); border-radius:18px; padding:18px 20px; margin:16px 0; }
           .about-code { background:#efe8dc; border-radius:6px; padding:2px 6px; color:var(--ink); }
           .about-table { width:100%; border-collapse: collapse; font-size: .95rem; }
           .about-table th, .about-table td { text-align:left; border-bottom:1px solid var(--line); padding:10px 8px; vertical-align:top; }
@@ -29,11 +39,16 @@ export default define.page(function About() {
         `}
       </style>
 
-      <main class="about-main">
-        <nav class="about-nav" aria-label="Main navigation">
-          <a class="about-link about-pill" href="/">Access page</a>
-        </nav>
+      <AppHeader
+        title="About"
+        viewerName={data.viewerName}
+        calendarUrl={data.viewerName ? "/calendar/" : undefined}
+        adminUrl={data.adminUrl}
+        aboutUrl={null}
+        logoutUrl={data.viewerName ? "/logout" : undefined}
+      />
 
+      <main class="about-main">
         <h1 class="about-title">Family Calendar</h1>
         <p>
           A private family calendar prototype for birthdays and other important dates, backed by

@@ -13,6 +13,7 @@ export const handlers = define.handlers({
     if (!viewer) throw new HttpError(404, "This calendar requires a family access link.");
     return page({
       calendar: await calendarViewData(store, viewer.groups),
+      viewerName: viewer.name,
       editUrl: viewer.canEdit ? "/admin/" : undefined,
       saveUrl: viewer.canEdit ? `/api/people/${viewer.token}` : undefined,
     });
@@ -26,6 +27,7 @@ export default define.page<typeof handlers>(({ data }) => (
     <CalendarStyles />
     <Calendar
       {...data.calendar}
+      viewerName={data.viewerName}
       editUrl={data.editUrl}
       saveUrl={data.saveUrl}
       logoutUrl="/logout"

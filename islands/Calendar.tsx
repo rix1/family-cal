@@ -1,3 +1,4 @@
+import { AppHeader } from "@/components/AppHeader.tsx";
 import type { CalendarViewData, ViewPerson } from "@/lib/view_data.ts";
 import { ageAtDate } from "@/lib/dates.ts";
 import { retainAvailable, toggleSelection } from "@/lib/filter_selection.ts";
@@ -104,6 +105,7 @@ function countryPills(countries: Array<"NO" | "DK">) {
 }
 
 interface CalendarProps extends CalendarViewData {
+  viewerName: string;
   editUrl?: string;
   saveUrl?: string;
   logoutUrl?: string;
@@ -190,6 +192,7 @@ function FilterDropdown({
 }
 
 export function Calendar({
+  viewerName,
   groups,
   people: initialPeople,
   holidays,
@@ -961,60 +964,25 @@ export function Calendar({
 
   return (
     <>
-      <header class="topbar sticky top-0 z-20 border-b backdrop-blur-xl">
-        <div class="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-4">
-          <div class="min-w-0">
-            <p class="eyebrow text-xs font-semibold uppercase">
-              Family calendar
-            </p>
-            <h1 class="mt-1 truncate text-xl font-semibold tracking-normal sm:text-2xl">
-              {longDateFormatter.format(today)}
-            </h1>
-          </div>
-          <div class="flex shrink-0 items-center gap-2">
-            <a
-              href="/about"
-              class="action action-secondary"
-              title="About and API docs"
-            >
-              <span aria-hidden="true">ℹ️</span>
-              <span class="hidden sm:inline">About</span>
-            </a>
-            {editUrl && (
-              <a
-                href={editUrl}
-                class="action action-secondary"
-                title="Open administration"
-              >
-                <span aria-hidden="true">✏️</span>
-                <span class="hidden sm:inline">Admin</span>
-              </a>
-            )}
-            {logoutUrl && (
-              <a href={logoutUrl} class="action action-secondary" title="Log out">
-                <span aria-hidden="true">↪</span>
-                <span class="hidden sm:inline">Log out</span>
-              </a>
-            )}
-            <button
-              type="button"
-              class="action action-secondary"
-              onClick={downloadIcs}
-              title="Download an .ics file"
-            >
-              <span aria-hidden="true">📆</span>
-              <span class="hidden sm:inline">Export .ics</span>
-            </button>
-            <button
-              type="button"
-              class="action action-primary"
-              onClick={scrollToToday}
-            >
-              Today
-            </button>
-          </div>
-        </div>
-      </header>
+      <AppHeader
+        title={longDateFormatter.format(today)}
+        viewerName={viewerName}
+        adminUrl={editUrl}
+        logoutUrl={logoutUrl}
+        menuChildren={
+          <button type="button" onClick={downloadIcs}>
+            Export .ics
+          </button>
+        }
+      >
+        <button
+          type="button"
+          class="action action-primary"
+          onClick={scrollToToday}
+        >
+          Today
+        </button>
+      </AppHeader>
 
       <main class="mx-auto max-w-5xl px-4 pb-20 pt-6">
         <section class="mb-6 grid gap-3 sm:grid-cols-3">

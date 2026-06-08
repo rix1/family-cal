@@ -1,4 +1,5 @@
 import type { ComponentChildren } from "preact";
+import { AccountMenuBehavior } from "@/islands/AccountMenuBehavior.tsx";
 import { ThemeToggle } from "@/islands/ThemeToggle.tsx";
 
 interface Props {
@@ -43,6 +44,7 @@ export function AppHeader({
           {viewerName
             ? (
               <details class="account-menu">
+                <AccountMenuBehavior />
                 <summary aria-label={`Open menu for ${viewerName}`}>
                   <span class="account-avatar" aria-hidden="true">
                     {viewerInitials(viewerName)}

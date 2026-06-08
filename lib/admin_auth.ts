@@ -1,17 +1,7 @@
 import { HttpError } from "fresh";
+import { ADMIN_COOKIE, cookieValue, sessionCookie } from "./auth_cookies.ts";
 import { type Viewer, viewerIsActive } from "./model.ts";
 import type { Store } from "./store.ts";
-
-const ADMIN_COOKIE = "family_admin";
-
-function cookieValue(request: Request, name: string): string | null {
-  const cookies = request.headers.get("cookie") ?? "";
-  for (const part of cookies.split(";")) {
-    const [key, ...value] = part.trim().split("=");
-    if (key === name) return decodeURIComponent(value.join("="));
-  }
-  return null;
-}
 
 export async function adminViewer(request: Request, store: Store): Promise<Viewer | null> {
   const token = cookieValue(request, ADMIN_COOKIE);
@@ -25,7 +15,7 @@ export async function adminViewer(request: Request, store: Store): Promise<Viewe
 }
 
 export function adminCookie(token: string): string {
-  return `${ADMIN_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax`;
+  return sessionCookie(ADMIN_COOKIE, token);
 }
 
 export function adminDenied(): never {

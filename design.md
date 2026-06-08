@@ -30,7 +30,8 @@ Professional, warm, and calm. The page should feel like a lightweight family ope
 
 - Runtime source of truth is Deno KV, accessed through Fresh routes/API.
 - New KV stores are empty. `deno task seed` explicitly loads optional CSV files from `seed/`.
-- Private calendar pages are served at `/view/<token>` and data at `/api/data/<token>`.
+- Private `/view/<token>` links establish an HttpOnly session and redirect to the
+  canonical `/calendar/` page; data remains available at `/api/data/<token>`.
 - Editors enter through `/admin/?token=<editor-token>` and then use the canonical `/admin/*`
   pages. The people admin saves through `POST /api/people/<editor-token>` and can export
   `people.csv` as a backup/seed artifact.

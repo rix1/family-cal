@@ -2,6 +2,7 @@ import { AdminShell } from "@/components/AdminShell.tsx";
 import { adminCookie, adminDenied, adminViewer } from "@/lib/admin_auth.ts";
 import { getStore } from "@/lib/db.ts";
 import { viewerIsActive } from "@/lib/model.ts";
+import { viewerCookie } from "@/lib/viewer_auth.ts";
 import { define } from "@/utils.ts";
 import { HttpError } from "fresh";
 import { page } from "fresh";
@@ -16,13 +17,10 @@ export const handlers = define.handlers({
         throw new HttpError(410, "This family access link has expired. Ask for a new one.");
       }
       if (!viewer?.canEdit) return adminDenied();
-      return new Response(null, {
-        status: 303,
-        headers: {
-          location: "/admin/",
-          "set-cookie": adminCookie(token),
-        },
-      });
+      const headers = new Headers({ location: "/admin/" });
+      headers.append("set-cookie", adminCookie(token));
+      headers.append("set-cookie", viewerCookie(token));
+      return new Response(null, { status: 303, headers });
     }
 
     const viewer = await adminViewer(ctx.req, store);
@@ -50,7 +48,7 @@ export default define.page<typeof handlers>(({ data }) => (
     <AdminShell
       current="home"
       viewerName={data.viewer.name}
-      calendarUrl={`/view/${data.viewer.token}`}
+      calendarUrl="/calendar/"
     >
       <h1 class="text-3xl font-semibold">Administration</h1>
       <p class="mt-2 text-zinc-600">Manage the family calendar's stored data.</p>

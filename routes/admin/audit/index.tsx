@@ -20,7 +20,7 @@ export default define.page<typeof handlers>(({ data }) => (
     <AdminShell
       current="audit"
       viewerName={data.viewer.name}
-      calendarUrl={`/view/${data.viewer.token}`}
+      calendarUrl="/calendar/"
     >
       <h1 class="text-3xl font-semibold">Audit</h1>
       <p class="mt-2 text-zinc-600">Most recent changes first.</p>

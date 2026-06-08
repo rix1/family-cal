@@ -49,7 +49,7 @@ export default define.page<typeof handlers>(({ data }) => {
       <AdminShell
         current="groups"
         viewerName={data.viewer.name}
-        calendarUrl={`/view/${data.viewer.token}`}
+        calendarUrl="/calendar/"
       >
         <h1 class="text-3xl font-semibold">Groups</h1>
         <p class="mt-2 text-zinc-600">Family tags used for viewer-specific calendars.</p>

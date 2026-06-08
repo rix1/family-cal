@@ -27,7 +27,7 @@ export default define.page<typeof handlers>(({ data }) => (
     <AdminShell
       current="people"
       viewerName={data.viewer.name}
-      calendarUrl={`/view/${data.viewer.token}`}
+      calendarUrl="/calendar/"
     >
       <Editor
         groups={data.groups}

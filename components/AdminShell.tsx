@@ -19,16 +19,24 @@ export function AdminShell({ current, viewerName, calendarUrl, children }: Props
   return (
     <div class="min-h-screen bg-zinc-50 text-zinc-950">
       <header class="border-b border-zinc-200 bg-white">
-        <div class="mx-auto flex max-w-7xl items-center justify-between px-5 py-3">
+        <div class="mx-auto flex max-w-7xl items-center justify-between gap-3 px-5 py-3">
           <a href="/admin/" class="font-semibold">Family Calendar Admin</a>
-          {calendarUrl && (
+          <div class="flex items-center gap-2">
+            {calendarUrl && (
+              <a
+                href={calendarUrl}
+                class="rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+              >
+                View calendar
+              </a>
+            )}
             <a
-              href={calendarUrl}
+              href="/logout"
               class="rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
             >
-              View calendar
+              Log out
             </a>
-          )}
+          </div>
         </div>
       </header>
       <div class="mx-auto grid max-w-7xl md:min-h-[calc(100vh-65px)] md:grid-cols-[220px_1fr]">

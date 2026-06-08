@@ -1,10 +1,9 @@
-import { CalendarStyles } from "@/components/CalendarStyles.tsx";
-import { Calendar } from "@/islands/Calendar.tsx";
+import { adminCookie } from "@/lib/admin_auth.ts";
 import { getStore } from "@/lib/db.ts";
 import { viewerIsActive } from "@/lib/model.ts";
-import { calendarViewData } from "@/lib/view_data.ts";
+import { viewerCookie } from "@/lib/viewer_auth.ts";
 import { define } from "@/utils.ts";
-import { HttpError, page } from "fresh";
+import { HttpError } from "fresh";
 
 export const handlers = define.handlers({
   async GET(ctx) {
@@ -14,21 +13,9 @@ export const handlers = define.handlers({
     if (!viewerIsActive(viewer)) {
       throw new HttpError(410, "This family access link has expired. Ask for a new one.");
     }
-    return page({
-      calendar: await calendarViewData(store, viewer.groups),
-      editUrl: viewer.canEdit ? `/admin/?token=${viewer.token}` : undefined,
-      saveUrl: viewer.canEdit ? `/api/people/${viewer.token}` : undefined,
-    });
+    const headers = new Headers({ location: "/calendar/" });
+    headers.append("set-cookie", viewerCookie(viewer.token));
+    if (viewer.canEdit) headers.append("set-cookie", adminCookie(viewer.token));
+    return new Response(null, { status: 303, headers });
   },
-});
-
-export default define.page<typeof handlers>(({ data }) => {
-  return (
-    <>
-      <title>Family Calendar</title>
-      <script src="https://cdn.tailwindcss.com"></script>
-      <CalendarStyles />
-      <Calendar {...data.calendar} editUrl={data.editUrl} saveUrl={data.saveUrl} />
-    </>
-  );
 });

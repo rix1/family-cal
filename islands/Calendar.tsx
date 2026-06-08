@@ -106,6 +106,7 @@ function countryPills(countries: Array<"NO" | "DK">) {
 interface CalendarProps extends CalendarViewData {
   editUrl?: string;
   saveUrl?: string;
+  logoutUrl?: string;
 }
 
 interface PersonDraft {
@@ -194,6 +195,7 @@ export function Calendar({
   holidays,
   editUrl,
   saveUrl,
+  logoutUrl,
 }: CalendarProps) {
   const [people, setPeople] = useState(initialPeople);
   const [query, setQuery] = useState("");
@@ -986,6 +988,12 @@ export function Calendar({
               >
                 <span aria-hidden="true">✏️</span>
                 <span class="hidden sm:inline">Admin</span>
+              </a>
+            )}
+            {logoutUrl && (
+              <a href={logoutUrl} class="action action-secondary" title="Log out">
+                <span aria-hidden="true">↪</span>
+                <span class="hidden sm:inline">Log out</span>
               </a>
             )}
             <button

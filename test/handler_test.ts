@@ -5,7 +5,10 @@ import { populateTestStore, TEST_GROUPS } from "./fixtures.ts";
 Deno.env.set("KV_PATH", ":memory:");
 
 const aboutRoute = await import("../routes/about.tsx");
+const calendarPageRoute = await import("../routes/calendar/index.tsx");
 const healthRoute = await import("../routes/health.ts");
+const indexRoute = await import("../routes/index.tsx");
+const logoutRoute = await import("../routes/logout.ts");
 const viewRoute = await import("../routes/view/[token].tsx");
 const adminRoute = await import("../routes/admin/index.tsx");
 const adminAuditRoute = await import("../routes/admin/audit/index.tsx");
@@ -36,6 +39,10 @@ function routeTest(name: string, fn: () => void | Promise<void>) {
       await closeStoreForTests();
     }
   });
+}
+
+function responseCookies(response: Response): string {
+  return response.headers.getSetCookie().map((cookie) => cookie.split(";")[0]).join("; ");
 }
 
 routeTest("GET /cal/<token>.ics returns that viewer's calendar", async () => {
@@ -186,8 +193,17 @@ routeTest("/about is a zero-JS Fresh page component", () => {
 });
 
 routeTest("private calendar and admin pages enforce viewer capabilities", async () => {
-  const calendar = await viewRoute.handlers.GET(
+  const login = await viewRoute.handlers.GET(
     ctx("http://localhost/view/view-dk", {}, { token: "view-dk" }),
+  );
+  assert(login instanceof Response);
+  assertEquals(login.status, 303);
+  assertEquals(login.headers.get("location"), "/calendar/");
+  const viewerCookies = responseCookies(login);
+  assertStringIncludes(viewerCookies, "family_viewer=view-dk");
+
+  const calendar = await calendarPageRoute.handlers.GET(
+    ctx("http://localhost/calendar/", { headers: { cookie: viewerCookies } }),
   );
   assert(!(calendar instanceof Response));
   assert(calendar.data.calendar.people.every((person) => person.group === "dk"));
@@ -198,8 +214,9 @@ routeTest("private calendar and admin pages enforce viewer capabilities", async 
   );
   assert(entry instanceof Response);
   assertEquals(entry.status, 303);
-  const cookie = entry.headers.get("set-cookie");
-  assert(cookie);
+  const cookie = responseCookies(entry);
+  assertStringIncludes(cookie, "family_admin=editor");
+  assertStringIncludes(cookie, "family_viewer=editor");
 
   const result = await adminPeopleRoute.handlers.GET(
     ctx("http://localhost/admin/people/", { headers: { cookie } }),
@@ -247,6 +264,25 @@ routeTest("private calendar and admin pages enforce viewer capabilities", async 
   );
   assert(denied instanceof Error);
   assertEquals((denied as Error & { status: number }).status, 404);
+});
+
+routeTest("remembered viewer sessions redirect home and logout clears access", async () => {
+  const cookie = "family_viewer=view-all";
+  const home = await indexRoute.handlers.GET(
+    ctx("http://localhost/", { headers: { cookie } }),
+  );
+  assert(home instanceof Response);
+  assertEquals(home.status, 303);
+  assertEquals(home.headers.get("location"), "/calendar/");
+
+  const logout = logoutRoute.handler.GET();
+  assertEquals(logout.status, 303);
+  assertEquals(logout.headers.get("location"), "/");
+  const cleared = logout.headers.getSetCookie();
+  assert(
+    cleared.some((value) => value.startsWith("family_viewer=") && value.includes("Max-Age=0")),
+  );
+  assert(cleared.some((value) => value.startsWith("family_admin=") && value.includes("Max-Age=0")));
 });
 
 routeTest("expired capabilities return a specific expired response", async () => {

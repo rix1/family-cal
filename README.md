@@ -53,9 +53,12 @@ groups, or omit `--groups` for all groups. Add `--edit` to make the viewer an ed
 and print an admin URL. On an empty database, create the first editor without
 `--groups`, then add groups at `/admin/groups/`.
 
-There is no username/password form. Possession of a private capability URL is the
-login. Share these URLs privately and replace a viewer token if it leaks. Issuing
-a new link with the same viewer name expires that viewer's previous active link.
+There is no username/password form. Opening a private capability URL stores the
+token in an HttpOnly cookie and redirects to the clean `/calendar/` URL. The
+session lasts for up to one year; **Log out** clears both calendar and admin
+sessions. Share capability URLs privately and replace a viewer token if it leaks.
+Issuing a new link with the same viewer name expires that viewer's previous active
+link.
 
 ## Administration
 

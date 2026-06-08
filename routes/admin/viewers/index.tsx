@@ -20,7 +20,7 @@ export default define.page<typeof handlers>(({ data }) => (
     <AdminShell
       current="viewers"
       viewerName={data.viewer.name}
-      calendarUrl={`/view/${data.viewer.token}`}
+      calendarUrl="/calendar/"
     >
       <h1 class="text-3xl font-semibold">Viewers</h1>
       <p class="mt-2 text-zinc-600">Capability links and their permissions.</p>

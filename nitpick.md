@@ -16,6 +16,9 @@
 - [x] add 404 and error page templates and ensure consistent usage.
 - [x] UX improvement: store token in cookie or localstorage. Means we also need a way to "log out"
 - [x] Invite improvement: Add a "new" button to /admin/viewers/ to issue new links (with click to copy)
+- [x] for /admin/viewers/ - Add the ability to expire a token and add some filters to the table.
+- [ ] Invite links: make it possible to toggle admin on/off when creating an invite link 
+- [ ] invite links: change default intervals to: 30m, 4h, 1d, 7d
 
 ## other
 - [x] add dark mode
@@ -25,7 +28,6 @@
 - [x] need to fix the filters: make them dropdown checkbox select instead of pills
 - [x] deselecting the final filter must not reselect every option
 - [x] clicking outside a filter popover closes it
-
 
 ## Nav
 

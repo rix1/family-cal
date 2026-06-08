@@ -331,6 +331,31 @@ routeTest("admin can issue a new viewer link", async () => {
   assertStringIncludes(result.data.created?.urls.editor ?? "", `/admin/?token=${token}`);
 });
 
+routeTest("admin can filter viewers and expire an active token", async () => {
+  const store = await getStore();
+  const filtered = await adminViewersRoute.handlers.GET(
+    ctx("http://localhost/admin/viewers/?status=active&permission=view&group=dk&q=danish", {
+      headers: { cookie: "family_admin=editor" },
+    }),
+  );
+  assert(!(filtered instanceof Response));
+  assertEquals(filtered.data.viewers.map((viewer) => viewer.token), ["view-dk"]);
+
+  const form = new FormData();
+  form.set("action", "expire");
+  form.set("token", "view-dk");
+  const response = await adminViewersRoute.handlers.POST(
+    ctx("http://localhost/admin/viewers/", {
+      method: "POST",
+      headers: { cookie: "family_admin=editor" },
+      body: form,
+    }),
+  );
+  assertEquals(response.status, 303);
+  assertEquals(response.headers.get("location"), "/admin/viewers/?expired=1");
+  assert((await store.getViewer("view-dk"))?.expiredAt);
+});
+
 routeTest("family members can redeem an active invite and sign in as editors", async () => {
   const store = await getStore();
   await store.upsertInvite({

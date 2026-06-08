@@ -1,4 +1,5 @@
 import type { ComponentChildren } from "preact";
+import { ThemeToggle } from "@/islands/ThemeToggle.tsx";
 
 interface Props {
   title: string;
@@ -54,6 +55,7 @@ export function AppHeader({
                   {adminUrl && <a href={adminUrl}>Administration</a>}
                   {aboutUrl && <a href={aboutUrl}>About</a>}
                   {menuChildren}
+                  <ThemeToggle />
                   {logoutUrl && (
                     <>
                       <hr />

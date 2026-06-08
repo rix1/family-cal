@@ -169,28 +169,7 @@ const styles = `
   }
 
   .theme-toggle {
-    position: fixed;
-    right: 1rem;
-    bottom: 1rem;
-    z-index: 60;
-    display: inline-flex;
-    min-height: 2.5rem;
-    align-items: center;
-    gap: .45rem;
-    border: 1px solid #d4c8b8;
-    border-radius: 999px;
-    background: rgba(255, 250, 241, .94);
-    padding: .6rem .85rem;
-    color: #1d2422;
-    font: inherit;
-    font-size: .8rem;
-    font-weight: 650;
-    box-shadow: 0 10px 30px rgba(52, 41, 24, .12);
-    cursor: pointer;
-  }
-
-  .theme-toggle:hover {
-    transform: translateY(-1px);
+    display: block;
   }
 
   html[data-theme="dark"] body {
@@ -311,13 +290,6 @@ const styles = `
     border-color: #343a37 !important;
   }
 
-  html[data-theme="dark"] .theme-toggle {
-    border-color: #414a45;
-    background: rgba(25, 30, 27, .96);
-    color: #edf2ef;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, .28);
-  }
-
   @media (max-width: 520px) {
     .site-header-inner {
       padding-inline: 1rem;
@@ -327,9 +299,6 @@ const styles = `
       display: none;
     }
 
-    .theme-toggle-label {
-      display: none;
-    }
   }
 `;
 

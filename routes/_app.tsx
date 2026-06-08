@@ -1,5 +1,4 @@
 import { AppStyles } from "@/components/AppStyles.tsx";
-import { ThemeToggle } from "@/islands/ThemeToggle.tsx";
 import { define } from "@/utils.ts";
 
 export default define.page(function App({ Component }) {
@@ -25,7 +24,6 @@ export default define.page(function App({ Component }) {
         }}
       >
         <Component />
-        <ThemeToggle />
       </body>
     </html>
   );

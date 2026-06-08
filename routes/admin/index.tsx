@@ -25,10 +25,11 @@ export const handlers = define.handlers({
 
     const viewer = await adminViewer(ctx.req, store);
     if (!viewer) return adminDenied();
-    const [people, groups, viewers] = await Promise.all([
+    const [people, groups, viewers, invites] = await Promise.all([
       store.listPeople(),
       store.listGroups(),
       store.listViewers(),
+      store.listInvites(),
     ]);
     return page({
       viewer,
@@ -36,6 +37,7 @@ export const handlers = define.handlers({
         people: people.length,
         groups: groups.length,
         viewers: viewers.length,
+        invites: invites.length,
       },
     });
   },

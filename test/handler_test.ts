@@ -14,6 +14,7 @@ const viewRoute = await import("../routes/view/[token].tsx");
 const adminRoute = await import("../routes/admin/index.tsx");
 const adminAuditRoute = await import("../routes/admin/audit/index.tsx");
 const adminGroupsRoute = await import("../routes/admin/groups/index.tsx");
+const adminInvitesRoute = await import("../routes/admin/invites/index.tsx");
 const adminPeopleRoute = await import("../routes/admin/people/index.tsx");
 const adminViewersRoute = await import("../routes/admin/viewers/index.tsx");
 const dataRoute = await import("../routes/api/data/[token].ts");
@@ -240,6 +241,7 @@ routeTest("private calendar and admin pages enforce viewer capabilities", async 
     const [route, path] of [
       [adminGroupsRoute, "groups"],
       [adminViewersRoute, "viewers"],
+      [adminInvitesRoute, "invites"],
       [adminAuditRoute, "audit"],
     ] as const
   ) {
@@ -371,6 +373,35 @@ routeTest("family members can redeem an active invite and sign in as editors", a
   const cookies = responseCookies(login);
   assertStringIncludes(cookies, `family_viewer=${viewerToken}`);
   assertStringIncludes(cookies, `family_admin=${viewerToken}`);
+});
+
+routeTest("admin can create a reusable expiring invite", async () => {
+  const form = new FormData();
+  form.set("expiresInDays", "7");
+  const response = await adminInvitesRoute.handlers.POST(
+    ctx("http://localhost/admin/invites/", {
+      method: "POST",
+      headers: { cookie: "family_admin=editor" },
+      body: form,
+    }),
+  );
+  assertEquals(response.status, 303);
+  const location = response.headers.get("location") ?? "";
+  assertStringIncludes(location, "/admin/invites/?created=");
+  const token = new URL(location, "http://localhost").searchParams.get("created");
+  assert(token);
+  const invite = await (await getStore()).getInvite(token);
+  assertEquals(invite?.canEdit, true);
+  assert(invite && new Date(invite.expiresAt) > new Date(invite.createdAt));
+
+  const result = await adminInvitesRoute.handlers.GET(
+    ctx(`http://localhost${location}`, {
+      headers: { cookie: "family_admin=editor" },
+    }),
+  );
+  assert(!(result instanceof Response));
+  assertEquals(result.data.created?.invite.token, token);
+  assertStringIncludes(result.data.created?.url ?? "", `/invite/${token}`);
 });
 
 routeTest("expired family invites cannot be redeemed", async () => {

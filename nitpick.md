@@ -15,7 +15,7 @@
 - [x] issuing a new link for the same user does not expire the old one. expired links should say something like "expired - ask for a new oen"
 - [x] add 404 and error page templates and ensure consistent usage.
 - [x] UX improvement: store token in cookie or localstorage. Means we also need a way to "log out"
-- [ ] Invite improvement: Add a "new" button to /admin/viewers/ to issue new links (with click to copy)
+- [x] Invite improvement: Add a "new" button to /admin/viewers/ to issue new links (with click to copy)
 
 
 ## other

@@ -285,6 +285,40 @@ routeTest("remembered viewer sessions redirect home and logout clears access", a
   assert(cleared.some((value) => value.startsWith("family_admin=") && value.includes("Max-Age=0")));
 });
 
+routeTest("admin can issue a new viewer link", async () => {
+  const form = new FormData();
+  form.set("name", "New relative");
+  form.append("groups", "dk");
+  form.set("canEdit", "on");
+  const response = await adminViewersRoute.handlers.POST(
+    ctx("http://localhost/admin/viewers/", {
+      method: "POST",
+      headers: { cookie: "family_admin=editor" },
+      body: form,
+    }),
+  );
+  assertEquals(response.status, 303);
+  const location = response.headers.get("location") ?? "";
+  assertStringIncludes(location, "/admin/viewers/?created=");
+  const token = new URL(location, "http://localhost").searchParams.get("created");
+  assert(token);
+
+  const created = await (await getStore()).getViewer(token);
+  assertEquals(created?.name, "New relative");
+  assertEquals(created?.groups, ["dk"]);
+  assertEquals(created?.canEdit, true);
+
+  const result = await adminViewersRoute.handlers.GET(
+    ctx(`http://localhost${location}`, {
+      headers: { cookie: "family_admin=editor" },
+    }),
+  );
+  assert(!(result instanceof Response));
+  assertEquals(result.data.created?.viewer.token, token);
+  assertStringIncludes(result.data.created?.urls.calendar ?? "", `/view/${token}`);
+  assertStringIncludes(result.data.created?.urls.editor ?? "", `/admin/?token=${token}`);
+});
+
 routeTest("expired capabilities return a specific expired response", async () => {
   const store = await getStore();
   await store.upsertViewer({

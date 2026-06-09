@@ -138,6 +138,10 @@ const styles = `
     box-shadow: 0 18px 55px rgba(52, 41, 24, .14);
   }
 
+  .account-popover form {
+    display: contents;
+  }
+
   .account-popover a,
   .account-popover button {
     display: block;

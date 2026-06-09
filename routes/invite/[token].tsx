@@ -1,8 +1,13 @@
 import { createViewer } from "@/lib/access_links.ts";
 import { getStore } from "@/lib/db.ts";
 import { inviteIsActive } from "@/lib/model.ts";
+import { clientKey, RateLimiter } from "@/lib/rate_limit.ts";
 import { define } from "@/utils.ts";
 import { HttpError, page } from "fresh";
+
+// Bound abuse of this unauthenticated endpoint: at most 5 signups per client
+// per 10 minutes. The per-invite signup limit caps the total separately.
+const signupLimiter = new RateLimiter({ windowMs: 10 * 60_000, max: 5 });
 
 async function inviteData(token: string) {
   const store = await getStore();
@@ -20,6 +25,9 @@ export const handlers = define.handlers({
     return page({ invite, groups: await store.listGroups() });
   },
   async POST(ctx) {
+    if (!signupLimiter.check(clientKey(ctx.req, ctx.info)).allowed) {
+      throw new HttpError(429, "Too many signups from your network. Please wait and try again.");
+    }
     const { store, invite } = await inviteData(ctx.params.token);
     const form = await ctx.req.formData();
     const name = String(form.get("name") ?? "").trim();

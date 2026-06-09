@@ -61,7 +61,9 @@ export function AppHeader({
                   {logoutUrl && (
                     <>
                       <hr />
-                      <a href={logoutUrl}>Log out</a>
+                      <form method="post" action={logoutUrl}>
+                        <button type="submit">Log out</button>
+                      </form>
                     </>
                   )}
                 </div>

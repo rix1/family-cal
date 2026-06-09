@@ -287,7 +287,7 @@ routeTest("remembered viewer sessions redirect home and logout clears access", a
   assertEquals(home.status, 303);
   assertEquals(home.headers.get("location"), "/calendar/");
 
-  const logout = logoutRoute.handler.GET();
+  const logout = logoutRoute.handler.POST();
   assertEquals(logout.status, 303);
   assertEquals(logout.headers.get("location"), "/");
   const cleared = logout.headers.getSetCookie();

@@ -19,3 +19,12 @@ export function assertStringIncludes(actual: string, needle: string, msg?: strin
 export function assertMatch(actual: string, re: RegExp, msg?: string): void {
   if (!re.test(actual)) throw new Error(msg ?? `expected ${re} to match string`);
 }
+
+export function assertThrows(fn: () => unknown, msg = "expected function to throw"): void {
+  try {
+    fn();
+  } catch {
+    return;
+  }
+  throw new Error(msg);
+}

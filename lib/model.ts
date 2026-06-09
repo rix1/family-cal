@@ -56,10 +56,21 @@ export interface Invite {
   expiresAt: string;
   /** Permission inherited by every viewer created through this invite. */
   canEdit: boolean;
+  /** Max redemptions allowed. null/undefined = unlimited until expiry. */
+  maxUses?: number | null;
+  /** Redemptions so far. Absent on legacy invites = 0. */
+  uses?: number;
+}
+
+export function inviteUsesRemaining(invite: Invite): number | null {
+  if (invite.maxUses == null) return null;
+  return Math.max(0, invite.maxUses - (invite.uses ?? 0));
 }
 
 export function inviteIsActive(invite: Invite, now = new Date()): boolean {
-  return new Date(invite.expiresAt).getTime() > now.getTime();
+  if (new Date(invite.expiresAt).getTime() <= now.getTime()) return false;
+  const remaining = inviteUsesRemaining(invite);
+  return remaining === null || remaining > 0;
 }
 
 /** An append-only record of a change, keyed by who made it. */

@@ -43,9 +43,21 @@ export const handlers = define.handlers({
     const durationOption = inviteDurations[duration as keyof typeof inviteDurations];
     const now = new Date();
     const expiresAt = new Date(now.getTime() + durationOption.milliseconds).toISOString();
+    const maxUsesRaw = String(form.get("maxUses") ?? "").trim();
+    let maxUses: number | null = null;
+    if (maxUsesRaw !== "") {
+      maxUses = Number(maxUsesRaw);
+      if (!Number.isInteger(maxUses) || maxUses < 1) {
+        throw new HttpError(
+          400,
+          "Signup limit must be a positive whole number, or blank for none.",
+        );
+      }
+    }
     const invite = createInvite(expiresAt, {
       createdAt: now.toISOString(),
       canEdit: form.get("canEdit") === "on",
+      maxUses,
     });
     await store.upsertInvite(invite);
     return new Response(null, {
@@ -91,13 +103,28 @@ export default define.page<typeof handlers>(({ data }) => (
                 ))}
               </select>
             </label>
+            <label class="grid gap-1.5 text-sm font-medium">
+              Signup limit (optional)
+              <input
+                type="number"
+                name="maxUses"
+                min="1"
+                step="1"
+                placeholder="No limit"
+                class="rounded-lg border border-zinc-300 px-3 py-2"
+              />
+              <span class="text-xs font-normal text-zinc-500">
+                Max number of people who can join with this link. Leave blank for no limit.
+              </span>
+            </label>
             <label class="flex items-center gap-2 text-sm font-medium">
-              <input type="checkbox" name="canEdit" checked />
+              <input type="checkbox" name="canEdit" />
               Grant administrator access
             </label>
             <p class="text-xs text-zinc-500">
-              The invite can be used by multiple people until it expires. Each person inherits this
-              permission.
+              Invites are view-only unless you check the box above. The invite can be used by
+              multiple people until it expires; each person inherits this permission. Only grant
+              administrator access on links you share with full care.
             </p>
             <button
               type="submit"
@@ -113,7 +140,12 @@ export default define.page<typeof handlers>(({ data }) => (
         <section class="mt-8 rounded-xl border border-teal-300 bg-teal-50 p-5">
           <h2 class="text-lg font-semibold">Invite ready to share</h2>
           <p class="mt-1 text-sm text-zinc-600">
-            It expires {new Date(data.created.invite.expiresAt).toLocaleString()}.
+            It expires {new Date(data.created.invite.expiresAt).toLocaleString()}
+            {data.created.invite.maxUses != null
+              ? `, or after ${data.created.invite.maxUses} ${
+                data.created.invite.maxUses === 1 ? "signup" : "signups"
+              }`
+              : ""}.
           </p>
           <div class="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
             <code class="min-w-0 flex-1 truncate text-sm">{data.created.url}</code>
@@ -129,6 +161,7 @@ export default define.page<typeof handlers>(({ data }) => (
               <th class="px-4 py-3">Created</th>
               <th class="px-4 py-3">Expires</th>
               <th class="px-4 py-3">Permission</th>
+              <th class="px-4 py-3">Signups</th>
               <th class="px-4 py-3">Status</th>
               <th class="px-4 py-3"></th>
             </tr>
@@ -142,6 +175,10 @@ export default define.page<typeof handlers>(({ data }) => (
                   <td class="px-4 py-3">{new Date(invite.createdAt).toLocaleString()}</td>
                   <td class="px-4 py-3">{new Date(invite.expiresAt).toLocaleString()}</td>
                   <td class="px-4 py-3">{invite.canEdit ? "Administrator" : "View only"}</td>
+                  <td class="px-4 py-3">
+                    {invite.uses ?? 0}
+                    {invite.maxUses != null ? ` / ${invite.maxUses}` : ""}
+                  </td>
                   <td class="px-4 py-3">{active ? "Active" : "Expired"}</td>
                   <td class="px-4 py-3 text-right">
                     <CopyButton value={url} label="Copy" />

@@ -63,18 +63,20 @@ link.
 ## Family invites
 
 Editors can create reusable, expiring signup links at `/admin/invites/`. Choose a
-30-minute, 4-hour, 1-day, or 7-day expiry, decide whether signups receive
-administrator access, and share the generated URL privately. Until it expires, each person who
-opens it:
+30-minute, 4-hour, 1-day, or 7-day expiry, optionally cap how many people may join
+(a signup limit), decide whether signups receive administrator access
+(**view-only by default** — only grant admin deliberately), and share the
+generated URL privately. The invite stops working once it expires or its signup
+limit is reached. Until then, each person who opens it:
 
 1. Enters their name.
 2. Selects the family groups that apply to them.
 3. Receives a new private viewer link and is signed in automatically.
 
 Viewer links created through family invites inherit the invite's selected
-permission; administrator access is enabled by default when creating an invite.
-Each person receives an independent capability, while the invite itself can be
-reused by multiple family members until its expiry.
+permission; invites are view-only unless an editor explicitly grants administrator
+access when creating them. Each person receives an independent capability, while
+the invite itself can be reused by multiple family members until its expiry.
 
 ## Administration
 
@@ -97,8 +99,9 @@ their death.
 ## Permissions
 
 Viewer links issued directly are view-only by default. The stored property is
-`Viewer.canEdit`, which defaults to `false` for direct issuance. Viewer links
-created by family invite signup default to `true`.
+`Viewer.canEdit`, which defaults to `false` for direct issuance. Family invites
+are also view-only unless the editor explicitly grants administrator access when
+creating the invite.
 
 Create an editor at issuance time:
 

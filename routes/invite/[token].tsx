@@ -1,4 +1,4 @@
-import { createViewer, expirePreviousViewerLinks } from "@/lib/access_links.ts";
+import { createViewer } from "@/lib/access_links.ts";
 import { getStore } from "@/lib/db.ts";
 import { inviteIsActive } from "@/lib/model.ts";
 import { define } from "@/utils.ts";
@@ -31,14 +31,19 @@ export const handlers = define.handlers({
       throw new HttpError(400, "One or more selected groups are invalid.");
     }
 
+    // Self-chosen names are untrusted, so we do NOT expire existing same-named
+    // viewers here (that would let a redeemer lock out an admin). Each signup is
+    // an independent capability; the viewer token makes the audit entry unambiguous.
     const viewer = createViewer({ name, groups, canEdit: invite.canEdit });
-    await expirePreviousViewerLinks(store, viewer);
     await store.upsertViewer(viewer);
+    // Count this redemption so a signup limit (if set) is enforced on the next open.
+    await store.upsertInvite({ ...invite, uses: (invite.uses ?? 0) + 1 });
     await store.appendAudit({
       at: new Date().toISOString(),
       actor: name,
       action: "accept_invite",
-      detail: `Joined through invite ${invite.token}`,
+      targetId: viewer.token,
+      detail: `Joined through invite ${invite.token} as viewer ${viewer.token}`,
     });
     return new Response(null, {
       status: 303,

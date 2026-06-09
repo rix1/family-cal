@@ -402,7 +402,9 @@ routeTest("family members can redeem an active invite and sign in as editors", a
 
 routeTest("admin can create a reusable expiring invite", async () => {
   const form = new FormData();
-  form.set("expiresInDays", "7");
+  form.set("duration", "30m");
+  form.set("canEdit", "on");
+  const before = Date.now();
   const response = await adminInvitesRoute.handlers.POST(
     ctx("http://localhost/admin/invites/", {
       method: "POST",
@@ -418,6 +420,7 @@ routeTest("admin can create a reusable expiring invite", async () => {
   const invite = await (await getStore()).getInvite(token);
   assertEquals(invite?.canEdit, true);
   assert(invite && new Date(invite.expiresAt) > new Date(invite.createdAt));
+  assert(invite && new Date(invite.expiresAt).getTime() - before <= 30 * 60_000 + 1_000);
 
   const result = await adminInvitesRoute.handlers.GET(
     ctx(`http://localhost${location}`, {
@@ -427,6 +430,24 @@ routeTest("admin can create a reusable expiring invite", async () => {
   assert(!(result instanceof Response));
   assertEquals(result.data.created?.invite.token, token);
   assertStringIncludes(result.data.created?.url ?? "", `/invite/${token}`);
+});
+
+routeTest("admin can create a view-only invite", async () => {
+  const form = new FormData();
+  form.set("duration", "4h");
+  const response = await adminInvitesRoute.handlers.POST(
+    ctx("http://localhost/admin/invites/", {
+      method: "POST",
+      headers: { cookie: "family_admin=editor" },
+      body: form,
+    }),
+  );
+  const token = new URL(
+    response.headers.get("location") ?? "",
+    "http://localhost",
+  ).searchParams.get("created");
+  assert(token);
+  assertEquals((await (await getStore()).getInvite(token))?.canEdit, false);
 });
 
 routeTest("expired family invites cannot be redeemed", async () => {

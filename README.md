@@ -62,17 +62,19 @@ link.
 
 ## Family invites
 
-Editors can create reusable, expiring signup links at `/admin/invites/`. Choose an
-expiry and share the generated URL privately. Until it expires, each person who
+Editors can create reusable, expiring signup links at `/admin/invites/`. Choose a
+30-minute, 4-hour, 1-day, or 7-day expiry, decide whether signups receive
+administrator access, and share the generated URL privately. Until it expires, each person who
 opens it:
 
 1. Enters their name.
 2. Selects the family groups that apply to them.
 3. Receives a new private viewer link and is signed in automatically.
 
-Viewer links created through family invites have administrator permission by
-default. Each person receives an independent capability, while the invite itself
-can be reused by multiple family members until its expiry.
+Viewer links created through family invites inherit the invite's selected
+permission; administrator access is enabled by default when creating an invite.
+Each person receives an independent capability, while the invite itself can be
+reused by multiple family members until its expiry.
 
 ## Administration
 

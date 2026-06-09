@@ -7,6 +7,13 @@ import { inviteIsActive } from "@/lib/model.ts";
 import { define } from "@/utils.ts";
 import { HttpError, page } from "fresh";
 
+const inviteDurations = {
+  "30m": { label: "30 minutes", milliseconds: 30 * 60_000 },
+  "4h": { label: "4 hours", milliseconds: 4 * 60 * 60_000 },
+  "1d": { label: "1 day", milliseconds: 24 * 60 * 60_000 },
+  "7d": { label: "7 days", milliseconds: 7 * 24 * 60 * 60_000 },
+} as const;
+
 export const handlers = define.handlers({
   async GET(ctx) {
     const store = await getStore();
@@ -31,13 +38,15 @@ export const handlers = define.handlers({
     const viewer = await adminViewer(ctx.req, store);
     if (!viewer) return adminDenied();
     const form = await ctx.req.formData();
-    const expiresInDays = Number(form.get("expiresInDays"));
-    if (!Number.isInteger(expiresInDays) || expiresInDays < 1 || expiresInDays > 365) {
-      throw new HttpError(400, "Invite expiry must be between 1 and 365 days.");
-    }
+    const duration = String(form.get("duration") ?? "");
+    if (!(duration in inviteDurations)) throw new HttpError(400, "Invite expiry is invalid.");
+    const durationOption = inviteDurations[duration as keyof typeof inviteDurations];
     const now = new Date();
-    const expiresAt = new Date(now.getTime() + expiresInDays * 86_400_000).toISOString();
-    const invite = createInvite(expiresAt, { createdAt: now.toISOString() });
+    const expiresAt = new Date(now.getTime() + durationOption.milliseconds).toISOString();
+    const invite = createInvite(expiresAt, {
+      createdAt: now.toISOString(),
+      canEdit: form.get("canEdit") === "on",
+    });
     await store.upsertInvite(invite);
     return new Response(null, {
       status: 303,
@@ -59,8 +68,8 @@ export default define.page<typeof handlers>(({ data }) => (
         <div>
           <h1 class="text-3xl font-semibold">Invites</h1>
           <p class="mt-2 max-w-2xl text-zinc-600">
-            Create a temporary signup link. Anyone who joins through it receives their own
-            administrator link.
+            Create a temporary signup link with the permission you choose. Each person receives
+            their own private viewer link.
           </p>
         </div>
         <details class="group">
@@ -74,17 +83,21 @@ export default define.page<typeof handlers>(({ data }) => (
             <label class="grid gap-1.5 text-sm font-medium">
               Expires after
               <select
-                name="expiresInDays"
+                name="duration"
                 class="rounded-lg border border-zinc-300 px-3 py-2"
               >
-                <option value="1">1 day</option>
-                <option value="7" selected>7 days</option>
-                <option value="30">30 days</option>
-                <option value="90">90 days</option>
+                {Object.entries(inviteDurations).map(([value, option]) => (
+                  <option value={value} selected={value === "1d"}>{option.label}</option>
+                ))}
               </select>
             </label>
+            <label class="flex items-center gap-2 text-sm font-medium">
+              <input type="checkbox" name="canEdit" checked />
+              Grant administrator access
+            </label>
             <p class="text-xs text-zinc-500">
-              The invite can be used by multiple people until it expires.
+              The invite can be used by multiple people until it expires. Each person inherits this
+              permission.
             </p>
             <button
               type="submit"

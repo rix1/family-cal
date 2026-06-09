@@ -1,6 +1,8 @@
 _chat.txt
 *.csv
 !seed/*.csv
+# Real family PII — keep the people file local only (groups/viewers seeds stay tracked).
+seed/people.csv
 
 # Generated / dependency output
 _fresh/

@@ -21,8 +21,9 @@ Deliberate rules, in priority order:
   whisper of shadow; real shadows only on popovers and the person sheet.
 - **Typography carries hierarchy.** System sans; semibold headings with slightly tight tracking;
   uppercase 11px "kicker" labels for section headings; tabular numerals on every date and count.
-- **Emoji are content, not chrome.** Event-type glyphs (🎂 🕯️ 💍, flags) and milestone flare
-  stay; all UI iconography (search, chevrons, close, brand) is stroke SVG.
+- **No emoji in the UI.** All iconography — event-type glyphs (cake, candle, rings), milestone
+  spark, search, chevrons, close, brand — is stroke SVG. The one exception is iCal feed/export
+  titles (e.g. `🎂 Name`), which are content delivered into external calendars, not app chrome.
 - **One shape scale.** Controls 8px, cards 12px, sheet 16px; pills only for toggles (chips),
   badges, and the account chip.
 - Shared component classes: `.btn` (+`-primary/-ghost/-danger/-sm`), `.input`, `.card`, `.chip`,

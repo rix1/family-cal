@@ -373,7 +373,7 @@ export function Editor({
                           onClick={() => toggleGroup(index, g.key)}
                           class="chip"
                         >
-                          {g.flag} {g.label}
+                          {g.label}
                         </button>
                       ))}
                     </div>

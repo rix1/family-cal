@@ -65,14 +65,64 @@ function ageOn(person: ViewPerson, year: number): number | null {
 function milestone(age: number | null): string {
   if (!Number.isFinite(age)) return "";
   if ([1, 10, 18, 20, 25, 30, 40, 50, 60, 70, 75, 80, 90, 100].includes(age!)) {
-    return "✨";
+    return "major";
   }
-  if (age! > 0 && age! % 10 === 0) return "✨";
-  if (age! > 0 && age! % 5 === 0) return "⭐";
+  if (age! > 0 && age! % 10 === 0) return "major";
+  if (age! > 0 && age! % 5 === 0) return "minor";
   return "";
 }
 
-function typeIcon(type: string): string {
+const iconProps = {
+  viewBox: "0 0 16 16",
+  fill: "none",
+  stroke: "currentColor",
+  "stroke-width": "1.4",
+  "stroke-linecap": "round",
+  "stroke-linejoin": "round",
+  "aria-hidden": true,
+} as const;
+
+/* Four-point spark marking milestone birthdays. */
+function SparkIcon({ class: cls = "size-3" }: { class?: string }) {
+  return (
+    <svg class={cls} {...iconProps}>
+      <path d="M8 2.2 9.3 6.7 13.8 8 9.3 9.3 8 13.8 6.7 9.3 2.2 8 6.7 6.7Z" />
+    </svg>
+  );
+}
+
+/* Event-type glyphs: cake, candle, rings. */
+function TypeIcon({ type, class: cls = "size-4" }: { type: string; class?: string }) {
+  if (type === "memorial") {
+    return (
+      <svg class={cls} {...iconProps}>
+        <path d="M6.6 13.5V9.2c0-.4.3-.7.7-.7h1.4c.4 0 .7.3.7.7v4.3" />
+        <path d="M4.5 13.5h7" />
+        <path d="M8 6.6c1-.7 1-2 0-2.9-1 .9-1 2.2 0 2.9Z" />
+      </svg>
+    );
+  }
+  if (type === "anniversary") {
+    return (
+      <svg class={cls} {...iconProps}>
+        <circle cx="6" cy="9.2" r="3.4" />
+        <circle cx="10" cy="9.2" r="3.4" />
+      </svg>
+    );
+  }
+  return (
+    <svg class={cls} {...iconProps}>
+      <path d="M3.2 13.5V9.9c0-.7.6-1.3 1.3-1.3h7c.7 0 1.3.6 1.3 1.3v3.6" />
+      <path d="M1.8 13.5h12.4" />
+      <path d="M8 8.6V6.4" />
+      <path d="M8 4.8c.8-.5.8-1.6 0-2.3-.8.7-.8 1.8 0 2.3Z" />
+    </svg>
+  );
+}
+
+/* Feed/export titles keep a type prefix so events stay recognizable inside
+   Google/Apple calendars; the in-app UI itself renders no emoji. */
+function exportIcon(type: string): string {
   if (type === "memorial") return "🕯️";
   if (type === "anniversary") return "💍";
   return "🎂";
@@ -93,12 +143,7 @@ function csvDateForMonthOffset(today: Date, offset: number): Date {
 function countryPills(countries: Array<"NO" | "DK">) {
   return countries.map((country) => {
     const styles = country === "NO" ? "bg-norway-soft text-norway" : "bg-denmark-soft text-denmark";
-    const flag = country === "NO" ? "🇳🇴" : "🇩🇰";
-    return (
-      <span class={`badge ${styles}`}>
-        {flag} {country}
-      </span>
-    );
+    return <span class={`badge ${styles}`}>{country}</span>;
   });
 }
 
@@ -670,7 +715,7 @@ export function Calendar({
     for (const [i, p] of exported.entries()) {
       const md = monthDayOf(p).replace("-", "");
       const sy = hasYear(p) ? p.date.slice(0, 4) : "2000";
-      const summary = `${typeIcon(p.type)} ${p.name}`;
+      const summary = `${exportIcon(p.type)} ${p.name}`;
       const uid = `${md}-${i}-${p.name.replace(/[^a-z0-9]/gi, "")}@family-cal`;
       lines.push(
         "BEGIN:VEVENT",
@@ -720,11 +765,15 @@ export function Calendar({
         }`}
       >
         <div
-          class={`grid size-10 shrink-0 place-items-center rounded-lg text-base ${
-            highlight ? "bg-surface" : "bg-inset"
+          class={`grid size-10 shrink-0 place-items-center rounded-lg ${
+            event.flare
+              ? "bg-gold-soft text-gold"
+              : highlight
+              ? "bg-surface text-accent-2"
+              : "bg-inset text-ink-2"
           }`}
         >
-          {event.flare || typeIcon(event.type)}
+          <TypeIcon type={event.type} />
         </div>
         <div class="min-w-0">
           <p class="flex items-center gap-2 truncate text-sm">
@@ -762,8 +811,8 @@ export function Calendar({
           id={`event-${event.person.id}-${event.date}-memorial`}
           class="card flex items-start gap-3 p-3"
         >
-          <div class="grid size-10 shrink-0 place-items-center rounded-lg bg-inset text-lg">
-            🕯️
+          <div class="grid size-10 shrink-0 place-items-center rounded-lg bg-inset text-ink-2">
+            <TypeIcon type="memorial" />
           </div>
           <div class="min-w-0 flex-1">
             <div class="flex flex-wrap items-center gap-2">
@@ -776,7 +825,7 @@ export function Calendar({
               </button>
               {group && (
                 <span class="badge bg-inset text-ink-2">
-                  {group.flag} {group.label}
+                  {group.label}
                 </span>
               )}
             </div>
@@ -795,11 +844,11 @@ export function Calendar({
         class="card flex items-start gap-3 p-3"
       >
         <div
-          class={`grid size-10 shrink-0 place-items-center rounded-lg text-lg ${
-            event.flare ? "bg-gold-soft" : "bg-accent-soft"
+          class={`grid size-10 shrink-0 place-items-center rounded-lg ${
+            event.flare ? "bg-gold-soft text-gold" : "bg-accent-soft text-accent-2"
           }`}
         >
-          {event.person.died ? "🕯️" : typeIcon(event.type)}
+          <TypeIcon type={event.person.died ? "memorial" : event.type} />
         </div>
         <div class="min-w-0 flex-1">
           <div class="flex flex-wrap items-center gap-2">
@@ -812,12 +861,12 @@ export function Calendar({
             </button>
             {event.flare && (
               <span class="badge bg-gold-soft text-gold">
-                {event.flare} {event.age}
+                <SparkIcon /> {event.age}
               </span>
             )}
             {group && (
               <span class="badge bg-inset text-ink-2">
-                {group.flag} {group.label}
+                {group.label}
               </span>
             )}
           </div>
@@ -1060,7 +1109,7 @@ export function Calendar({
                 )
                 : (
                   <p class="text-sm text-ink-2">
-                    All dates filled in 🎉
+                    All dates filled in.
                   </p>
                 )}
             </div>
@@ -1094,7 +1143,7 @@ export function Calendar({
               label="Families"
               options={Object.entries(groups).map(([key, group]) => ({
                 key,
-                label: `${group.flag} ${group.label}`,
+                label: `${group.label}`,
               }))}
               active={activeGroups}
               onToggle={(key) => setActiveGroups((current) => toggleSelection(current, key))}
@@ -1182,7 +1231,7 @@ export function Calendar({
                 </h2>
                 {selectedDetail.group && (
                   <p class="mt-1.5 text-sm text-ink-2">
-                    {selectedDetail.group.flag} {selectedDetail.group.label}
+                    {selectedDetail.group.label}
                   </p>
                 )}
               </div>
@@ -1275,7 +1324,7 @@ export function Calendar({
                           aria-pressed={personDraft.groups.includes(key)}
                           onClick={() => togglePersonGroup(key)}
                         >
-                          {group.flag} {group.label}
+                          {group.label}
                         </button>
                       ))}
                     </div>

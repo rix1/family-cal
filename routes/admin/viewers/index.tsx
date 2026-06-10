@@ -131,7 +131,7 @@ export default define.page<typeof handlers>(({ data }) => (
                 {data.groups.map((group) => (
                   <label class="flex items-center gap-2 text-sm">
                     <input type="checkbox" name="groups" value={group.key} class="accent-accent" />
-                    <span>{group.flag} {group.label}</span>
+                    <span>{group.label}</span>
                   </label>
                 ))}
               </div>
@@ -215,7 +215,7 @@ export default define.page<typeof handlers>(({ data }) => (
             </option>
             {data.groups.map((item) => (
               <option value={item.key} selected={data.filters.group === item.key}>
-                {item.flag} {item.label}
+                {item.label}
               </option>
             ))}
           </select>

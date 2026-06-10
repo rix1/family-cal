@@ -2,7 +2,7 @@ import { AppHeader } from "@/components/AppHeader.tsx";
 import type { ComponentChildren } from "preact";
 
 interface Props {
-  current: "home" | "people" | "groups" | "viewers" | "invites" | "audit";
+  current: "home" | "people" | "events" | "groups" | "viewers" | "invites" | "audit";
   viewerName: string;
   calendarUrl?: string;
   children: ComponentChildren;
@@ -11,6 +11,7 @@ interface Props {
 const nav = [
   ["home", "/admin/", "Overview"],
   ["people", "/admin/people/", "People"],
+  ["events", "/admin/events/", "Events"],
   ["groups", "/admin/groups/", "Groups"],
   ["viewers", "/admin/viewers/", "Viewers"],
   ["invites", "/admin/invites/", "Invites"],

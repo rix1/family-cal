@@ -1,5 +1,5 @@
 import { AppHeader } from "@/components/AppHeader.tsx";
-import type { CalendarViewData, ViewPerson } from "@/lib/view_data.ts";
+import type { CalendarViewData, ViewEvent, ViewPerson } from "@/lib/view_data.ts";
 import { ageAtDate } from "@/lib/dates.ts";
 import { retainAvailable, toggleSelection } from "@/lib/filter_selection.ts";
 import { activeMention, insertMention, type MentionMatch } from "@/lib/mentions.ts";
@@ -25,6 +25,14 @@ type CalendarEvent =
     type: "memorial";
     name: string;
     person: ViewPerson;
+  }
+  | {
+    date: string;
+    type: "occasion";
+    kind: string;
+    name: string;
+    occasion: ViewEvent;
+    years: number | null;
   };
 
 const dayMs = 86_400_000;
@@ -91,7 +99,7 @@ function SparkIcon({ class: cls = "size-3" }: { class?: string }) {
   );
 }
 
-/* Event-type glyphs: cake, candle, rings. */
+/* Event-type glyphs: cake, candle, rings, droplet, spark, pennant. */
 function TypeIcon({ type, class: cls = "size-4" }: { type: string; class?: string }) {
   if (type === "memorial") {
     return (
@@ -102,11 +110,33 @@ function TypeIcon({ type, class: cls = "size-4" }: { type: string; class?: strin
       </svg>
     );
   }
-  if (type === "anniversary") {
+  if (type === "anniversary" || type === "wedding") {
     return (
       <svg class={cls} {...iconProps}>
         <circle cx="6" cy="9.2" r="3.4" />
         <circle cx="10" cy="9.2" r="3.4" />
+      </svg>
+    );
+  }
+  if (type === "baptism") {
+    return (
+      <svg class={cls} {...iconProps}>
+        <path d="M8 2.5C5.7 5.6 4.6 7.7 4.6 9.5a3.4 3.4 0 0 0 6.8 0c0-1.8-1.1-3.9-3.4-7Z" />
+      </svg>
+    );
+  }
+  if (type === "confirmation") {
+    return (
+      <svg class={cls} {...iconProps}>
+        <path d="M8 2.2 9.3 6.7 13.8 8 9.3 9.3 8 13.8 6.7 9.3 2.2 8 6.7 6.7Z" />
+      </svg>
+    );
+  }
+  if (type === "other") {
+    return (
+      <svg class={cls} {...iconProps}>
+        <path d="M4.2 13.8V2.5" />
+        <path d="M4.2 2.8h7.3L9.6 5.4l1.9 2.6H4.2" />
       </svg>
     );
   }
@@ -124,7 +154,8 @@ function TypeIcon({ type, class: cls = "size-4" }: { type: string; class?: strin
    Google/Apple calendars; the in-app UI itself renders no emoji. */
 function exportIcon(type: string): string {
   if (type === "memorial") return "🕯️";
-  if (type === "anniversary") return "💍";
+  if (type === "anniversary" || type === "wedding") return "💍";
+  if (type === "baptism" || type === "confirmation" || type === "other") return "🎉";
   return "🎂";
 }
 
@@ -133,7 +164,18 @@ function typeLabel(type: string): string {
   if (type === "memorial") return "Remembrances";
   if (type === "anniversary") return "Anniversaries";
   if (type === "holiday") return "Public holidays";
+  if (type === "wedding") return "Weddings";
+  if (type === "baptism") return "Baptisms";
+  if (type === "confirmation") return "Confirmations";
+  if (type === "other") return "Other events";
   return type;
+}
+
+function occasionLabel(kind: string): string {
+  if (kind === "wedding") return "Wedding";
+  if (kind === "baptism") return "Baptism";
+  if (kind === "confirmation") return "Confirmation";
+  return "Event";
 }
 
 function csvDateForMonthOffset(today: Date, offset: number): Date {
@@ -248,6 +290,7 @@ export function Calendar({
   groups,
   people: initialPeople,
   holidays,
+  events: occasions,
   editUrl,
   saveUrl,
   logoutUrl,
@@ -260,10 +303,11 @@ export function Calendar({
         new Set([
           ...people.map((p) => p.type || "birthday"),
           ...(people.some((person) => person.died) ? ["memorial"] : []),
+          ...occasions.map((occasion) => occasion.kind),
           "holiday",
         ]),
       ),
-    [people],
+    [people, occasions],
   );
   const [activeGroups, setActiveGroups] = useState<Set<string>>(
     () => new Set(Object.keys(groups)),
@@ -362,6 +406,21 @@ export function Calendar({
           }
         }
       }
+
+      for (const occasion of occasions) {
+        const hasYr = occasion.date.length === 10;
+        const md = hasYr ? occasion.date.slice(5) : occasion.date;
+        const date = `${year}-${md}`;
+        if (hasYr && date < occasion.date) continue;
+        out.push({
+          date,
+          type: "occasion",
+          kind: occasion.kind,
+          name: occasion.title,
+          occasion,
+          years: hasYr ? year - Number(occasion.date.slice(0, 4)) : null,
+        });
+      }
     }
 
     for (const holiday of holidays) {
@@ -374,22 +433,27 @@ export function Calendar({
     return out.sort(
       (a, b) => a.date.localeCompare(b.date) || a.type.localeCompare(b.type),
     );
-  }, [people, holidays, firstMonthOffset, renderedMonthCount]);
+  }, [people, holidays, occasions, firstMonthOffset, renderedMonthCount]);
 
   const events = useMemo(() => {
     const q = query.trim().toLowerCase();
     return rawEvents.filter((event) => {
+      if (event.type === "holiday") {
+        if (!activeTypes.has("holiday")) return false;
+        return !q || event.name.toLowerCase().includes(q);
+      }
+      if (event.type === "occasion") {
+        if (!activeTypes.has(event.kind)) return false;
+        if (!event.occasion.groups.some((group) => activeGroups.has(group))) return false;
+        const haystack = `${event.name} ${
+          event.occasion.people.map((person) => person.name).join(" ")
+        } ${event.occasion.notes}`.toLowerCase();
+        return !q || haystack.includes(q);
+      }
       if (!activeTypes.has(event.type)) return false;
-      if (event.type !== "holiday" && !activeGroups.has(event.person.group)) {
-        return false;
-      }
-      if (q) {
-        const haystack = event.type !== "holiday"
-          ? `${event.name} ${event.person.notes || ""}`.toLowerCase()
-          : event.name.toLowerCase();
-        if (!haystack.includes(q)) return false;
-      }
-      return true;
+      if (!activeGroups.has(event.person.group)) return false;
+      const haystack = `${event.name} ${event.person.notes || ""}`.toLowerCase();
+      return !q || haystack.includes(q);
     });
   }, [rawEvents, activeGroups, activeTypes, query]);
 
@@ -726,13 +790,44 @@ export function Calendar({
         "END:VEVENT",
       );
     }
+    const exportedOccasions = occasions.filter(
+      (occasion) =>
+        activeTypes.has(occasion.kind) &&
+        occasion.groups.some((group) => activeGroups.has(group)) &&
+        (!q ||
+          `${occasion.title} ${
+            occasion.people.map((person) => person.name).join(" ")
+          } ${occasion.notes}`
+            .toLowerCase()
+            .includes(q)),
+    );
+    for (const occasion of exportedOccasions) {
+      const hasYr = occasion.date.length === 10;
+      const md = (hasYr ? occasion.date.slice(5) : occasion.date).replace("-", "");
+      const sy = hasYr ? occasion.date.slice(0, 4) : "2000";
+      lines.push(
+        "BEGIN:VEVENT",
+        `UID:event-${occasion.id}@family-cal`,
+        `DTSTAMP:${stamp}`,
+        `DTSTART;VALUE=DATE:${sy}${md}`,
+        "RRULE:FREQ=YEARLY",
+        `SUMMARY:${exportIcon(occasion.kind)} ${occasion.title} (${
+          occasionLabel(occasion.kind).toLowerCase()
+        })`,
+        occasion.notes
+          ? `DESCRIPTION:${occasion.notes.replace(/[,;\\]/g, "\\$&").replace(/\n/g, "\\n")}`
+          : "DESCRIPTION:",
+        "TRANSP:TRANSPARENT",
+        "END:VEVENT",
+      );
+    }
     lines.push("END:VCALENDAR");
-    return { ics: lines.join("\r\n"), count: exported.length };
+    return { ics: lines.join("\r\n"), count: exported.length + exportedOccasions.length };
   }
 
   function downloadIcs() {
     const { ics, count } = buildIcs();
-    if (!count) return setToast("No dated people match the current filters.");
+    if (!count) return setToast("No dated events match the current filters.");
     const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -741,7 +836,7 @@ export function Calendar({
     link.click();
     URL.revokeObjectURL(url);
     setToast(
-      `Downloaded ${count} recurring ${count === 1 ? "birthday" : "birthdays"}.`,
+      `Downloaded ${count} recurring ${count === 1 ? "event" : "events"}.`,
     );
   }
 
@@ -796,6 +891,34 @@ export function Calendar({
         <div class="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-inset px-3.5 py-2.5">
           <p class="text-sm font-medium text-ink-2">{event.name}</p>
           <div class="flex gap-1">{countryPills(event.countries)}</div>
+        </div>
+      );
+    }
+    if (event.type === "occasion") {
+      const yearsText = event.years && event.years > 0
+        ? `${event.years} ${event.years === 1 ? "year" : "years"}`
+        : "";
+      return (
+        <div
+          id={`event-${event.occasion.id}-${event.date}`}
+          class="card flex items-start gap-3 p-3"
+        >
+          <div class="grid size-10 shrink-0 place-items-center rounded-lg bg-accent-soft text-accent-2">
+            <TypeIcon type={event.kind} />
+          </div>
+          <div class="min-w-0 flex-1">
+            <div class="flex flex-wrap items-center gap-2">
+              <p class="font-semibold">{event.name}</p>
+              <span class="badge bg-inset text-ink-2">{occasionLabel(event.kind)}</span>
+            </div>
+            <p class="mt-0.5 text-sm text-ink-2">
+              {yearsText}
+              {yearsText && event.occasion.notes && " · "}
+              {event.occasion.notes
+                ? linkedNotes(event.occasion.notes)
+                : !yearsText && occasionLabel(event.kind)}
+            </p>
+          </div>
         </div>
       );
     }

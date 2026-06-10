@@ -1,5 +1,6 @@
-import type { CalEvent, Country, Person } from "./model.ts";
+import type { CalEvent, Country, EventKind, FamilyEvent, Person } from "./model.ts";
 import { slug, splitDate } from "./dates.ts";
+import { eventKindLabels, eventTitle } from "./family_events.ts";
 import { holidaysForYears } from "./holidays.ts";
 
 const FLAGS: Record<Country, string> = { NO: "🇳🇴", DK: "🇩🇰" };
@@ -16,6 +17,7 @@ export const reminderDefaults: Record<string, string[]> = {
   birthday: ["-PT15H"],
   memorial: [],
   holiday: [],
+  occasion: ["-PT15H"],
 };
 
 /** Anchor year for recurring events whose real year is unknown. */
@@ -44,6 +46,36 @@ export function birthdayEvents(people: Person[]): CalEvent[] {
     });
   }
   return events;
+}
+
+/* Feed/export titles keep a type prefix so events stay recognizable inside
+   Google/Apple calendars; the in-app UI itself renders no emoji. */
+const OCCASION_ICONS: Record<EventKind, string> = {
+  wedding: "💍",
+  baptism: "🎉",
+  confirmation: "🎉",
+  other: "🎉",
+};
+
+/** Explicit life events (weddings, baptisms, ...), all recurring yearly. */
+export function occasionEvents(events: FamilyEvent[], people: Person[]): CalEvent[] {
+  const out: CalEvent[] = [];
+  for (const event of events) {
+    const parts = splitDate(event.date);
+    if (!parts) continue;
+    out.push({
+      uid: `event-${event.id}@family-cal`,
+      summary: `${OCCASION_ICONS[event.kind]} ${eventTitle(event, people)} (${
+        eventKindLabels[event.kind].toLowerCase()
+      })`,
+      description: event.notes || undefined,
+      start: { year: parts.year ?? UNKNOWN_YEAR_ANCHOR, month: parts.month, day: parts.day },
+      recurring: true,
+      reminders: reminderDefaults.occasion,
+      categories: [eventKindLabels[event.kind]],
+    });
+  }
+  return out;
 }
 
 /** Death-anniversary remembrances (recurring yearly), one per person with a death date. */

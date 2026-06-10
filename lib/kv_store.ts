@@ -1,10 +1,11 @@
-import type { AuditEntry, GroupInfo, Invite, Person, Viewer } from "./model.ts";
+import type { AuditEntry, FamilyEvent, GroupInfo, Invite, Person, Viewer } from "./model.ts";
 import type { Store } from "./store.ts";
 
 const PEOPLE = "people";
 const GROUPS = "groups";
 const VIEWERS = "viewers";
 const INVITES = "invites";
+const EVENTS = "events";
 const AUDIT = "audit";
 
 /** Store backed by Deno KV. Same contract as SeedStore; the deploy target. */
@@ -50,6 +51,28 @@ export class KvStore implements Store {
 
   async setGroups(groups: GroupInfo[]): Promise<void> {
     await this.#kv.set([GROUPS], groups);
+  }
+
+  async listEvents(): Promise<FamilyEvent[]> {
+    const out: FamilyEvent[] = [];
+    for await (const entry of this.#kv.list<FamilyEvent>({ prefix: [EVENTS] })) {
+      out.push(entry.value);
+    }
+    return out;
+  }
+
+  async getEvent(id: string): Promise<FamilyEvent | null> {
+    const res = await this.#kv.get<FamilyEvent>([EVENTS, id]);
+    return res.value ?? null;
+  }
+
+  async upsertEvent(event: FamilyEvent): Promise<FamilyEvent> {
+    await this.#kv.set([EVENTS, event.id], event);
+    return event;
+  }
+
+  async deleteEvent(id: string): Promise<void> {
+    await this.#kv.delete([EVENTS, id]);
   }
 
   async getViewer(token: string): Promise<Viewer | null> {

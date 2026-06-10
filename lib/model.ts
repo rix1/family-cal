@@ -2,9 +2,9 @@
  * Domain model for the family calendar.
  *
  * `Person` is the canonical fact. Birthdays are derived from `born`; explicit
- * life events (weddings, baptisms, ...) will live in a separate `Event` type
- * later. Per the architecture, holidays, ages and "would have turned" are
- * *computed*, never stored.
+ * life events (weddings, baptisms, ...) live in `FamilyEvent`. Per the
+ * architecture, holidays, ages and "would have turned" are *computed*, never
+ * stored.
  */
 
 /** A date string: full ISO `YYYY-MM-DD`, recurring `MM-DD`, or `null` if unknown. */
@@ -27,6 +27,26 @@ export interface GroupInfo {
   key: string;
   label: string;
   flag: string;
+}
+
+export const EVENT_KINDS = ["wedding", "baptism", "confirmation", "other"] as const;
+export type EventKind = (typeof EVENT_KINDS)[number];
+
+/**
+ * An explicit life event (wedding, baptism, ...). Every event recurs yearly by
+ * nature — this app has no one-off events. Birthdays stay derived from
+ * `Person.born` and never live here.
+ */
+export interface FamilyEvent {
+  id: string;
+  kind: EventKind;
+  /** Optional custom title; empty = derived from the subjects' names. */
+  title: string;
+  /** `YYYY-MM-DD` (year known) or `MM-DD` (year unknown). */
+  date: PartialDate;
+  /** Person ids this event belongs to (1+; 2 for weddings). */
+  subjects: string[];
+  notes: string;
 }
 
 /**

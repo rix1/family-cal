@@ -1,4 +1,4 @@
-import type { AuditEntry, GroupInfo, Invite, Person, Viewer } from "./model.ts";
+import type { AuditEntry, FamilyEvent, GroupInfo, Invite, Person, Viewer } from "./model.ts";
 
 /**
  * Storage seam. The generator, feed and edit API depend only on this interface,
@@ -13,6 +13,11 @@ export interface Store {
 
   listGroups(): Promise<GroupInfo[]>;
   setGroups(groups: GroupInfo[]): Promise<void>;
+
+  listEvents(): Promise<FamilyEvent[]>;
+  getEvent(id: string): Promise<FamilyEvent | null>;
+  upsertEvent(event: FamilyEvent): Promise<FamilyEvent>;
+  deleteEvent(id: string): Promise<void>;
 
   getViewer(token: string): Promise<Viewer | null>;
   listViewers(): Promise<Viewer[]>;
@@ -39,6 +44,7 @@ export class SeedStore implements Store {
   #groups: GroupInfo[];
   #viewers: Map<string, Viewer>;
   #invites: Map<string, Invite>;
+  #events: Map<string, FamilyEvent>;
   #audit: AuditEntry[] = [];
 
   constructor(
@@ -46,11 +52,13 @@ export class SeedStore implements Store {
     groups: GroupInfo[] = [],
     viewers: Viewer[] = [],
     invites: Invite[] = [],
+    events: FamilyEvent[] = [],
   ) {
     this.#people = new Map(clone(people).map((p) => [p.id, p]));
     this.#groups = clone(groups);
     this.#viewers = new Map(clone(viewers).map((v) => [v.token, v]));
     this.#invites = new Map(clone(invites).map((invite) => [invite.token, invite]));
+    this.#events = new Map(clone(events).map((event) => [event.id, event]));
   }
 
   // deno-lint-ignore require-await
@@ -83,6 +91,28 @@ export class SeedStore implements Store {
   // deno-lint-ignore require-await
   async setGroups(groups: GroupInfo[]): Promise<void> {
     this.#groups = clone(groups);
+  }
+
+  // deno-lint-ignore require-await
+  async listEvents(): Promise<FamilyEvent[]> {
+    return clone([...this.#events.values()]);
+  }
+
+  // deno-lint-ignore require-await
+  async getEvent(id: string): Promise<FamilyEvent | null> {
+    const event = this.#events.get(id);
+    return event ? clone(event) : null;
+  }
+
+  // deno-lint-ignore require-await
+  async upsertEvent(event: FamilyEvent): Promise<FamilyEvent> {
+    this.#events.set(event.id, clone(event));
+    return clone(event);
+  }
+
+  // deno-lint-ignore require-await
+  async deleteEvent(id: string): Promise<void> {
+    this.#events.delete(id);
   }
 
   // deno-lint-ignore require-await

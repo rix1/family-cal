@@ -826,13 +826,15 @@ export function Calendar({
             </div>
             <p class="mt-0.5 text-sm text-ink-2">
               Anniversary of their death
-              {event.person.notes ? ` · ${event.person.notes}` : ""}
+              {event.person.notes && <>{" · "}{linkedNotes(event.person.notes)}</>}
             </p>
           </div>
         </div>
       );
     }
     const group = groups[event.person.group];
+    const age = ageText(event);
+    const notes = event.person.notes;
     return (
       <div
         id={`event-${event.person.id}-${event.date}`}
@@ -866,9 +868,9 @@ export function Calendar({
             )}
           </div>
           <p class="mt-0.5 text-sm text-ink-2">
-            {[ageText(event), event.person.notes]
-              .filter(Boolean)
-              .join(" · ") || "Birthday"}
+            {age}
+            {age && notes && " · "}
+            {notes ? linkedNotes(notes) : !age && "Birthday"}
           </p>
         </div>
       </div>

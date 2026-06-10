@@ -30,6 +30,7 @@ export const handlers = define.handlers({
       invites,
       created: created ? { invite: created, url: inviteUrl(created, baseUrl) } : null,
       baseUrl,
+      expired: ctx.url.searchParams.get("expired") === "1",
       now: new Date().toISOString(),
     });
   },
@@ -38,6 +39,27 @@ export const handlers = define.handlers({
     const viewer = await adminViewer(ctx.req, store);
     if (!viewer) return adminDenied();
     const form = await ctx.req.formData();
+    if (form.get("action") === "expire") {
+      const token = String(form.get("token") ?? "");
+      if (!token) throw new HttpError(400, "Invite token is required.");
+      const invite = await store.getInvite(token);
+      if (!invite) throw new HttpError(404, "Invite was not found.");
+      if (inviteIsActive(invite)) {
+        await store.upsertInvite({ ...invite, expiresAt: new Date().toISOString() });
+        await store.appendAudit({
+          at: new Date().toISOString(),
+          actor: viewer.name,
+          action: "expire_invite",
+          targetId: invite.token,
+          detail: `Expired invite ${invite.token}`,
+        });
+      }
+      return new Response(null, {
+        status: 303,
+        headers: { location: "/admin/invites/?expired=1" },
+      });
+    }
+
     const duration = String(form.get("duration") ?? "");
     if (!(duration in inviteDurations)) throw new HttpError(400, "Invite expiry is invalid.");
     const durationOption = inviteDurations[duration as keyof typeof inviteDurations];
@@ -129,6 +151,12 @@ export default define.page<typeof handlers>(({ data }) => (
         </details>
       </div>
 
+      {data.expired && (
+        <p class="mt-6 rounded-xl border border-accent/40 bg-accent-soft px-4 py-3 text-sm font-medium text-accent-2">
+          Invite expired.
+        </p>
+      )}
+
       {data.created && (
         <section class="mt-8 rounded-xl border border-accent/40 bg-accent-soft p-5">
           <h2 class="text-lg font-semibold">Invite ready to share</h2>
@@ -186,7 +214,18 @@ export default define.page<typeof handlers>(({ data }) => (
                       : <span class="badge bg-inset text-ink-3">Expired</span>}
                   </td>
                   <td class="text-right">
-                    <CopyButton value={url} label="Copy" />
+                    <div class="flex items-center justify-end gap-2">
+                      <CopyButton value={url} label="Copy" />
+                      {active && (
+                        <form method="post">
+                          <input type="hidden" name="action" value="expire" />
+                          <input type="hidden" name="token" value={invite.token} />
+                          <button type="submit" class="btn btn-danger btn-sm">
+                            Expire
+                          </button>
+                        </form>
+                      )}
+                    </div>
                   </td>
                 </tr>
               );

@@ -83,7 +83,34 @@ export function Editor({
   const [hasDraft, setHasDraft] = useState(false);
   const [focusedPersonId, setFocusedPersonId] = useState(focusPersonId);
   const [mentionMenu, setMentionMenu] = useState<MentionMenu | null>(null);
+  const [search, setSearch] = useState("");
+  const [familyFilter, setFamilyFilter] = useState("all");
+  const [dateFilter, setDateFilter] = useState("all");
   const noteInputs = useRef(new Map<number, HTMLTextAreaElement>());
+  const moreMenu = useRef<HTMLDetailsElement | null>(null);
+
+  useEffect(() => {
+    function closeOnOutsideClick(event: PointerEvent) {
+      if (!moreMenu.current?.contains(event.target as Node)) {
+        moreMenu.current?.removeAttribute("open");
+      }
+    }
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") moreMenu.current?.removeAttribute("open");
+    }
+
+    document.addEventListener("pointerdown", closeOnOutsideClick);
+    globalThis.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsideClick);
+      globalThis.removeEventListener("keydown", closeOnEscape);
+    };
+  }, []);
+
+  function closeMoreMenu() {
+    moreMenu.current?.removeAttribute("open");
+  }
 
   useEffect(() => {
     try {
@@ -132,6 +159,27 @@ export function Editor({
     ).length;
   const nonEmptyRows = rows.filter((row) => row.name || row.born || row.died || row.notes);
   const datedCount = nonEmptyRows.filter((row) => row.born).length;
+
+  const searchQuery = search.trim().toLowerCase();
+  const filtersActive = Boolean(searchQuery) || familyFilter !== "all" || dateFilter !== "all";
+  // Freshly added (still empty) rows always stay visible while being authored.
+  const visibleRows = rows
+    .map((row, index) => ({ row, index }))
+    .filter(({ row }) => {
+      if (!row.name && !row.born && !row.died && !row.notes) return true;
+      if (
+        searchQuery &&
+        !`${row.name} ${row.id ?? ""} ${row.notes}`.toLowerCase().includes(searchQuery)
+      ) {
+        return false;
+      }
+      if (familyFilter !== "all" && !row.groups.includes(familyFilter)) return false;
+      if (dateFilter === "dated" && !row.born) return false;
+      if (dateFilter === "missing" && row.born) return false;
+      return true;
+    });
+  const visibleCount =
+    visibleRows.filter(({ row }) => row.name || row.born || row.died || row.notes).length;
 
   function persistDraft(next: Row[]) {
     localStorage.setItem(
@@ -270,31 +318,65 @@ export function Editor({
 
   return (
     <main class={embedded ? "" : "mx-auto max-w-6xl px-4 py-8"}>
-      <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 class="text-2xl font-semibold tracking-tight">People</h1>
           <p class="mt-1 max-w-2xl text-sm text-ink-2">
             Changes <strong>Save</strong> to the shared calendar; Download CSV is a backup.
           </p>
         </div>
-        <div class="flex flex-wrap items-center gap-2">
-          <span class="px-1 text-sm text-ink-3">
-            Editing as <strong class="font-medium text-ink">{viewerName}</strong>
-          </span>
-          <a href={calendarUrl} class="btn btn-ghost">
-            View calendar
-          </a>
+        <div class="flex items-center gap-2">
+          <details ref={moreMenu} class="relative">
+            <summary class="btn btn-ghost cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+              More
+              <svg
+                class="size-3 text-ink-3"
+                viewBox="0 0 12 12"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.6"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M2.5 4.5L6 8l3.5-3.5" />
+              </svg>
+            </summary>
+            <div class="menu">
+              <a href={calendarUrl}>View calendar</a>
+              <button
+                type="button"
+                onClick={() => {
+                  closeMoreMenu();
+                  copyCsv();
+                }}
+              >
+                Copy CSV
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  closeMoreMenu();
+                  downloadCsv();
+                }}
+              >
+                Download CSV
+              </button>
+              <hr />
+              <button
+                type="button"
+                class="text-danger"
+                onClick={() => {
+                  closeMoreMenu();
+                  reset();
+                }}
+              >
+                Reset to saved
+              </button>
+            </div>
+          </details>
           <button type="button" onClick={addRow} class="btn btn-ghost">
             Add person
-          </button>
-          <button type="button" onClick={copyCsv} class="btn btn-ghost">
-            Copy CSV
-          </button>
-          <button type="button" onClick={downloadCsv} class="btn btn-ghost">
-            Download CSV
-          </button>
-          <button type="button" onClick={reset} class="btn btn-ghost text-ink-2">
-            Reset
           </button>
           <button type="button" onClick={save} class="btn btn-primary">
             Save
@@ -308,19 +390,50 @@ export function Editor({
         </div>
       )}
 
-      <div class="mb-4 flex flex-wrap items-center gap-3 text-sm tabular-nums text-ink-2">
-        <span>
+      <div class="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div class="flex flex-wrap items-center gap-2">
+          <input
+            type="search"
+            value={search}
+            onInput={(e) => setSearch((e.currentTarget as HTMLInputElement).value)}
+            placeholder="Search people…"
+            class="input w-56"
+          />
+          <select
+            value={familyFilter}
+            onChange={(e) => setFamilyFilter(e.currentTarget.value)}
+            class="input w-auto"
+          >
+            <option value="all">All families</option>
+            {groups.map((g) => <option value={g.key}>{g.label}</option>)}
+          </select>
+          <select
+            value={dateFilter}
+            onChange={(e) => setDateFilter(e.currentTarget.value)}
+            class="input w-auto"
+          >
+            <option value="all">All dates</option>
+            <option value="dated">With date</option>
+            <option value="missing">Missing date</option>
+          </select>
+        </div>
+        <p class="text-sm tabular-nums text-ink-2">
+          {filtersActive && (
+            <span>
+              <strong>{visibleCount}</strong> shown ·{" "}
+            </span>
+          )}
           <strong>{nonEmptyRows.length}</strong> people · <strong>{datedCount}</strong> with dates ·
           {" "}
           <strong>{nonEmptyRows.length - datedCount}</strong> missing
           {invalidCount
             ? (
               <span class="font-semibold text-danger">
-                · {invalidCount} invalid date{invalidCount === 1 ? "" : "s"}
+                {" "}· {invalidCount} invalid date{invalidCount === 1 ? "" : "s"}
               </span>
             )
             : null}
-        </span>
+        </p>
       </div>
 
       <section class="card overflow-x-auto">
@@ -336,7 +449,7 @@ export function Editor({
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, index) => {
+            {visibleRows.map(({ row, index }) => {
               const bornValid = birthDateValid(row.born);
               const diedValid = deathDateValid(row.died);
               const suggestions = mentionMenu?.rowIndex === index
@@ -468,6 +581,11 @@ export function Editor({
             })}
           </tbody>
         </table>
+        {!visibleRows.length && (
+          <p class="px-4 py-8 text-center text-sm text-ink-3">
+            No people match these filters.
+          </p>
+        )}
       </section>
 
       <p class="mt-3 text-xs text-ink-3">

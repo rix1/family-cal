@@ -50,47 +50,36 @@ export default define.page<typeof handlers>(({ data }) => {
         viewerName={data.viewer.name}
         calendarUrl="/calendar/"
       >
-        <h1 class="text-3xl font-semibold">Groups</h1>
-        <p class="mt-2 text-zinc-600">Family tags used for viewer-specific calendars.</p>
+        <h1 class="text-2xl font-semibold tracking-tight">Groups</h1>
+        <p class="mt-1 text-sm text-ink-2">Family tags used for viewer-specific calendars.</p>
         <form method="post" class="mt-8">
-          <div class="overflow-hidden rounded-xl border border-zinc-200 bg-white">
-            <table class="w-full text-left text-sm">
-              <thead class="bg-zinc-100 text-xs uppercase text-zinc-500">
+          <div class="card overflow-hidden">
+            <table class="data-table">
+              <thead>
                 <tr>
-                  <th class="px-4 py-3">Key</th>
-                  <th class="px-4 py-3">Label</th>
-                  <th class="px-4 py-3">Flag</th>
+                  <th>Key</th>
+                  <th>Label</th>
+                  <th>Flag</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-zinc-200">
+              <tbody>
                 {rows.map((group) => (
                   <tr>
-                    <td class="p-3">
-                      <input name="key" value={group.key} class="w-full rounded border px-3 py-2" />
+                    <td>
+                      <input name="key" value={group.key} class="input font-mono text-xs" />
                     </td>
-                    <td class="p-3">
-                      <input
-                        name="label"
-                        value={group.label}
-                        class="w-full rounded border px-3 py-2"
-                      />
+                    <td>
+                      <input name="label" value={group.label} class="input" />
                     </td>
-                    <td class="p-3">
-                      <input
-                        name="flag"
-                        value={group.flag}
-                        class="w-full rounded border px-3 py-2"
-                      />
+                    <td>
+                      <input name="flag" value={group.flag} class="input" />
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          <button
-            type="submit"
-            class="mt-4 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white"
-          >
+          <button type="submit" class="btn btn-primary mt-4">
             Save groups
           </button>
         </form>

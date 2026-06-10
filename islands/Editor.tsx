@@ -272,72 +272,50 @@ export function Editor({
     <main class={embedded ? "" : "mx-auto max-w-6xl px-4 py-8"}>
       <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <div class="flex items-center gap-3">
-            <a href={calendarUrl} class="text-sm font-medium text-zinc-500 hover:text-zinc-900">
-              View calendar
-            </a>
-          </div>
-          <h1 class="mt-1 text-2xl font-semibold tracking-normal">Edit family dates</h1>
-          <p class="mt-1 max-w-2xl text-sm text-zinc-600">
+          <h1 class="text-2xl font-semibold tracking-tight">People</h1>
+          <p class="mt-1 max-w-2xl text-sm text-ink-2">
             Changes <strong>Save</strong> to the shared calendar; Download CSV is a backup.
           </p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
-          <span class="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-600">
-            Editing as <strong class="text-zinc-900">{viewerName}</strong>
+          <span class="px-1 text-sm text-ink-3">
+            Editing as <strong class="font-medium text-ink">{viewerName}</strong>
           </span>
-          <button
-            type="button"
-            onClick={addRow}
-            class="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700"
-          >
+          <a href={calendarUrl} class="btn btn-ghost">
+            View calendar
+          </a>
+          <button type="button" onClick={addRow} class="btn btn-ghost">
             Add person
           </button>
-          <button
-            type="button"
-            onClick={save}
-            class="rounded-md bg-teal-700 px-4 py-2 text-sm font-medium text-white hover:bg-teal-600"
-          >
-            Save
-          </button>
-          <button
-            type="button"
-            onClick={copyCsv}
-            class="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-100"
-          >
+          <button type="button" onClick={copyCsv} class="btn btn-ghost">
             Copy CSV
           </button>
-          <button
-            type="button"
-            onClick={downloadCsv}
-            class="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-100"
-          >
+          <button type="button" onClick={downloadCsv} class="btn btn-ghost">
             Download CSV
           </button>
-          <button
-            type="button"
-            onClick={reset}
-            class="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-500 hover:bg-zinc-100"
-          >
+          <button type="button" onClick={reset} class="btn btn-ghost text-ink-2">
             Reset
+          </button>
+          <button type="button" onClick={save} class="btn btn-primary">
+            Save
           </button>
         </div>
       </div>
 
       {hasDraft && (
-        <div class="mb-4 rounded-md border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900">
+        <div class="mb-4 rounded-lg bg-gold-soft px-4 py-2.5 text-sm font-medium text-gold">
           You have unsaved local changes. Save (or Download CSV) to keep them, or Reset to discard.
         </div>
       )}
 
-      <div class="mb-4 flex flex-wrap items-center gap-3 text-sm text-zinc-600">
+      <div class="mb-4 flex flex-wrap items-center gap-3 text-sm tabular-nums text-ink-2">
         <span>
           <strong>{nonEmptyRows.length}</strong> people · <strong>{datedCount}</strong> with dates ·
           {" "}
           <strong>{nonEmptyRows.length - datedCount}</strong> missing
           {invalidCount
             ? (
-              <span class="font-semibold text-red-600">
+              <span class="font-semibold text-danger">
                 · {invalidCount} invalid date{invalidCount === 1 ? "" : "s"}
               </span>
             )
@@ -345,19 +323,19 @@ export function Editor({
         </span>
       </div>
 
-      <section class="overflow-x-auto rounded-md border border-zinc-200 bg-white">
-        <table class="w-full min-w-[1120px] border-collapse text-left text-sm">
-          <thead class="bg-zinc-100 text-xs uppercase tracking-wide text-zinc-600">
+      <section class="card overflow-x-auto">
+        <table class="data-table min-w-[1120px]">
+          <thead>
             <tr>
-              <th class="w-[18%] px-3 py-3 font-medium">Name</th>
-              <th class="w-[17%] px-3 py-3 font-medium">Families</th>
-              <th class="w-[15%] px-3 py-3 font-medium">Born</th>
-              <th class="w-[15%] px-3 py-3 font-medium">Died</th>
-              <th class="px-3 py-3 font-medium">Notes</th>
-              <th class="w-16 px-3 py-3 font-medium"></th>
+              <th class="w-[18%]">Name</th>
+              <th class="w-[17%]">Families</th>
+              <th class="w-[15%]">Born</th>
+              <th class="w-[15%]">Died</th>
+              <th>Notes</th>
+              <th class="w-16"></th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-zinc-200">
+          <tbody>
             {rows.map((row, index) => {
               const bornValid = birthDateValid(row.born);
               const diedValid = deathDateValid(row.died);
@@ -368,26 +346,24 @@ export function Editor({
                 <tr
                   key={row.id || index}
                   id={row.id ? `person-row-${row.id}` : undefined}
-                  class={focusedPersonId === row.id
-                    ? "bg-teal-50 ring-2 ring-inset ring-teal-500"
-                    : ""}
+                  class={focusedPersonId === row.id ? "bg-accent-soft" : ""}
                 >
-                  <td class="px-3 py-2">
+                  <td>
                     <input
                       name="name"
                       value={row.name}
                       onInput={(e) =>
                         updateRow(index, { name: (e.currentTarget as HTMLInputElement).value })}
-                      class="w-full rounded-md border border-zinc-300 px-3 py-2 outline-none focus:border-zinc-900"
+                      class="input"
                       placeholder="Name"
                     />
                     {row.id && (
-                      <span class="mt-1 block truncate font-mono text-[10px] text-zinc-400">
+                      <span class="mt-1 block truncate font-mono text-[10px] text-ink-3">
                         {row.id}
                       </span>
                     )}
                   </td>
-                  <td class="px-3 py-2">
+                  <td>
                     <div class="flex flex-wrap gap-1">
                       {groups.map((g) => (
                         <button
@@ -395,40 +371,32 @@ export function Editor({
                           type="button"
                           aria-pressed={row.groups.includes(g.key)}
                           onClick={() => toggleGroup(index, g.key)}
-                          class={`rounded-full border px-2 py-1 text-xs font-medium ${
-                            row.groups.includes(g.key)
-                              ? "border-teal-700 bg-teal-50 text-teal-900"
-                              : "border-zinc-300 bg-white text-zinc-500"
-                          }`}
+                          class="chip"
                         >
                           {g.flag} {g.label}
                         </button>
                       ))}
                     </div>
                   </td>
-                  <td class="px-3 py-2">
+                  <td>
                     <input
                       value={row.born}
                       onInput={(e) =>
                         updateRow(index, { born: (e.currentTarget as HTMLInputElement).value })}
-                      class={`w-full rounded-md border px-3 py-2 outline-none focus:border-zinc-900 ${
-                        bornValid ? "border-zinc-300" : "border-red-500 bg-red-50"
-                      }`}
+                      class={`input tabular-nums ${bornValid ? "" : "input-invalid"}`}
                       placeholder="1990-05-17 / 05-17"
                     />
                   </td>
-                  <td class="px-3 py-2">
+                  <td>
                     <input
                       value={row.died}
                       onInput={(e) =>
                         updateRow(index, { died: (e.currentTarget as HTMLInputElement).value })}
-                      class={`w-full rounded-md border px-3 py-2 outline-none focus:border-zinc-900 ${
-                        diedValid ? "border-zinc-300" : "border-red-500 bg-red-50"
-                      }`}
+                      class={`input tabular-nums ${diedValid ? "" : "input-invalid"}`}
                       placeholder="2020-02-01"
                     />
                   </td>
-                  <td class="relative px-3 py-2">
+                  <td class="relative">
                     <textarea
                       ref={(input) => {
                         if (input) noteInputs.current.set(index, input);
@@ -462,35 +430,35 @@ export function Editor({
                         }
                       }}
                       onBlur={() => setTimeout(() => setMentionMenu(null), 120)}
-                      class="min-h-16 w-full resize-y rounded-md border border-zinc-300 px-3 py-2 outline-none focus:border-zinc-900"
+                      class="input min-h-16 resize-y"
                       placeholder="Optional; type @ to link a person"
                     />
                     {mentionMenu?.rowIndex === index && suggestions.length > 0 && (
-                      <div class="absolute left-3 right-3 top-[calc(100%-0.5rem)] z-20 overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-xl">
+                      <div class="absolute left-3 right-3 top-[calc(100%-0.5rem)] z-20 overflow-hidden rounded-lg border border-line bg-surface shadow-pop">
                         {suggestions.map((person, suggestionIndex) => (
                           <button
                             key={person.id}
                             type="button"
                             class={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm ${
                               suggestionIndex === mentionMenu.activeIndex
-                                ? "bg-teal-50 text-teal-950"
-                                : "hover:bg-zinc-50"
+                                ? "bg-accent-soft text-accent-2"
+                                : "hover:bg-inset"
                             }`}
                             onMouseDown={(event) => event.preventDefault()}
                             onClick={() => chooseMention(person)}
                           >
                             <span class="font-medium">{person.name}</span>
-                            <span class="font-mono text-xs text-zinc-400">@{person.id}</span>
+                            <span class="font-mono text-xs text-ink-3">@{person.id}</span>
                           </button>
                         ))}
                       </div>
                     )}
                   </td>
-                  <td class="px-3 py-2 text-right">
+                  <td class="text-right">
                     <button
                       type="button"
                       onClick={() => removeRow(index)}
-                      class="rounded-md px-3 py-2 text-sm text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900"
+                      class="btn btn-ghost btn-sm text-ink-2"
                     >
                       Remove
                     </button>
@@ -502,16 +470,15 @@ export function Editor({
         </table>
       </section>
 
-      <p class="mt-3 text-xs text-zinc-500">
+      <p class="mt-3 text-xs text-ink-3">
         Born accepts <code>YYYY-MM-DD</code>, <code>MM-DD</code>, or blank. Died requires a full
         {" "}
         <code>YYYY-MM-DD</code> date or blank. Type <code>@</code> in notes to link another person.
       </p>
 
       <div
-        class={`pointer-events-none fixed bottom-4 left-1/2 z-30 -translate-x-1/2 rounded-md bg-zinc-900 px-4 py-2 text-sm text-white shadow-lg transition-all ${
-          toast ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"
-        }`}
+        role="status"
+        class={`toast fixed bottom-4 left-1/2 z-30 -translate-x-1/2 ${toast ? "visible" : ""}`}
       >
         {toast}
       </div>

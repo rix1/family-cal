@@ -21,25 +21,27 @@ export default define.page<typeof handlers>(({ data }) => (
       viewerName={data.viewer.name}
       calendarUrl="/calendar/"
     >
-      <h1 class="text-3xl font-semibold">Audit</h1>
-      <p class="mt-2 text-zinc-600">Most recent changes first.</p>
-      <div class="mt-8 overflow-x-auto rounded-xl border border-zinc-200 bg-white">
-        <table class="w-full text-left text-sm">
-          <thead class="bg-zinc-100 text-xs uppercase text-zinc-500">
+      <h1 class="text-2xl font-semibold tracking-tight">Audit</h1>
+      <p class="mt-1 text-sm text-ink-2">Most recent changes first.</p>
+      <div class="card mt-8 overflow-x-auto">
+        <table class="data-table">
+          <thead>
             <tr>
-              <th class="px-4 py-3">When</th>
-              <th class="px-4 py-3">Actor</th>
-              <th class="px-4 py-3">Action</th>
-              <th class="px-4 py-3">Target</th>
+              <th>When</th>
+              <th>Actor</th>
+              <th>Action</th>
+              <th>Target</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-zinc-200">
+          <tbody>
             {data.audit.map((entry) => (
               <tr>
-                <td class="px-4 py-3 whitespace-nowrap">{entry.at}</td>
-                <td class="px-4 py-3">{entry.actor}</td>
-                <td class="px-4 py-3">{entry.action}</td>
-                <td class="px-4 py-3">{entry.detail ?? entry.targetId ?? ""}</td>
+                <td class="whitespace-nowrap font-mono text-xs text-ink-2">{entry.at}</td>
+                <td class="font-medium">{entry.actor}</td>
+                <td>
+                  <span class="badge bg-inset text-ink-2">{entry.action}</span>
+                </td>
+                <td class="text-ink-2">{entry.detail ?? entry.targetId ?? ""}</td>
               </tr>
             ))}
           </tbody>

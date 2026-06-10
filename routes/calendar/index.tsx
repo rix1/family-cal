@@ -1,4 +1,3 @@
-import { CalendarStyles } from "@/components/CalendarStyles.tsx";
 import { Calendar } from "@/islands/Calendar.tsx";
 import { getStore } from "@/lib/db.ts";
 import { sessionViewer } from "@/lib/viewer_auth.ts";
@@ -23,7 +22,6 @@ export const handlers = define.handlers({
 export default define.page<typeof handlers>(({ data }) => (
   <>
     <title>Family Calendar</title>
-    <CalendarStyles />
     <Calendar
       {...data.calendar}
       viewerName={data.viewerName}

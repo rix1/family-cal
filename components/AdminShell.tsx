@@ -19,26 +19,26 @@ const nav = [
 
 export function AdminShell({ current, viewerName, calendarUrl, children }: Props) {
   return (
-    <div class="min-h-screen bg-zinc-50 text-zinc-950">
+    <div class="min-h-screen">
       <AppHeader
         title="Administration"
         viewerName={viewerName}
         calendarUrl={calendarUrl}
         logoutUrl="/logout"
+        wide
       />
-      <div class="mx-auto grid max-w-7xl md:min-h-[calc(100vh-65px)] md:grid-cols-[220px_1fr]">
-        <aside class="border-b border-zinc-200 bg-white p-5 md:border-b-0 md:border-r">
-          <p class="text-xs font-semibold uppercase tracking-wide text-zinc-500">Administration</p>
-          <nav class="mt-4 flex gap-2 overflow-x-auto md:grid" aria-label="Admin">
+      <div class="mx-auto grid max-w-7xl md:min-h-[calc(100vh-57px)] md:grid-cols-[200px_1fr]">
+        <aside class="border-b border-line px-3 py-4 md:border-b-0 md:border-r md:py-6">
+          <nav class="flex gap-1 overflow-x-auto md:grid" aria-label="Admin">
             {nav.map(([key, href, label]) => (
               <a
                 key={key}
                 href={href}
                 aria-current={current === key ? "page" : undefined}
-                class={`rounded-lg px-3 py-2 text-sm font-medium ${
+                class={`whitespace-nowrap rounded-lg px-3 py-1.5 text-sm transition-colors ${
                   current === key
-                    ? "bg-zinc-900 text-white"
-                    : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-950"
+                    ? "bg-inset font-semibold text-ink"
+                    : "font-medium text-ink-2 hover:bg-inset hover:text-ink"
                 }`}
               >
                 {label}

@@ -6,10 +6,30 @@ Professional, warm, and calm. The page should feel like a lightweight family ope
 
 ## Visual Direction
 
-- Palette: warm paper background, charcoal text, teal for birthday energy, amber for milestones, restrained blue/red for NO/DK holiday country signals.
-- Shape: compact rounded rectangles with 10-16px radius. Avoid nested-card clutter; use framed cards only for distinct information units.
-- Typography: system sans, medium-weight headings, no negative letter spacing, compact but breathable spacing.
-- Texture: subtle borders, soft shadows, and a light paper-like page tone instead of generic white/gray panels.
+One token-based design system lives in `styles.css` (Tailwind v4 `@theme`); every page —
+calendar, admin, invite, about, errors — reads the same semantic tokens, and dark mode only swaps
+token values (no per-component overrides anywhere).
+
+Deliberate rules, in priority order:
+
+- **Color is meaning.** Teal accent marks "now and next" only (today, next-up, active states,
+  primary actions). Gold is reserved for milestone birthdays. Norway blue / Denmark red appear
+  only as holiday country badges. Everything else is the warm neutral ramp
+  (`page → inset → surface`, `ink/ink-2/ink-3`).
+- **Surfaces, not decoration.** Three background levels: `page` (warm porcelain canvas),
+  `surface` (cards), `inset` (quiet rows, fact boxes, hover states). 1px `line` borders and a
+  whisper of shadow; real shadows only on popovers and the person sheet.
+- **Typography carries hierarchy.** System sans; semibold headings with slightly tight tracking;
+  uppercase 11px "kicker" labels for section headings; tabular numerals on every date and count.
+- **Emoji are content, not chrome.** Event-type glyphs (🎂 🕯️ 💍, flags) and milestone flare
+  stay; all UI iconography (search, chevrons, close, brand) is stroke SVG.
+- **One shape scale.** Controls 8px, cards 12px, sheet 16px; pills only for toggles (chips),
+  badges, and the account chip.
+- Shared component classes: `.btn` (+`-primary/-ghost/-danger/-sm`), `.input`, `.card`, `.chip`,
+  `.badge`, `.kicker`, `.menu`, `.data-table`, `.sheet`, `.toast` — calendar and admin draw from
+  the same set so the app reads as one product.
+- Brand mark: an eight-point "celebration spark" in an accent rounded square, used in the header
+  and on access/invite/error pages.
 
 ## Interaction
 

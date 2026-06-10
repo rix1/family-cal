@@ -1,3 +1,4 @@
+import { BrandMark } from "@/components/AppHeader.tsx";
 import { createViewer } from "@/lib/access_links.ts";
 import { getStore } from "@/lib/db.ts";
 import { inviteIsActive } from "@/lib/model.ts";
@@ -64,13 +65,12 @@ export const handlers = define.handlers({
 export default define.page<typeof handlers>(({ data }) => (
   <>
     <title>Join Family Calendar</title>
-    <main class="grid min-h-screen place-items-center bg-zinc-50 px-4 py-12 text-zinc-950">
-      <section class="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm sm:p-8">
-        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">
-          Family calendar
-        </p>
-        <h1 class="mt-2 text-3xl font-semibold">Join the family calendar</h1>
-        <p class="mt-3 text-zinc-600">
+    <main class="grid min-h-screen place-items-center px-4 py-12">
+      <section class="card w-full max-w-lg p-6 sm:p-8">
+        <BrandMark />
+        <p class="kicker mt-8">You're invited</p>
+        <h1 class="mt-2 text-2xl font-semibold tracking-tight">Join the family calendar</h1>
+        <p class="mt-3 leading-relaxed text-ink-2">
           Add your name and choose the family groups you want included in your calendar.
         </p>
 
@@ -82,30 +82,27 @@ export default define.page<typeof handlers>(({ data }) => (
               required
               autofocus
               autocomplete="name"
-              class="rounded-lg border border-zinc-300 px-3 py-2.5"
+              class="input"
               placeholder="First and last name"
             />
           </label>
 
           <fieldset>
             <legend class="text-sm font-medium">Your family groups</legend>
-            <p class="mt-1 text-xs text-zinc-500">
+            <p class="mt-1 text-xs text-ink-3">
               Choose all that apply. No selection shows the full family calendar.
             </p>
             <div class="mt-3 grid gap-2 sm:grid-cols-2">
               {data.groups.map((group) => (
-                <label class="flex items-center gap-3 rounded-lg border border-zinc-200 px-3 py-2.5 text-sm">
-                  <input type="checkbox" name="groups" value={group.key} />
+                <label class="flex cursor-pointer items-center gap-3 rounded-lg border border-line-2 px-3 py-2.5 text-sm font-medium hover:bg-inset has-checked:border-accent has-checked:bg-accent-soft has-checked:text-accent-2">
+                  <input type="checkbox" name="groups" value={group.key} class="accent-accent" />
                   <span>{group.flag} {group.label}</span>
                 </label>
               ))}
             </div>
           </fieldset>
 
-          <button
-            type="submit"
-            class="rounded-lg bg-teal-700 px-4 py-3 font-medium text-white hover:bg-teal-600"
-          >
+          <button type="submit" class="btn btn-primary w-full">
             Join and open calendar
           </button>
         </form>

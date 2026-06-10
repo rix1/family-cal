@@ -23,12 +23,11 @@ export function ThemeToggle() {
   return (
     <button
       type="button"
-      class="theme-toggle"
       onClick={toggleTheme}
       aria-label={`Use ${dark ? "light" : "dark"} theme`}
       title={`Use ${dark ? "light" : "dark"} theme`}
     >
-      <span class="theme-toggle-label">{dark ? "Light" : "Dark"}</span>
+      <span>{dark ? "Light" : "Dark"}</span>
       {dark
         ? (
           <svg aria-hidden="true" viewBox="0 0 24 24">

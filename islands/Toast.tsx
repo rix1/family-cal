@@ -17,9 +17,7 @@ export function Toast({ message }: Props) {
   return (
     <div
       role="status"
-      class={`pointer-events-none fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-md bg-zinc-900 px-4 py-2 text-sm text-white shadow-lg transition-all ${
-        visible ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"
-      }`}
+      class={`toast fixed bottom-4 left-1/2 z-50 -translate-x-1/2 ${visible ? "visible" : ""}`}
     >
       {message}
     </div>

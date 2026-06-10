@@ -104,46 +104,43 @@ export default define.page<typeof handlers>(({ data }) => (
     >
       <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 class="text-3xl font-semibold">Viewers</h1>
-          <p class="mt-2 text-zinc-600">Capability links and their permissions.</p>
+          <h1 class="text-2xl font-semibold tracking-tight">Viewers</h1>
+          <p class="mt-1 text-sm text-ink-2">Capability links and their permissions.</p>
         </div>
-        <details class="group">
-          <summary class="cursor-pointer list-none rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700">
+        <details class="relative">
+          <summary class="btn btn-primary cursor-pointer list-none [&::-webkit-details-marker]:hidden">
             New viewer
           </summary>
           <form
             method="post"
-            class="mt-3 grid min-w-72 gap-4 rounded-xl border border-zinc-200 bg-white p-4 shadow-lg sm:min-w-96"
+            class="card absolute right-0 z-30 mt-2 grid w-[min(24rem,calc(100vw-2rem))] gap-4 p-4 shadow-pop"
           >
             <label class="grid gap-1.5 text-sm font-medium">
               Name
               <input
                 name="name"
                 required
-                class="rounded-lg border border-zinc-300 px-3 py-2"
+                class="input"
                 placeholder="Family member"
               />
             </label>
             <fieldset>
               <legend class="text-sm font-medium">Calendar groups</legend>
-              <p class="mt-1 text-xs text-zinc-500">No selection means all groups.</p>
+              <p class="mt-1 text-xs text-ink-3">No selection means all groups.</p>
               <div class="mt-2 grid gap-2 sm:grid-cols-2">
                 {data.groups.map((group) => (
                   <label class="flex items-center gap-2 text-sm">
-                    <input type="checkbox" name="groups" value={group.key} />
+                    <input type="checkbox" name="groups" value={group.key} class="accent-accent" />
                     <span>{group.flag} {group.label}</span>
                   </label>
                 ))}
               </div>
             </fieldset>
             <label class="flex items-center gap-2 text-sm font-medium">
-              <input type="checkbox" name="canEdit" />
+              <input type="checkbox" name="canEdit" class="accent-accent" />
               Allow administration and editing
             </label>
-            <button
-              type="submit"
-              class="rounded-lg bg-teal-700 px-4 py-2 text-sm font-medium text-white hover:bg-teal-600"
-            >
+            <button type="submit" class="btn btn-primary">
               Create private link
             </button>
           </form>
@@ -151,9 +148,9 @@ export default define.page<typeof handlers>(({ data }) => (
       </div>
 
       {data.created && (
-        <section class="mt-8 rounded-xl border border-teal-300 bg-teal-50 p-5">
+        <section class="mt-8 rounded-xl border border-accent/40 bg-accent-soft p-5">
           <h2 class="text-lg font-semibold">Link created for {data.created.viewer.name}</h2>
-          <p class="mt-1 text-sm text-zinc-600">
+          <p class="mt-1 text-sm text-ink-2">
             Share the calendar link privately. This is also their login link.
           </p>
           <div class="mt-4 grid gap-3">
@@ -164,8 +161,8 @@ export default define.page<typeof handlers>(({ data }) => (
             ].map(([label, url]) => (
               <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
                 <div class="min-w-0 flex-1">
-                  <p class="text-xs font-semibold uppercase text-zinc-500">{label}</p>
-                  <code class="block truncate text-sm">{url}</code>
+                  <p class="kicker">{label}</p>
+                  <code class="block truncate font-mono text-sm">{url}</code>
                 </div>
                 <CopyButton value={url} label={`Copy ${label.toLowerCase()}`} />
               </div>
@@ -175,52 +172,43 @@ export default define.page<typeof handlers>(({ data }) => (
       )}
 
       {data.expired && (
-        <p class="mt-6 rounded-lg border border-teal-300 bg-teal-50 px-4 py-3 text-sm font-medium text-teal-900">
+        <p class="mt-6 rounded-xl border border-accent/40 bg-accent-soft px-4 py-3 text-sm font-medium text-accent-2">
           Viewer link expired.
         </p>
       )}
 
       <form
         method="get"
-        class="mt-8 grid gap-3 rounded-xl border border-zinc-200 bg-white p-4 sm:grid-cols-2 xl:grid-cols-[minmax(14rem,1fr)_auto_auto_auto_auto]"
+        class="card mt-8 grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-[minmax(14rem,1fr)_auto_auto_auto_auto]"
       >
-        <label class="grid gap-1 text-xs font-semibold uppercase text-zinc-500">
-          Search
+        <label class="grid gap-1.5">
+          <span class="kicker">Search</span>
           <input
             name="q"
             value={data.filters.query}
             placeholder="Name or token"
-            class="rounded-lg border border-zinc-300 px-3 py-2 text-sm font-normal normal-case text-zinc-900"
+            class="input"
           />
         </label>
-        <label class="grid gap-1 text-xs font-semibold uppercase text-zinc-500">
-          Status
-          <select
-            name="status"
-            class="rounded-lg border border-zinc-300 px-3 py-2 text-sm font-normal normal-case text-zinc-900"
-          >
+        <label class="grid gap-1.5">
+          <span class="kicker">Status</span>
+          <select name="status" class="input">
             <option value="all" selected={data.filters.status === "all"}>All</option>
             <option value="active" selected={data.filters.status === "active"}>Active</option>
             <option value="expired" selected={data.filters.status === "expired"}>Expired</option>
           </select>
         </label>
-        <label class="grid gap-1 text-xs font-semibold uppercase text-zinc-500">
-          Permission
-          <select
-            name="permission"
-            class="rounded-lg border border-zinc-300 px-3 py-2 text-sm font-normal normal-case text-zinc-900"
-          >
+        <label class="grid gap-1.5">
+          <span class="kicker">Permission</span>
+          <select name="permission" class="input">
             <option value="all" selected={data.filters.permission === "all"}>All</option>
             <option value="admin" selected={data.filters.permission === "admin"}>Admin</option>
             <option value="view" selected={data.filters.permission === "view"}>View only</option>
           </select>
         </label>
-        <label class="grid gap-1 text-xs font-semibold uppercase text-zinc-500">
-          Group
-          <select
-            name="group"
-            class="rounded-lg border border-zinc-300 px-3 py-2 text-sm font-normal normal-case text-zinc-900"
-          >
+        <label class="grid gap-1.5">
+          <span class="kicker">Group</span>
+          <select name="group" class="input">
             <option value="all" selected={data.filters.group === "all"}>All</option>
             <option value="all-groups" selected={data.filters.group === "all-groups"}>
               All groups
@@ -233,50 +221,49 @@ export default define.page<typeof handlers>(({ data }) => (
           </select>
         </label>
         <div class="flex items-end gap-2">
-          <button
-            type="submit"
-            class="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white"
-          >
+          <button type="submit" class="btn btn-primary">
             Filter
           </button>
-          <a
-            href="/admin/viewers/"
-            class="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700"
-          >
+          <a href="/admin/viewers/" class="btn btn-ghost">
             Clear
           </a>
         </div>
       </form>
 
-      <div class="mt-8 overflow-x-auto rounded-xl border border-zinc-200 bg-white">
-        <table class="w-full text-left text-sm">
-          <thead class="bg-zinc-100 text-xs uppercase text-zinc-500">
+      <div class="card mt-8 overflow-x-auto">
+        <table class="data-table">
+          <thead>
             <tr>
-              <th class="px-4 py-3">Name</th>
-              <th class="px-4 py-3">Token</th>
-              <th class="px-4 py-3">Groups</th>
-              <th class="px-4 py-3">Editor</th>
-              <th class="px-4 py-3">Status</th>
-              <th class="px-4 py-3"></th>
+              <th>Name</th>
+              <th>Token</th>
+              <th>Groups</th>
+              <th>Permission</th>
+              <th>Status</th>
+              <th></th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-zinc-200">
+          <tbody>
             {data.viewers.map((item) => (
               <tr>
-                <td class="px-4 py-3 font-medium">{item.name}</td>
-                <td class="px-4 py-3 font-mono text-xs">{item.token}</td>
-                <td class="px-4 py-3">{item.groups.join(", ") || "All"}</td>
-                <td class="px-4 py-3">{item.canEdit ? "Yes" : "No"}</td>
-                <td class="px-4 py-3">{item.expiredAt ? "Expired" : "Active"}</td>
-                <td class="px-4 py-3 text-right">
+                <td class="font-medium">{item.name}</td>
+                <td class="font-mono text-xs text-ink-2">{item.token}</td>
+                <td class="text-ink-2">{item.groups.join(", ") || "All"}</td>
+                <td>
+                  {item.canEdit
+                    ? <span class="badge bg-gold-soft text-gold">Admin</span>
+                    : <span class="badge bg-inset text-ink-2">View</span>}
+                </td>
+                <td>
+                  {item.expiredAt
+                    ? <span class="badge bg-inset text-ink-3">Expired</span>
+                    : <span class="badge bg-accent-soft text-accent-2">Active</span>}
+                </td>
+                <td class="text-right">
                   {viewerIsActive(item) && item.token !== data.viewer.token && (
                     <form method="post">
                       <input type="hidden" name="action" value="expire" />
                       <input type="hidden" name="token" value={item.token} />
-                      <button
-                        type="submit"
-                        class="rounded-lg border border-red-300 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50"
-                      >
+                      <button type="submit" class="btn btn-danger btn-sm">
                         Expire
                       </button>
                     </form>
@@ -287,7 +274,7 @@ export default define.page<typeof handlers>(({ data }) => (
           </tbody>
         </table>
         {!data.viewers.length && (
-          <p class="px-4 py-8 text-center text-sm text-zinc-500">
+          <p class="px-4 py-8 text-center text-sm text-ink-3">
             No viewers match these filters.
           </p>
         )}

@@ -51,13 +51,13 @@ export default define.page<typeof handlers>(({ data }) => (
       viewerName={data.viewer.name}
       calendarUrl="/calendar/"
     >
-      <h1 class="text-3xl font-semibold">Administration</h1>
-      <p class="mt-2 text-zinc-600">Manage the family calendar's stored data.</p>
-      <div class="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <h1 class="text-2xl font-semibold tracking-tight">Administration</h1>
+      <p class="mt-1 text-sm text-ink-2">Manage the family calendar's stored data.</p>
+      <div class="mt-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {Object.entries(data.counts).map(([label, count]) => (
-          <div class="rounded-xl border border-zinc-200 bg-white p-5">
-            <p class="text-sm capitalize text-zinc-500">{label}</p>
-            <p class="mt-2 text-3xl font-semibold">{count}</p>
+          <div class="card p-5">
+            <p class="kicker capitalize">{label}</p>
+            <p class="mt-2 text-3xl font-semibold tabular-nums tracking-tight">{count}</p>
           </div>
         ))}
       </div>

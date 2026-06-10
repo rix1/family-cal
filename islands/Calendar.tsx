@@ -79,10 +79,10 @@ function typeIcon(type: string): string {
 }
 
 function typeLabel(type: string): string {
-  if (type === "birthday") return "🎂 Birthdays";
-  if (type === "memorial") return "🕯️ Remembrances";
-  if (type === "anniversary") return "💍 Anniversaries";
-  if (type === "holiday") return "🇳🇴🇩🇰 Holidays";
+  if (type === "birthday") return "Birthdays";
+  if (type === "memorial") return "Remembrances";
+  if (type === "anniversary") return "Anniversaries";
+  if (type === "holiday") return "Public holidays";
   return type;
 }
 
@@ -92,12 +92,10 @@ function csvDateForMonthOffset(today: Date, offset: number): Date {
 
 function countryPills(countries: Array<"NO" | "DK">) {
   return countries.map((country) => {
-    const styles = country === "NO"
-      ? "bg-[color:var(--blue-soft)] text-[color:var(--blue-ink)]"
-      : "bg-[color:var(--red-soft)] text-[color:var(--red-ink)]";
+    const styles = country === "NO" ? "bg-norway-soft text-norway" : "bg-denmark-soft text-denmark";
     const flag = country === "NO" ? "🇳🇴" : "🇩🇰";
     return (
-      <span class={`rounded-full px-2.5 py-1 text-xs font-semibold ${styles}`}>
+      <span class={`badge ${styles}`}>
         {flag} {country}
       </span>
     );
@@ -161,27 +159,36 @@ function FilterDropdown({
   }, []);
 
   return (
-    <details ref={details} class="filter-dropdown relative">
-      <summary class="flex min-h-10 cursor-pointer list-none items-center gap-2 rounded-full border border-[color:var(--line-strong)] bg-white/70 px-4 py-2 text-sm font-semibold text-[color:var(--ink)] hover:bg-white">
+    <details ref={details} class="relative">
+      <summary class="btn btn-ghost cursor-pointer list-none [&::-webkit-details-marker]:hidden">
         <span>{label}</span>
-        <span class="text-xs font-medium text-[color:var(--soft-muted)]">
+        <span class="text-xs font-medium tabular-nums text-ink-3">
           {active.size}/{options.length}
         </span>
-        <span class="ml-auto text-[10px] text-[color:var(--soft-muted)]" aria-hidden="true">
-          ▼
-        </span>
+        <svg
+          class="size-3 text-ink-3"
+          viewBox="0 0 12 12"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M2.5 4.5L6 8l3.5-3.5" />
+        </svg>
       </summary>
-      <div class="absolute right-0 z-30 mt-2 min-w-56 rounded-2xl border border-[color:var(--line)] bg-[color:var(--paper-strong)] p-2 shadow-[var(--shadow)]">
+      <div class="absolute right-0 z-30 mt-2 min-w-56 rounded-xl border border-line bg-surface p-1.5 shadow-pop">
         {options.map((option) => (
           <label
             key={option.key}
-            class="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-sm hover:bg-black/[0.04]"
+            class="flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium hover:bg-inset"
           >
             <input
               type="checkbox"
               checked={active.has(option.key)}
               onChange={() => onToggle(option.key)}
-              class="size-4 accent-[color:var(--teal)]"
+              class="size-4 accent-accent"
             />
             <span>{option.label}</span>
           </label>
@@ -276,11 +283,6 @@ export function Calendar({
 
   function monthDate(offset: number) {
     return csvDateForMonthOffset(today, offset);
-  }
-
-  function monthKey(offset: number) {
-    const d = monthDate(offset);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
   }
 
   const rawEvents = useMemo(() => {
@@ -470,7 +472,6 @@ export function Calendar({
   const birthdayProgressPercent = birthdayPeopleThisYear.length
     ? Math.round((birthdaysCelebratedThisYear / birthdayPeopleThisYear.length) * 100)
     : 0;
-  const lastRenderedMonth = monthKey(firstMonthOffset + renderedMonthCount - 1);
 
   function nextBirthdayDate(person: ViewPerson): string | null {
     const md = monthDayOf(person);
@@ -714,29 +715,29 @@ export function Calendar({
     const text = ageText(event);
     return (
       <div
-        class={`${
-          highlight ? "next-highlight" : ""
-        } flex items-center gap-3 rounded-xl border border-[color:var(--line)] bg-white/70 px-3 py-2.5 shadow-sm`}
+        class={`flex items-center gap-3 rounded-lg px-2.5 py-2 ${
+          highlight ? "bg-accent-soft" : ""
+        }`}
       >
-        <div class="grid size-11 place-items-center rounded-xl bg-[color:var(--teal-soft)] text-lg">
+        <div
+          class={`grid size-10 shrink-0 place-items-center rounded-lg text-base ${
+            highlight ? "bg-surface" : "bg-inset"
+          }`}
+        >
           {event.flare || typeIcon(event.type)}
         </div>
         <div class="min-w-0">
-          <p class="truncate font-medium">
+          <p class="flex items-center gap-2 truncate text-sm">
             <button
               type="button"
-              class="text-left font-medium hover:underline"
+              class="truncate text-left font-semibold hover:underline"
               onClick={() => openPerson(event.person)}
             >
               {event.name}
             </button>
-            {highlight && (
-              <span class="text-xs font-semibold text-[color:var(--teal-ink)]">
-                · next up
-              </span>
-            )}
+            {highlight && <span class="badge bg-accent text-on-accent">Next</span>}
           </p>
-          <p class="text-sm text-[color:var(--muted)]">
+          <p class={`text-sm tabular-nums ${highlight ? "text-accent-2" : "text-ink-2"}`}>
             {relativeLabel(event.date)}
             {text ? ` · ${text}` : ""}
           </p>
@@ -748,13 +749,9 @@ export function Calendar({
   function EventCard({ event }: { event: CalendarEvent }) {
     if (event.type === "holiday") {
       return (
-        <div class="rounded-xl border border-[color:var(--line)] bg-white/70 px-3.5 py-3 shadow-sm">
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <p class="font-medium text-[color:var(--ink)]">
-              Holiday · {event.name}
-            </p>
-            <div class="flex gap-1">{countryPills(event.countries)}</div>
-          </div>
+        <div class="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-inset px-3.5 py-2.5">
+          <p class="text-sm font-medium text-ink-2">{event.name}</p>
+          <div class="flex gap-1">{countryPills(event.countries)}</div>
         </div>
       );
     }
@@ -763,48 +760,10 @@ export function Calendar({
       return (
         <div
           id={`event-${event.person.id}-${event.date}-memorial`}
-          class="rounded-xl border border-stone-300 bg-stone-100/80 px-3.5 py-3 shadow-sm"
+          class="card flex items-start gap-3 p-3"
         >
-          <div class="flex items-start gap-3">
-            <div class="grid size-10 shrink-0 place-items-center rounded-xl bg-stone-200 text-lg">
-              🕯️
-            </div>
-            <div class="min-w-0 flex-1">
-              <div class="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  class="font-semibold hover:underline"
-                  onClick={() => openPerson(event.person)}
-                >
-                  In memory of {event.person.name}
-                </button>
-                {group && (
-                  <span class="rounded-full bg-white/70 px-2 py-0.5 text-xs font-medium text-[color:var(--muted)]">
-                    {group.flag} {group.label}
-                  </span>
-                )}
-              </div>
-              <p class="text-sm text-[color:var(--muted)]">
-                Anniversary of their death
-                {event.person.notes ? ` · ${event.person.notes}` : ""}
-              </p>
-            </div>
-          </div>
-        </div>
-      );
-    }
-    const group = groups[event.person.group];
-    const milestoneClass = event.flare
-      ? "border-[color:var(--amber)] bg-[color:var(--amber-soft)]"
-      : "border-[color:var(--line)] bg-white/80";
-    return (
-      <div
-        id={`event-${event.person.id}-${event.date}`}
-        class={`rounded-xl border ${milestoneClass} px-3.5 py-3 shadow-sm`}
-      >
-        <div class="flex items-start gap-3">
-          <div class="grid size-10 shrink-0 place-items-center rounded-xl bg-[color:var(--teal-soft)] text-lg">
-            {event.person.died ? "🕯️" : event.flare || typeIcon(event.type)}
+          <div class="grid size-10 shrink-0 place-items-center rounded-lg bg-inset text-lg">
+            🕯️
           </div>
           <div class="min-w-0 flex-1">
             <div class="flex flex-wrap items-center gap-2">
@@ -813,25 +772,60 @@ export function Calendar({
                 class="font-semibold hover:underline"
                 onClick={() => openPerson(event.person)}
               >
-                {event.name}
+                In memory of {event.person.name}
               </button>
-              {event.flare && (
-                <span class="rounded-full bg-white/70 px-2.5 py-1 text-xs font-semibold text-amber-950">
-                  {event.age} {event.flare}
-                </span>
-              )}
               {group && (
-                <span class="rounded-full bg-white/70 px-2 py-0.5 text-xs font-medium text-[color:var(--muted)]">
+                <span class="badge bg-inset text-ink-2">
                   {group.flag} {group.label}
                 </span>
               )}
             </div>
-            <p class="text-sm text-[color:var(--muted)]">
-              {[ageText(event), event.person.notes]
-                .filter(Boolean)
-                .join(" · ") || "Birthday"}
+            <p class="mt-0.5 text-sm text-ink-2">
+              Anniversary of their death
+              {event.person.notes ? ` · ${event.person.notes}` : ""}
             </p>
           </div>
+        </div>
+      );
+    }
+    const group = groups[event.person.group];
+    return (
+      <div
+        id={`event-${event.person.id}-${event.date}`}
+        class="card flex items-start gap-3 p-3"
+      >
+        <div
+          class={`grid size-10 shrink-0 place-items-center rounded-lg text-lg ${
+            event.flare ? "bg-gold-soft" : "bg-accent-soft"
+          }`}
+        >
+          {event.person.died ? "🕯️" : typeIcon(event.type)}
+        </div>
+        <div class="min-w-0 flex-1">
+          <div class="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              class="font-semibold hover:underline"
+              onClick={() => openPerson(event.person)}
+            >
+              {event.name}
+            </button>
+            {event.flare && (
+              <span class="badge bg-gold-soft text-gold">
+                {event.flare} {event.age}
+              </span>
+            )}
+            {group && (
+              <span class="badge bg-inset text-ink-2">
+                {group.flag} {group.label}
+              </span>
+            )}
+          </div>
+          <p class="mt-0.5 text-sm text-ink-2">
+            {[ageText(event), event.person.notes]
+              .filter(Boolean)
+              .join(" · ") || "Birthday"}
+          </p>
         </div>
       </div>
     );
@@ -853,7 +847,7 @@ export function Calendar({
           ? (
             <button
               type="button"
-              class="font-semibold text-[color:var(--teal-ink)] underline decoration-[color:var(--teal)]/30 underline-offset-2 hover:decoration-[color:var(--teal)]"
+              class="font-medium text-accent-2 underline decoration-accent/40 underline-offset-2 hover:decoration-accent"
               onClick={() => openPerson(linkedPerson)}
             >
               {wikiLabel ?? `@${linkedPerson.name}`}
@@ -891,28 +885,22 @@ export function Calendar({
     return (
       <div
         id={`day-${dateKey}`}
-        class="grid gap-3 sm:grid-cols-[88px_1fr]"
-        style={{ scrollMarginTop: "148px" }}
+        class="grid gap-x-4 gap-y-2 sm:grid-cols-[72px_1fr]"
+        style={{ scrollMarginTop: "118px" }}
       >
-        <div class="flex items-start gap-3 sm:block">
-          <div
-            class={`${
-              isToday
-                ? "day-dot bg-[color:var(--teal)] text-white"
-                : "bg-[color:var(--paper-strong)] text-[color:var(--ink)]"
-            } grid size-14 place-items-center rounded-2xl border border-[color:var(--line)] text-center shadow-sm`}
+        <div class="flex items-center gap-2 sm:flex-col sm:items-end sm:gap-1 sm:pt-2.5 sm:text-right">
+          <span
+            class={`text-xl font-semibold leading-none tabular-nums ${
+              isToday ? "text-accent-2" : "text-ink"
+            }`}
           >
-            <div>
-              <div class="text-lg font-semibold leading-none">
-                {d.getDate()}
-              </div>
-              <div class="mt-1 text-[10px] font-medium uppercase">
-                {dayFormatter.format(d).slice(0, 3)}
-              </div>
-            </div>
-          </div>
+            {d.getDate()}
+          </span>
+          <span class={`kicker ${isToday ? "text-accent-2" : ""}`}>
+            {dayFormatter.format(d).slice(0, 3)}
+          </span>
           {isToday && (
-            <span class="mt-4 rounded-full bg-[color:var(--teal-soft)] px-2.5 py-1 text-xs font-semibold text-[color:var(--teal-ink)] sm:mt-2 sm:inline-block">
+            <span class="badge bg-accent text-on-accent sm:mt-1">
               Today
             </span>
           )}
@@ -928,8 +916,8 @@ export function Calendar({
               ))
             )
             : (
-              <div class="rounded-xl border border-dashed border-[color:var(--line-strong)] bg-white/50 px-3.5 py-3 text-sm text-[color:var(--soft-muted)]">
-                Today
+              <div class="rounded-lg border border-dashed border-line-2 px-3.5 py-3 text-sm text-ink-3">
+                Nothing planned today
               </div>
             )}
         </div>
@@ -977,7 +965,7 @@ export function Calendar({
       >
         <button
           type="button"
-          class="action action-primary"
+          class="btn btn-primary"
           onClick={scrollToToday}
         >
           Today
@@ -985,53 +973,35 @@ export function Calendar({
       </AppHeader>
 
       <main class="mx-auto max-w-5xl px-4 pb-20 pt-6">
-        <section class="mb-6 grid gap-3 sm:grid-cols-3">
-          <article class="surface-raised rounded-2xl p-5">
-            <p class="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--soft-muted)]">
-              Birthdays this year
+        <section class="mb-4 grid gap-3 sm:grid-cols-3">
+          <article class="card p-5">
+            <p class="kicker">This year</p>
+            <p class="mt-3 text-3xl font-semibold tabular-nums tracking-tight">
+              {birthdaysCelebratedThisYear}
+              <span class="font-normal text-ink-3">/{birthdayPeopleThisYear.length}</span>
             </p>
-            <div class="mt-4 flex items-end justify-between gap-3">
-              <div>
-                <p class="text-4xl font-semibold tracking-normal">
-                  {birthdaysCelebratedThisYear}
-                  <span class="text-2xl text-[color:var(--soft-muted)]">
-                    /{birthdayPeopleThisYear.length}
-                  </span>
-                </p>
-                <p class="mt-1 text-sm font-medium text-[color:var(--ink)]">
-                  celebrated so far
-                </p>
-              </div>
-              <div class="rounded-full bg-[color:var(--teal-soft)] px-3 py-1 text-sm font-semibold text-[color:var(--teal-ink)]">
-                {birthdayProgressPercent}%
-              </div>
-            </div>
+            <p class="mt-1 text-sm text-ink-2">birthdays celebrated</p>
             <div
-              class="mt-4 h-2 overflow-hidden rounded-full bg-[color:var(--line)]"
+              class="mt-4 h-1 overflow-hidden rounded-full bg-inset"
               aria-hidden="true"
             >
               <div
-                class="h-full rounded-full bg-[color:var(--teal)]"
+                class="h-full rounded-full bg-accent"
                 style={{ width: `${birthdayProgressPercent}%` }}
               />
             </div>
-            <p class="mt-3 text-sm text-[color:var(--muted)]">
+            <p class="mt-3 text-sm text-ink-3">
               {birthdaysRemainingThisYear === 0
-                ? "All known birthdays for this year are behind us."
-                : `${birthdaysRemainingThisYear} still ahead this year`} · timeline through{" "}
-              {lastRenderedMonth}
+                ? "All known birthdays are behind us."
+                : `${birthdaysRemainingThisYear} still ahead this year.`}
             </p>
           </article>
-          <article class="surface-raised rounded-2xl p-5 sm:col-span-2">
-            <div class="flex items-center justify-between gap-3">
-              <p class="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--soft-muted)]">
-                Next up
-              </p>
-              <p class="text-xs text-[color:var(--soft-muted)]">
-                next 120 days
-              </p>
+          <article class="card p-5 sm:col-span-2">
+            <div class="flex items-baseline justify-between gap-3">
+              <p class="kicker">Next up</p>
+              <p class="text-xs text-ink-3">next 120 days</p>
             </div>
-            <div class="mt-3 grid gap-2 sm:grid-cols-2">
+            <div class="mt-3 grid gap-1 sm:grid-cols-2">
               {nextWindow.length
                 ? (
                   nextWindow.map((event, i) => (
@@ -1043,7 +1013,7 @@ export function Calendar({
                   ))
                 )
                 : (
-                  <p class="text-sm text-[color:var(--muted)]">
+                  <p class="text-sm text-ink-2">
                     Nothing in the next 120 days for this filter.
                   </p>
                 )}
@@ -1052,11 +1022,9 @@ export function Calendar({
         </section>
 
         <section class="mb-6 grid gap-3 lg:grid-cols-[1fr_0.72fr]">
-          <article class="surface rounded-2xl p-5">
-            <p class="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--soft-muted)]">
-              Recently celebrated
-            </p>
-            <div class="mt-3 grid gap-2">
+          <article class="card p-5">
+            <p class="kicker">Recently celebrated</p>
+            <div class="mt-3 grid gap-1">
               {recent.length
                 ? (
                   recent.map((event) => (
@@ -1067,17 +1035,15 @@ export function Calendar({
                   ))
                 )
                 : (
-                  <p class="text-sm text-[color:var(--muted)]">
+                  <p class="text-sm text-ink-2">
                     Nothing in the last 90 days for this filter.
                   </p>
                 )}
             </div>
           </article>
-          <article class="surface rounded-2xl p-5">
-            <p class="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--soft-muted)]">
-              Missing dates
-            </p>
-            <div class="mt-3 flex flex-wrap gap-2">
+          <article class="card p-5">
+            <p class="kicker">Missing dates</p>
+            <div class="mt-3 flex flex-wrap gap-1.5">
               {missing.length
                 ? (
                   missing.map((p) => (
@@ -1085,7 +1051,7 @@ export function Calendar({
                       key={p.id}
                       type="button"
                       onClick={() => openPerson(p)}
-                      class="rounded-full border border-[color:var(--line)] bg-white/70 px-3 py-1 text-sm font-medium text-[color:var(--muted)] hover:bg-white hover:text-[color:var(--ink)]"
+                      class="rounded-full border border-line bg-surface px-2.5 py-1 text-xs font-medium text-ink-2 hover:border-line-2 hover:text-ink"
                       title={p.notes}
                     >
                       {p.name}
@@ -1093,7 +1059,7 @@ export function Calendar({
                   ))
                 )
                 : (
-                  <p class="text-sm text-[color:var(--muted)]">
+                  <p class="text-sm text-ink-2">
                     All dates filled in 🎉
                   </p>
                 )}
@@ -1101,46 +1067,53 @@ export function Calendar({
           </article>
         </section>
 
-        <section class="surface mb-4 rounded-2xl p-4">
-          <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <label class="relative block w-full lg:max-w-xs">
-              <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[color:var(--soft-muted)]">
-                🔍
-              </span>
-              <input
-                type="search"
-                value={query}
-                onInput={(e) => setQuery((e.currentTarget as HTMLInputElement).value)}
-                placeholder="Search by name or note…"
-                class="w-full rounded-full border border-[color:var(--line-strong)] bg-white/70 py-2 pl-9 pr-3 text-sm outline-none focus:border-[color:var(--teal)]"
-              />
-            </label>
-            <div class="flex flex-wrap items-center gap-2">
-              <FilterDropdown
-                label="Families"
-                options={Object.entries(groups).map(([key, group]) => ({
-                  key,
-                  label: `${group.flag} ${group.label}`,
-                }))}
-                active={activeGroups}
-                onToggle={(key) => setActiveGroups((current) => toggleSelection(current, key))}
-              />
-              <FilterDropdown
-                label="Events"
-                options={allTypes.map((type) => ({ key: type, label: typeLabel(type) }))}
-                active={activeTypes}
-                onToggle={(type) => setActiveTypes((current) => toggleSelection(current, type))}
-              />
-            </div>
+        <section class="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <label class="relative block w-full lg:max-w-xs">
+            <svg
+              class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-3"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.6"
+              stroke-linecap="round"
+              aria-hidden="true"
+            >
+              <circle cx="7" cy="7" r="4.5" />
+              <path d="M10.5 10.5L14 14" />
+            </svg>
+            <input
+              type="search"
+              value={query}
+              onInput={(e) => setQuery((e.currentTarget as HTMLInputElement).value)}
+              placeholder="Search by name or note…"
+              class="input pl-9"
+            />
+          </label>
+          <div class="flex flex-wrap items-center gap-2">
+            <FilterDropdown
+              label="Families"
+              options={Object.entries(groups).map(([key, group]) => ({
+                key,
+                label: `${group.flag} ${group.label}`,
+              }))}
+              active={activeGroups}
+              onToggle={(key) => setActiveGroups((current) => toggleSelection(current, key))}
+            />
+            <FilterDropdown
+              label="Events"
+              options={allTypes.map((type) => ({ key: type, label: typeLabel(type) }))}
+              active={activeTypes}
+              onToggle={(type) => setActiveTypes((current) => toggleSelection(current, type))}
+            />
           </div>
         </section>
 
-        <div class="mb-4 flex justify-center">
+        <div class="mb-6 flex justify-center">
           <button
             type="button"
             onClick={loadPastEvents}
             disabled={firstMonthOffset <= -maxPastMonths}
-            class="rounded-full border border-[color:var(--line-strong)] bg-white/70 px-4 py-2 text-sm font-semibold text-[color:var(--teal-ink)] shadow-sm hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+            class="btn btn-ghost btn-sm"
           >
             {firstMonthOffset <= -maxPastMonths ? "No more past events loaded" : "Load past events"}
           </button>
@@ -1153,14 +1126,14 @@ export function Calendar({
                 <section
                   key={m.key}
                   id={`month-${m.key}`}
-                  style={{ scrollMarginTop: "96px" }}
+                  style={{ scrollMarginTop: "64px" }}
                 >
-                  <div class="month-bar sticky top-[73px] z-10 -mx-4 border-y px-4 py-3 backdrop-blur-xl">
-                    <div class="mx-auto flex max-w-5xl items-center justify-between">
-                      <h2 class="text-lg font-semibold">
+                  <div class="sticky top-[57px] z-10 -mx-4 border-b border-line bg-page/85 px-4 py-2.5 backdrop-blur-md">
+                    <div class="mx-auto flex max-w-5xl items-baseline justify-between">
+                      <h2 class="text-base font-semibold">
                         {monthFormatter.format(m.date)}
                       </h2>
-                      <span class="text-sm font-medium text-[color:var(--soft-muted)]">
+                      <span class="text-xs tabular-nums text-ink-3">
                         {m.events.length} {m.events.length === 1 ? "event" : "events"}
                       </span>
                     </div>
@@ -1174,11 +1147,11 @@ export function Calendar({
               ))
             )
             : (
-              <p class="rounded-2xl border border-dashed border-[color:var(--line-strong)] bg-white/50 p-6 text-center text-sm text-[color:var(--soft-muted)]">
+              <p class="rounded-xl border border-dashed border-line-2 p-6 text-center text-sm text-ink-3">
                 No events match the current filters.
               </p>
             )}
-          <div class="py-6 text-center text-sm text-[color:var(--soft-muted)]">
+          <div class="py-6 text-center text-sm text-ink-3">
             Scroll for more months…
           </div>
         </section>
@@ -1186,7 +1159,7 @@ export function Calendar({
 
       {selectedPerson && selectedDetail && (
         <div
-          class={`person-backdrop fixed inset-0 z-40 flex items-end bg-black/25 sm:items-stretch sm:justify-end ${
+          class={`backdrop fixed inset-0 z-40 flex items-end bg-black/30 sm:items-stretch sm:justify-end ${
             personClosing ? "is-closing" : ""
           }`}
           onClick={closePerson}
@@ -1195,20 +1168,20 @@ export function Calendar({
             role="dialog"
             aria-modal="true"
             aria-labelledby="person-detail-title"
-            class={`person-sheet flex max-h-[88vh] w-full flex-col overflow-y-auto rounded-t-3xl border border-[color:var(--line)] bg-[color:var(--paper-strong)] p-5 shadow-[var(--shadow)] sm:max-h-none sm:w-[28rem] sm:rounded-none sm:border-y-0 sm:border-r-0 ${
+            class={`sheet flex max-h-[88vh] w-full flex-col overflow-y-auto rounded-t-2xl border-t border-line bg-surface p-6 shadow-pop sm:max-h-none sm:w-[26rem] sm:rounded-none sm:border-t-0 sm:border-l ${
               personOpen ? "is-open" : ""
             }`}
             onClick={(event) => event.stopPropagation()}
           >
-            <div class="mx-auto mb-4 h-1.5 w-12 rounded-full bg-[color:var(--line-strong)] sm:hidden" />
+            <div class="mx-auto mb-4 h-1 w-10 rounded-full bg-line-2 sm:hidden" />
             <div class="flex items-start justify-between gap-4">
               <div>
-                <p class="eyebrow text-xs font-semibold uppercase">Person</p>
-                <h2 id="person-detail-title" class="mt-1 text-2xl font-semibold">
+                <p class="kicker">Person</p>
+                <h2 id="person-detail-title" class="mt-1 text-xl font-semibold tracking-tight">
                   {selectedPerson.name}
                 </h2>
                 {selectedDetail.group && (
-                  <p class="mt-2 text-sm text-[color:var(--muted)]">
+                  <p class="mt-1.5 text-sm text-ink-2">
                     {selectedDetail.group.flag} {selectedDetail.group.label}
                   </p>
                 )}
@@ -1216,11 +1189,21 @@ export function Calendar({
               <button
                 ref={closePersonButton}
                 type="button"
-                class="rounded-full border border-[color:var(--line)] bg-white/70 px-3 py-1 text-sm font-semibold text-[color:var(--muted)] hover:text-[color:var(--ink)]"
+                class="grid size-8 shrink-0 place-items-center rounded-full border border-line-2 bg-surface text-ink-2 hover:bg-inset hover:text-ink"
                 onClick={closePerson}
                 aria-label="Close person details"
               >
-                Close
+                <svg
+                  class="size-3.5"
+                  viewBox="0 0 14 14"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                  stroke-linecap="round"
+                  aria-hidden="true"
+                >
+                  <path d="M2 2l10 10M12 2L2 12" />
+                </svg>
               </button>
             </div>
 
@@ -1242,7 +1225,7 @@ export function Calendar({
                           ...personDraft,
                           name: event.currentTarget.value,
                         })}
-                      class="rounded-xl border border-[color:var(--line-strong)] bg-white/80 px-3 py-2.5 outline-none focus:border-[color:var(--teal)]"
+                      class="input"
                     />
                   </label>
                   <label class="grid gap-1.5 text-sm font-medium">
@@ -1250,7 +1233,7 @@ export function Calendar({
                     <input
                       value={selectedPerson.id}
                       readOnly
-                      class="rounded-xl border border-[color:var(--line)] bg-black/[0.035] px-3 py-2.5 font-mono text-xs text-[color:var(--muted)]"
+                      class="input bg-inset font-mono text-xs text-ink-2"
                     />
                   </label>
                   <div class="grid grid-cols-2 gap-3">
@@ -1264,7 +1247,7 @@ export function Calendar({
                             born: event.currentTarget.value,
                           })}
                         placeholder="YYYY-MM-DD / MM-DD"
-                        class="min-w-0 rounded-xl border border-[color:var(--line-strong)] bg-white/80 px-3 py-2.5 outline-none focus:border-[color:var(--teal)]"
+                        class="input min-w-0"
                       />
                     </label>
                     <label class="grid gap-1.5 text-sm font-medium">
@@ -1277,7 +1260,7 @@ export function Calendar({
                             died: event.currentTarget.value,
                           })}
                         placeholder="YYYY-MM-DD"
-                        class="min-w-0 rounded-xl border border-[color:var(--line-strong)] bg-white/80 px-3 py-2.5 outline-none focus:border-[color:var(--teal)]"
+                        class="input min-w-0"
                       />
                     </label>
                   </div>
@@ -1333,12 +1316,12 @@ export function Calendar({
                       }}
                       onBlur={() => setTimeout(() => setPersonMentionMenu(null), 120)}
                       rows={5}
-                      class="resize-y rounded-xl border border-[color:var(--line-strong)] bg-white/80 px-3 py-2.5 leading-6 outline-none focus:border-[color:var(--teal)]"
+                      class="input resize-y leading-6"
                       placeholder="Optional; type @ to link a person"
                     />
                     {personMentionMenu &&
                       personMentionSuggestions(personMentionMenu).length > 0 && (
-                      <div class="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-xl border border-[color:var(--line)] bg-white shadow-[var(--shadow)]">
+                      <div class="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-lg border border-line bg-surface shadow-pop">
                         {personMentionSuggestions(personMentionMenu).map((
                           person,
                           suggestionIndex,
@@ -1348,14 +1331,14 @@ export function Calendar({
                             type="button"
                             class={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm ${
                               suggestionIndex === personMentionMenu.activeIndex
-                                ? "bg-[color:var(--teal-soft)] text-[color:var(--teal-ink)]"
-                                : "hover:bg-black/[0.03]"
+                                ? "bg-accent-soft text-accent-2"
+                                : "hover:bg-inset"
                             }`}
                             onMouseDown={(event) => event.preventDefault()}
                             onClick={() => choosePersonMention(person)}
                           >
                             <span class="font-medium">{person.name}</span>
-                            <span class="font-mono text-xs text-[color:var(--soft-muted)]">
+                            <span class="font-mono text-xs text-ink-3">
                               @{person.id}
                             </span>
                           </button>
@@ -1364,14 +1347,14 @@ export function Calendar({
                     )}
                   </div>
                   {personSaveError && (
-                    <p class="rounded-xl bg-red-50 px-3 py-2 text-sm font-medium text-red-800">
+                    <p class="rounded-lg bg-danger-soft px-3 py-2 text-sm font-medium text-danger">
                       {personSaveError}
                     </p>
                   )}
                   <div class="grid grid-cols-2 gap-2">
                     <button
                       type="button"
-                      class="action action-secondary"
+                      class="btn btn-ghost"
                       onClick={() => {
                         setPersonDraft(null);
                         setPersonSaveError("");
@@ -1381,7 +1364,7 @@ export function Calendar({
                     </button>
                     <button
                       type="submit"
-                      class="action action-primary"
+                      class="btn btn-primary"
                       disabled={personSaveState === "saving"}
                     >
                       {personSaveState === "saving" ? "Saving…" : "Save changes"}
@@ -1391,59 +1374,49 @@ export function Calendar({
               )
               : (
                 <>
-                  <dl class="mt-6 grid grid-cols-2 gap-3 text-sm">
-                    <div class="rounded-xl border border-[color:var(--line)] bg-white/60 p-3">
-                      <dt class="text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--soft-muted)]">
-                        Born
-                      </dt>
-                      <dd class="mt-1 font-medium text-[color:var(--ink)]">
+                  <dl class="mt-6 grid grid-cols-2 gap-2 text-sm">
+                    <div class="rounded-lg bg-inset p-3">
+                      <dt class="kicker">Born</dt>
+                      <dd class="mt-1 font-medium tabular-nums">
                         {selectedDetail.born}
                       </dd>
                     </div>
-                    <div class="rounded-xl border border-[color:var(--line)] bg-white/60 p-3">
-                      <dt class="text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--soft-muted)]">
+                    <div class="rounded-lg bg-inset p-3">
+                      <dt class="kicker">
                         {selectedPerson.died ? "Would be this year" : "Age this year"}
                       </dt>
-                      <dd class="mt-1 font-medium text-[color:var(--ink)]">
+                      <dd class="mt-1 font-medium tabular-nums">
                         {selectedDetail.age ?? "Unknown"}
                       </dd>
                     </div>
                     {selectedPerson.died && (
                       <>
-                        <div class="rounded-xl border border-[color:var(--line)] bg-white/60 p-3">
-                          <dt class="text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--soft-muted)]">
-                            Died
-                          </dt>
-                          <dd class="mt-1 font-medium text-[color:var(--ink)]">
+                        <div class="rounded-lg bg-inset p-3">
+                          <dt class="kicker">Died</dt>
+                          <dd class="mt-1 font-medium tabular-nums">
                             {selectedPerson.died}
                           </dd>
                         </div>
-                        <div class="rounded-xl border border-[color:var(--line)] bg-white/60 p-3">
-                          <dt class="text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--soft-muted)]">
-                            Age at death
-                          </dt>
-                          <dd class="mt-1 font-medium text-[color:var(--ink)]">
+                        <div class="rounded-lg bg-inset p-3">
+                          <dt class="kicker">Age at death</dt>
+                          <dd class="mt-1 font-medium tabular-nums">
                             {selectedDetail.ageAtDeath ?? "Unknown"}
                           </dd>
                         </div>
                       </>
                     )}
-                    <div class="col-span-2 rounded-xl border border-[color:var(--line)] bg-white/60 p-3">
-                      <dt class="text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--soft-muted)]">
-                        Next birthday
-                      </dt>
-                      <dd class="mt-1 font-medium text-[color:var(--ink)]">
+                    <div class="col-span-2 rounded-lg bg-inset p-3">
+                      <dt class="kicker">Next birthday</dt>
+                      <dd class="mt-1 font-medium tabular-nums">
                         {selectedDetail.next
                           ? `${selectedDetail.next} · ${relativeLabel(selectedDetail.next)}`
                           : "Unknown"}
                       </dd>
                     </div>
                     {selectedDetail.nextMemorial && (
-                      <div class="col-span-2 rounded-xl border border-[color:var(--line)] bg-white/60 p-3">
-                        <dt class="text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--soft-muted)]">
-                          Next remembrance
-                        </dt>
-                        <dd class="mt-1 font-medium text-[color:var(--ink)]">
+                      <div class="col-span-2 rounded-lg bg-inset p-3">
+                        <dt class="kicker">Next remembrance</dt>
+                        <dd class="mt-1 font-medium tabular-nums">
                           {selectedDetail.nextMemorial} ·{" "}
                           {relativeLabel(selectedDetail.nextMemorial)}
                         </dd>
@@ -1451,11 +1424,9 @@ export function Calendar({
                     )}
                   </dl>
 
-                  <div class="mt-6 rounded-2xl border border-[color:var(--line)] bg-white/60 p-4">
-                    <p class="text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--soft-muted)]">
-                      Notes
-                    </p>
-                    <p class="mt-2 whitespace-pre-wrap text-sm leading-6 text-[color:var(--muted)]">
+                  <div class="mt-2 rounded-lg bg-inset p-3">
+                    <p class="kicker">Notes</p>
+                    <p class="mt-1.5 whitespace-pre-wrap text-sm leading-6 text-ink-2">
                       {selectedPerson.notes ? linkedNotes(selectedPerson.notes) : "No notes yet."}
                     </p>
                   </div>
@@ -1465,7 +1436,7 @@ export function Calendar({
                       {saveUrl && (
                         <button
                           type="button"
-                          class="action action-secondary w-full"
+                          class="btn btn-ghost w-full"
                           onClick={() => startPersonEdit(selectedPerson)}
                         >
                           Edit person
@@ -1473,7 +1444,7 @@ export function Calendar({
                       )}
                       {!saveUrl && editUrl && (
                         <a
-                          class="action action-secondary w-full"
+                          class="btn btn-ghost w-full"
                           href={`${editUrl}?person=${encodeURIComponent(selectedPerson.id)}`}
                         >
                           Edit person
@@ -1482,7 +1453,7 @@ export function Calendar({
                       {selectedDetail.next && (
                         <button
                           type="button"
-                          class="action action-primary w-full"
+                          class="btn btn-primary w-full"
                           onClick={() => showPersonInTimeline(selectedPerson)}
                         >
                           Show next birthday in timeline
@@ -1497,7 +1468,8 @@ export function Calendar({
       )}
 
       <div
-        class={`toast fixed bottom-4 left-1/2 z-30 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 rounded-2xl border border-[color:var(--line)] bg-[color:var(--paper-strong)] px-4 py-3 text-sm text-[color:var(--ink)] shadow-[var(--shadow)] ${
+        role="status"
+        class={`toast fixed bottom-4 left-1/2 z-30 max-w-[calc(100%-2rem)] -translate-x-1/2 ${
           toast ? "visible" : ""
         }`}
       >

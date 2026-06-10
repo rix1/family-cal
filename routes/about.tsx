@@ -130,8 +130,7 @@ export default define.page<typeof handlers>(function About({ data }) {
             <p class="text-ink-3">
               Type <Code>@</Code> in editor notes to select and link another person, for example
               {" "}
-              <Code>@solveig</Code>. Existing wiki-style links such as <Code>[[Solveig]]</Code>{" "}
-              remain supported.
+              <Code>@solveig</Code>.
             </p>
           </div>
         </section>

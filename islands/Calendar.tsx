@@ -309,15 +309,10 @@ export function Calendar({
     () => new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric" }),
     [],
   );
-  const personLookup = useMemo(() => {
-    const lookup = new Map<string, ViewPerson>();
-    for (const person of people) {
-      lookup.set(person.id.toLowerCase(), person);
-      lookup.set(person.name.toLowerCase(), person);
-      for (const alias of person.name.split("/")) lookup.set(alias.trim().toLowerCase(), person);
-    }
-    return lookup;
-  }, [people]);
+  const personLookup = useMemo(
+    () => new Map(people.map((person) => [person.id.toLowerCase(), person])),
+    [people],
+  );
 
   useEffect(() => {
     setActiveTypes((current) => retainAvailable(current, allTypes));
@@ -882,15 +877,13 @@ export function Calendar({
 
   function linkedNotes(text: string) {
     const nodes = [];
-    const regex = /\[\[([^\]]+)\]\]|@([a-z0-9-]+)/gi;
+    const regex = /@([a-z0-9-]+)/gi;
     let lastIndex = 0;
     let match;
     while ((match = regex.exec(text)) !== null) {
       if (match.index > lastIndex) nodes.push(text.slice(lastIndex, match.index));
-      const wikiLabel = match[1]?.trim();
-      const mentionId = match[2]?.toLowerCase();
-      const label = wikiLabel ?? `@${mentionId}`;
-      const linkedPerson = personLookup.get((wikiLabel ?? mentionId).toLowerCase());
+      const mentionId = match[1].toLowerCase();
+      const linkedPerson = personLookup.get(mentionId);
       nodes.push(
         linkedPerson
           ? (
@@ -899,12 +892,10 @@ export function Calendar({
               class="font-medium text-accent-2 underline decoration-accent/40 underline-offset-2 hover:decoration-accent"
               onClick={() => openPerson(linkedPerson)}
             >
-              {wikiLabel ?? `@${linkedPerson.name}`}
+              @{linkedPerson.name}
             </button>
           )
-          : wikiLabel
-          ? `[[${label}]]`
-          : label,
+          : `@${mentionId}`,
       );
       lastIndex = regex.lastIndex;
     }

@@ -123,10 +123,11 @@ Person {
 
 Event {
   id
-  kind:      "birthday" | "wedding" | "death" | "baptism" | "confirmation" | ...
-  date:      "YYYY-MM-DD" | "MM-DD" | null
-  subjects:  [personId, ...]             // 1 for birthday, 2 for wedding, ...
-  recurring: bool                        // default derived from kind
+  kind:   "wedding" | "baptism" | "confirmation" | "other"
+  title:  string                          // "Bryllupsdag"
+  date:   "YYYY-MM-DD" | "MM-DD"          // every event recurs yearly by nature
+  groups: ["no", "dk", ...]               // visibility tags, like Person.groups (1+)
+  notes:  string                          // free text; @id mentions link people
   // reminders are NOT stored per-event; see reminder policy
 }
 
@@ -141,8 +142,11 @@ Viewer {
 
 Notes:
 
-- `birthday` events can be **derived** from `Person.born` rather than stored
-  separately; explicit `Event`s are for things like weddings/baptisms.
+- `birthday` events are **derived** from `Person.born` rather than stored
+  separately; explicit `Event`s are for things like weddings/baptisms. Events
+  reference people informally via `@id` mentions in `notes`; visibility comes
+  from the event's own `groups`, which may overlap with or be distinct from
+  any person's groups.
 - `groups` on a person are **soft visibility tags**, deliberately *not* an access
   control list. Everyone with a valid token can technically be given any subset;
   relevance is a per-viewer preference, not a permission. This avoids the

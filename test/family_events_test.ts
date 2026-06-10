@@ -9,45 +9,70 @@ import { calendarViewData } from "@/lib/view_data.ts";
 const people: Person[] = [
   { id: "solveig", name: "Solveig", born: "1992-05-13", died: null, groups: ["no"], notes: "" },
   { id: "halvor", name: "Halvor", born: "1990-06-15", died: null, groups: ["no"], notes: "" },
-  { id: "pia", name: "Pia", born: "1948-11-14", died: null, groups: ["dk"], notes: "" },
 ];
 
-const known = new Set(people.map((p) => p.id));
+const knownGroups = new Set(["no", "dk"]);
 
 Deno.test("normalizeEvent validates and assigns an id", () => {
   const event = normalizeEvent(
-    { kind: "wedding", date: "2018-08-04", subjects: ["solveig", "halvor"] },
-    known,
+    {
+      kind: "wedding",
+      title: "Bryllupsdag",
+      date: "2018-08-04",
+      groups: ["no", "dk"],
+      notes: "@solveig og @halvor giftet seg på Hamar!",
+    },
+    knownGroups,
   );
   assertEquals(event.kind, "wedding");
-  assertEquals(event.subjects, ["solveig", "halvor"]);
-  assert(event.id.startsWith("wedding-solveig-"));
+  assertEquals(event.groups, ["no", "dk"]);
+  assert(event.id.startsWith("wedding-bryllupsdag-"));
 
-  assertThrows(() => normalizeEvent({ kind: "party", date: "01-01", subjects: ["solveig"] }, known));
   assertThrows(
-    () => normalizeEvent({ kind: "wedding", date: "2018-8-4", subjects: ["solveig"] }, known),
+    () => normalizeEvent({ kind: "party", title: "x", date: "01-01", groups: ["no"] }, knownGroups),
     ValidationError,
   );
   assertThrows(
-    () => normalizeEvent({ kind: "wedding", date: "2018-08-04", subjects: [] }, known),
+    () =>
+      normalizeEvent(
+        { kind: "wedding", title: "", date: "2018-08-04", groups: ["no"] },
+        knownGroups,
+      ),
     ValidationError,
   );
   assertThrows(
-    () => normalizeEvent({ kind: "wedding", date: "2018-08-04", subjects: ["nope"] }, known),
+    () =>
+      normalizeEvent(
+        { kind: "wedding", title: "x", date: "2018-8-4", groups: ["no"] },
+        knownGroups,
+      ),
+    ValidationError,
+  );
+  assertThrows(
+    () =>
+      normalizeEvent({ kind: "wedding", title: "x", date: "2018-08-04", groups: [] }, knownGroups),
+    ValidationError,
+  );
+  assertThrows(
+    () =>
+      normalizeEvent(
+        { kind: "wedding", title: "x", date: "2018-08-04", groups: ["nope"] },
+        knownGroups,
+      ),
     ValidationError,
   );
 });
 
-Deno.test("occasionEvents emits yearly recurring entries with derived titles", () => {
+Deno.test("occasionEvents emits yearly recurring entries", () => {
   const event: FamilyEvent = {
     id: "w1",
     kind: "wedding",
-    title: "",
+    title: "Solveig & Halvor",
     date: "2018-08-04",
-    subjects: ["solveig", "halvor"],
+    groups: ["no"],
     notes: "Lofoten",
   };
-  const [cal] = occasionEvents([event], people);
+  const [cal] = occasionEvents([event]);
   assertEquals(cal.summary, "💍 Solveig & Halvor (wedding)");
   assertEquals(cal.start, { year: 2018, month: 8, day: 4 });
   assertEquals(cal.recurring, true);
@@ -58,9 +83,9 @@ Deno.test("calendarViewData subsets events by the viewer's groups", async () => 
   const wedding: FamilyEvent = {
     id: "w1",
     kind: "wedding",
-    title: "",
+    title: "Bryllupsdag",
     date: "2018-08-04",
-    subjects: ["solveig", "halvor"],
+    groups: ["no"],
     notes: "",
   };
   const store = new SeedStore(
@@ -72,9 +97,11 @@ Deno.test("calendarViewData subsets events by the viewer's groups", async () => 
   );
   const noView = await calendarViewData(store, ["no"]);
   assertEquals(noView.events.length, 1);
-  assertEquals(noView.events[0].title, "Solveig & Halvor");
-  assertEquals(noView.events[0].groups, ["no"]);
+  assertEquals(noView.events[0].title, "Bryllupsdag");
 
   const dkView = await calendarViewData(store, ["dk"]);
   assertEquals(dkView.events.length, 0);
+
+  const allView = await calendarViewData(store);
+  assertEquals(allView.events.length, 1);
 });

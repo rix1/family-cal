@@ -1,6 +1,8 @@
 # Nitpick / smaller feedback to be fixed
 
 - [x] consistent (font) styling is not applied to the /about page compared to the main page
+- [ ] in the "Anniversary of their death" please add "(...) XX years ago"
+
 
 ## calendar > flyout
 - [x] ditch the blur on the backdrop for the flyout.

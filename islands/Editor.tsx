@@ -84,7 +84,7 @@ export function Editor({
   const [focusedPersonId, setFocusedPersonId] = useState(focusPersonId);
   const [mentionMenu, setMentionMenu] = useState<MentionMenu | null>(null);
   const [search, setSearch] = useState("");
-  const [familyFilter, setFamilyFilter] = useState("all");
+  const [groupFilter, setGroupFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("all");
   const noteInputs = useRef(new Map<number, HTMLTextAreaElement>());
   const moreMenu = useRef<HTMLDetailsElement | null>(null);
@@ -161,7 +161,7 @@ export function Editor({
   const datedCount = nonEmptyRows.filter((row) => row.born).length;
 
   const searchQuery = search.trim().toLowerCase();
-  const filtersActive = Boolean(searchQuery) || familyFilter !== "all" || dateFilter !== "all";
+  const filtersActive = Boolean(searchQuery) || groupFilter !== "all" || dateFilter !== "all";
   // Freshly added (still empty) rows always stay visible while being authored.
   const visibleRows = rows
     .map((row, index) => ({ row, index }))
@@ -173,7 +173,7 @@ export function Editor({
       ) {
         return false;
       }
-      if (familyFilter !== "all" && !row.groups.includes(familyFilter)) return false;
+      if (groupFilter !== "all" && !row.groups.includes(groupFilter)) return false;
       if (dateFilter === "dated" && !row.born) return false;
       if (dateFilter === "missing" && row.born) return false;
       return true;
@@ -400,11 +400,11 @@ export function Editor({
             class="input w-56"
           />
           <select
-            value={familyFilter}
-            onChange={(e) => setFamilyFilter(e.currentTarget.value)}
+            value={groupFilter}
+            onChange={(e) => setGroupFilter(e.currentTarget.value)}
             class="input w-auto"
           >
-            <option value="all">All families</option>
+            <option value="all">All groups</option>
             {groups.map((g) => <option value={g.key}>{g.label}</option>)}
           </select>
           <select
@@ -441,7 +441,7 @@ export function Editor({
           <thead>
             <tr>
               <th class="w-[18%]">Name</th>
-              <th class="w-[17%]">Families</th>
+              <th class="w-[17%]">Groups</th>
               <th class="w-[15%]">Born</th>
               <th class="w-[15%]">Died</th>
               <th>Notes</th>

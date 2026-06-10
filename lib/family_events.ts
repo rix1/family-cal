@@ -1,4 +1,4 @@
-import { EVENT_KINDS, type EventKind, type FamilyEvent, type Person } from "./model.ts";
+import { EVENT_KINDS, type EventKind, type FamilyEvent } from "./model.ts";
 import { slug } from "./dates.ts";
 import { ValidationError } from "./people.ts";
 
@@ -17,38 +17,32 @@ export interface FamilyEventInput {
   kind?: string;
   title?: string;
   date?: string;
-  subjects?: string[];
+  groups?: string[];
   notes?: string;
 }
 
 /** Validate and normalize one input into a FamilyEvent, assigning an id if missing. */
-export function normalizeEvent(input: FamilyEventInput, knownPeople: Set<string>): FamilyEvent {
+export function normalizeEvent(input: FamilyEventInput, knownGroups: Set<string>): FamilyEvent {
   const kind = (input.kind ?? "") as EventKind;
   if (!EVENT_KINDS.includes(kind)) {
     throw new ValidationError(`unknown event kind "${String(input.kind)}"`);
   }
+
+  const title = (input.title ?? "").trim();
+  if (!title) throw new ValidationError("title is required");
 
   const date = (input.date ?? "").trim();
   if (!(DATE_FULL.test(date) || DATE_MD.test(date))) {
     throw new ValidationError(`invalid date "${date}" (use YYYY-MM-DD or MM-DD)`);
   }
 
-  const subjects = Array.isArray(input.subjects) ? input.subjects.filter(Boolean) : [];
-  if (!subjects.length) throw new ValidationError("at least one person is required");
-  for (const id of subjects) {
-    if (!knownPeople.has(id)) throw new ValidationError(`unknown person "${id}"`);
+  const groups = Array.isArray(input.groups) ? input.groups.filter(Boolean) : [];
+  if (!groups.length) throw new ValidationError("at least one group is required");
+  for (const group of groups) {
+    if (!knownGroups.has(group)) throw new ValidationError(`unknown group "${group}"`);
   }
 
-  const title = (input.title ?? "").trim();
-  const id = input.id?.trim() ||
-    `${kind}-${slug(subjects[0])}-${crypto.randomUUID().slice(0, 8)}`;
+  const id = input.id?.trim() || `${kind}-${slug(title)}-${crypto.randomUUID().slice(0, 8)}`;
 
-  return { id, kind, title, date, subjects, notes: (input.notes ?? "").trim() };
-}
-
-/** Display title: the custom one, or the subjects' names joined with "&". */
-export function eventTitle(event: FamilyEvent, people: Person[]): string {
-  if (event.title) return event.title;
-  const byId = new Map(people.map((person) => [person.id, person.name]));
-  return event.subjects.map((id) => byId.get(id) ?? id).join(" & ");
+  return { id, kind, title, date, groups, notes: (input.notes ?? "").trim() };
 }

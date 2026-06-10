@@ -1,6 +1,6 @@
 import type { CalEvent, Country, EventKind, FamilyEvent, Person } from "./model.ts";
 import { slug, splitDate } from "./dates.ts";
-import { eventKindLabels, eventTitle } from "./family_events.ts";
+import { eventKindLabels } from "./family_events.ts";
 import { holidaysForYears } from "./holidays.ts";
 
 const FLAGS: Record<Country, string> = { NO: "🇳🇴", DK: "🇩🇰" };
@@ -58,14 +58,14 @@ const OCCASION_ICONS: Record<EventKind, string> = {
 };
 
 /** Explicit life events (weddings, baptisms, ...), all recurring yearly. */
-export function occasionEvents(events: FamilyEvent[], people: Person[]): CalEvent[] {
+export function occasionEvents(events: FamilyEvent[]): CalEvent[] {
   const out: CalEvent[] = [];
   for (const event of events) {
     const parts = splitDate(event.date);
     if (!parts) continue;
     out.push({
       uid: `event-${event.id}@family-cal`,
-      summary: `${OCCASION_ICONS[event.kind]} ${eventTitle(event, people)} (${
+      summary: `${OCCASION_ICONS[event.kind]} ${event.title} (${
         eventKindLabels[event.kind].toLowerCase()
       })`,
       description: event.notes || undefined,

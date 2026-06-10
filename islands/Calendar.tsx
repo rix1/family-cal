@@ -445,9 +445,7 @@ export function Calendar({
       if (event.type === "occasion") {
         if (!activeTypes.has(event.kind)) return false;
         if (!event.occasion.groups.some((group) => activeGroups.has(group))) return false;
-        const haystack = `${event.name} ${
-          event.occasion.people.map((person) => person.name).join(" ")
-        } ${event.occasion.notes}`.toLowerCase();
+        const haystack = `${event.name} ${event.occasion.notes}`.toLowerCase();
         return !q || haystack.includes(q);
       }
       if (!activeTypes.has(event.type)) return false;
@@ -795,9 +793,7 @@ export function Calendar({
         activeTypes.has(occasion.kind) &&
         occasion.groups.some((group) => activeGroups.has(group)) &&
         (!q ||
-          `${occasion.title} ${
-            occasion.people.map((person) => person.name).join(" ")
-          } ${occasion.notes}`
+          `${occasion.title} ${occasion.notes}`
             .toLowerCase()
             .includes(q)),
     );
@@ -1256,7 +1252,7 @@ export function Calendar({
           </label>
           <div class="flex flex-wrap items-center gap-2">
             <FilterDropdown
-              label="Families"
+              label="Groups"
               options={Object.entries(groups).map(([key, group]) => ({
                 key,
                 label: `${group.label}`,
@@ -1430,7 +1426,7 @@ export function Calendar({
                     </label>
                   </div>
                   <fieldset>
-                    <legend class="text-sm font-medium">Families</legend>
+                    <legend class="text-sm font-medium">Groups</legend>
                     <div class="mt-2 flex flex-wrap gap-2">
                       {Object.entries(groups).map(([key, group]) => (
                         <button

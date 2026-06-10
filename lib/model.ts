@@ -35,17 +35,20 @@ export type EventKind = (typeof EVENT_KINDS)[number];
 /**
  * An explicit life event (wedding, baptism, ...). Every event recurs yearly by
  * nature — this app has no one-off events. Birthdays stay derived from
- * `Person.born` and never live here.
+ * `Person.born` and never live here. People are referenced informally through
+ * `@id` mentions in `notes`, not structurally.
  */
 export interface FamilyEvent {
   id: string;
   kind: EventKind;
-  /** Optional custom title; empty = derived from the subjects' names. */
   title: string;
   /** `YYYY-MM-DD` (year known) or `MM-DD` (year unknown). */
   date: PartialDate;
-  /** Person ids this event belongs to (1+; 2 for weddings). */
-  subjects: string[];
+  /**
+   * Visibility tags, like `Person.groups` (1+; overlapping or distinct are
+   * both valid). A viewer sees the event when any group matches.
+   */
+  groups: string[];
   notes: string;
 }
 

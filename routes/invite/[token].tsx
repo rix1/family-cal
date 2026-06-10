@@ -71,7 +71,7 @@ export default define.page<typeof handlers>(({ data }) => (
         <p class="kicker mt-8">You're invited</p>
         <h1 class="mt-2 text-2xl font-semibold tracking-tight">Join the family calendar</h1>
         <p class="mt-3 leading-relaxed text-ink-2">
-          Add your name and choose the family groups you want included in your calendar.
+          Add your name and choose the groups you want included in your calendar.
         </p>
 
         <form method="post" class="mt-8 grid gap-6">
@@ -88,7 +88,7 @@ export default define.page<typeof handlers>(({ data }) => (
           </label>
 
           <fieldset>
-            <legend class="text-sm font-medium">Your family groups</legend>
+            <legend class="text-sm font-medium">Your groups</legend>
             <p class="mt-1 text-xs text-ink-3">
               Choose all that apply. No selection shows the full family calendar.
             </p>

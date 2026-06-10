@@ -24,24 +24,18 @@ export async function buildFeed(store: Store, opts: FeedOptions = {}): Promise<s
   const startYear = year - (opts.pastYears ?? 1);
   const endYear = year + (opts.futureYears ?? 3);
 
-  const allPeople = await store.listPeople();
-  let people = allPeople;
+  let people = await store.listPeople();
+  let occasions = await store.listEvents();
   if (opts.groups?.length) {
     const want = new Set(opts.groups);
     people = people.filter((p) => p.groups.some((g) => want.has(g)));
+    occasions = occasions.filter((event) => event.groups.some((g) => want.has(g)));
   }
-
-  // An explicit event is relevant when any of its subjects is in the subset;
-  // names still resolve against everyone (e.g. a cross-group wedding).
-  const visibleIds = new Set(people.map((p) => p.id));
-  const occasions = (await store.listEvents()).filter((event) =>
-    event.subjects.some((id) => visibleIds.has(id))
-  );
 
   const events = [
     ...birthdayEvents(people),
     ...memorialEvents(people),
-    ...occasionEvents(occasions, allPeople),
+    ...occasionEvents(occasions),
     ...holidayEvents(startYear, endYear),
   ];
 

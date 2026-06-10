@@ -1,1 +1,3 @@
-// Fresh/Vite client entry. CSS can be imported here later if we stop using the Tailwind CDN.
+// Fresh/Vite client entry. Tailwind is built here (no runtime CDN); Fresh injects
+// the compiled stylesheet into every page's <head>.
+import "./styles.css";

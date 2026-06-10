@@ -16,7 +16,6 @@ export const handlers = define.handlers({
 export default define.page<typeof handlers>(({ data }) => (
   <>
     <title>Audit | Family Calendar Admin</title>
-    <script src="https://cdn.tailwindcss.com"></script>
     <AdminShell
       current="audit"
       viewerName={data.viewer.name}

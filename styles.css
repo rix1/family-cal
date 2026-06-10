@@ -1,0 +1,7 @@
+@import "tailwindcss";
+
+/* Explicit sources so Tailwind picks up class names used in server-rendered
+   routes, components, and islands (not just the client module graph). */
+@source "./routes";
+@source "./components";
+@source "./islands";

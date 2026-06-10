@@ -23,7 +23,6 @@ export const handlers = define.handlers({
 export default define.page<typeof handlers>(({ data }) => (
   <>
     <title>Family Calendar</title>
-    <script src="https://cdn.tailwindcss.com"></script>
     <CalendarStyles />
     <Calendar
       {...data.calendar}

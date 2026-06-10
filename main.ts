@@ -3,12 +3,12 @@ import type { State } from "@/utils.ts";
 import { App, HttpError, page, staticFiles } from "fresh";
 import { h } from "preact";
 
-// Compatible with the current inline theme script and the Tailwind CDN (#7).
-// Tighten script-src to a nonce/self once the CDN and inline scripts are removed.
-// `ws:`/`wss:` keep Vite HMR working in dev.
+// Tailwind is now built at compile time (no runtime CDN). 'unsafe-inline' covers
+// the inline theme script in _app.tsx; 'unsafe-eval' and ws:/wss: keep Vite HMR
+// working in dev. Tighten script-src to a nonce once the inline script is removed.
 const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data:",
   "connect-src 'self' ws: wss:",

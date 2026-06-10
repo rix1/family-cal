@@ -5,9 +5,10 @@ import { clientKey, RateLimiter } from "@/lib/rate_limit.ts";
 import { define } from "@/utils.ts";
 import { HttpError, page } from "fresh";
 
-// Bound abuse of this unauthenticated endpoint: at most 5 signups per client
-// per 10 minutes. The per-invite signup limit caps the total separately.
-const signupLimiter = new RateLimiter({ windowMs: 10 * 60_000, max: 5 });
+// Bound abuse of this unauthenticated endpoint: at most 50 signups per client
+// per 10 minutes (comfortably above a real family). The per-invite signup limit
+// caps the total separately.
+const signupLimiter = new RateLimiter({ windowMs: 10 * 60_000, max: 50 });
 
 async function inviteData(token: string) {
   const store = await getStore();
@@ -63,7 +64,6 @@ export const handlers = define.handlers({
 export default define.page<typeof handlers>(({ data }) => (
   <>
     <title>Join Family Calendar</title>
-    <script src="https://cdn.tailwindcss.com"></script>
     <main class="grid min-h-screen place-items-center bg-zinc-50 px-4 py-12 text-zinc-950">
       <section class="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm sm:p-8">
         <p class="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">

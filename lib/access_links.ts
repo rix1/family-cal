@@ -49,6 +49,13 @@ export async function expirePreviousViewerLinks(
     viewerIsActive(existing) &&
     existing.name.trim().toLocaleLowerCase() === viewer.name.trim().toLocaleLowerCase()
   );
+  // Rotation must not silently unsubscribe: carry the most recently updated
+  // newsletter preference over to the replacement link.
+  const inherited = matching
+    .map((existing) => existing.newsletter)
+    .filter((pref) => pref !== undefined)
+    .sort((a, b) => b!.updatedAt.localeCompare(a!.updatedAt))[0];
+  if (inherited && !viewer.newsletter) viewer.newsletter = inherited;
   for (const existing of matching) {
     await store.upsertViewer({ ...existing, expiredAt });
   }

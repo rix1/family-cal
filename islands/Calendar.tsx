@@ -1119,9 +1119,12 @@ export function Calendar({
         adminUrl={editUrl}
         logoutUrl={logoutUrl}
         menuChildren={
-          <button type="button" onClick={downloadIcs}>
-            Export .ics
-          </button>
+          <>
+            <a href="/newsletter/">Monthly email</a>
+            <button type="button" onClick={downloadIcs}>
+              Export .ics
+            </button>
+          </>
         }
       >
         <button
@@ -1202,29 +1205,43 @@ export function Calendar({
                 )}
             </div>
           </article>
-          <article class="card p-5">
-            <p class="kicker">Missing dates</p>
-            <div class="mt-3 flex flex-wrap gap-1.5">
-              {missing.length
-                ? (
-                  missing.map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => openPerson(p)}
-                      class="rounded-full border border-line bg-surface px-2.5 py-1 text-xs font-medium text-ink-2 hover:border-line-2 hover:text-ink"
-                      title={p.notes}
-                    >
-                      {p.name}
-                    </button>
-                  ))
-                )
-                : (
-                  <p class="text-sm text-ink-2">
-                    All dates filled in.
-                  </p>
-                )}
+          <article class="card grid content-start gap-3 p-5">
+            <div>
+              <p class="kicker">Missing dates</p>
+              <div class="mt-3 flex flex-wrap gap-1.5">
+                {missing.length
+                  ? (
+                    missing.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => openPerson(p)}
+                        class="rounded-full border border-line bg-surface px-2.5 py-1 text-xs font-medium text-ink-2 hover:border-line-2 hover:text-ink"
+                        title={p.notes}
+                      >
+                        {p.name}
+                      </button>
+                    ))
+                  )
+                  : (
+                    <p class="text-sm text-ink-2">
+                      All dates filled in.
+                    </p>
+                  )}
+              </div>
             </div>
+            <a
+              href="/newsletter/"
+              class="flex items-center justify-between gap-3 rounded-lg border border-line-2 px-3.5 py-3 text-sm transition-colors hover:bg-inset"
+            >
+              <span>
+                <span class="block font-medium">Monthly email</span>
+                <span class="mt-0.5 block text-xs text-ink-3">
+                  Next month's birthdays in your inbox
+                </span>
+              </span>
+              <span class="text-ink-3" aria-hidden="true">→</span>
+            </a>
           </article>
         </section>
 

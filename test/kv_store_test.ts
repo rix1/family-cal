@@ -106,6 +106,37 @@ Deno.test("KvStore upsertViewer persists issued capabilities", async () => {
   }
 });
 
+Deno.test("KvStore persists newsletter settings and drafts", async () => {
+  const store = await freshStore();
+  try {
+    // Defaults apply before anything is stored; existing KV needs no migration.
+    assertEquals(await store.getNewsletterSettings(), { leadDays: 7 });
+    await store.setNewsletterSettings({ leadDays: 14 });
+    assertEquals(await store.getNewsletterSettings(), { leadDays: 14 });
+
+    assertEquals(await store.listNewsletterDrafts(), []);
+    const draft = {
+      id: "draft-1",
+      month: "2026-07",
+      segment: "all",
+      subject: "Familiekalenderen: bursdager i juli 2026",
+      body: "body",
+      prompt: "prompt",
+      groups: [],
+      createdAt: "2026-06-24T00:00:00.000Z",
+      updatedAt: "2026-06-24T00:00:00.000Z",
+      status: "draft" as const,
+    };
+    await store.upsertNewsletterDraft(draft);
+    assertEquals(await store.getNewsletterDraft("draft-1"), draft);
+    assertEquals((await store.listNewsletterDrafts()).length, 1);
+    await store.deleteNewsletterDraft("draft-1");
+    assertEquals(await store.getNewsletterDraft("draft-1"), null);
+  } finally {
+    store.close();
+  }
+});
+
 Deno.test("KvStore persists invite capabilities", async () => {
   const store = await freshStore();
   try {

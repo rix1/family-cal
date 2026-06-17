@@ -28,3 +28,15 @@ export function assertThrows(fn: () => unknown, msg = "expected function to thro
   }
   throw new Error(msg);
 }
+
+export async function assertRejects(
+  fn: () => Promise<unknown>,
+  msg = "expected promise to reject",
+): Promise<void> {
+  try {
+    await fn();
+  } catch {
+    return;
+  }
+  throw new Error(msg);
+}

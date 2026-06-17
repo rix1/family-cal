@@ -53,6 +53,18 @@ export interface FamilyEvent {
 }
 
 /**
+ * A viewer's opt-in to the monthly birthday email. Absence on the viewer means
+ * unsubscribed. `groups` selects newsletter content independently of the
+ * viewer's calendar groups; empty = all groups.
+ */
+export interface NewsletterPreference {
+  email: string;
+  groups: string[];
+  subscribedAt: string;
+  updatedAt: string;
+}
+
+/**
  * A subscriber. The `token` is a capability: it both authorizes access to a feed
  * and identifies the viewer (for subsetting and, later, attribution). Rotating a
  * token revokes exactly one person.
@@ -66,6 +78,8 @@ export interface Viewer {
   canEdit: boolean;
   /** Set when a newer capability is issued for the same named viewer. */
   expiredAt?: string;
+  /** Monthly email opt-in. Absent = unsubscribed. */
+  newsletter?: NewsletterPreference;
 }
 
 export function viewerIsActive(viewer: Viewer): boolean {
@@ -94,6 +108,45 @@ export function inviteIsActive(invite: Invite, now = new Date()): boolean {
   if (new Date(invite.expiresAt).getTime() <= now.getTime()) return false;
   const remaining = inviteUsesRemaining(invite);
   return remaining === null || remaining > 0;
+}
+
+/** Admin-configurable newsletter behavior. */
+export interface NewsletterSettings {
+  /**
+   * Drafts for next month are auto-ensured during the final `leadDays`
+   * calendar days of a month (Europe/Oslo). Valid range 1–28.
+   */
+  leadDays: number;
+}
+
+export const DEFAULT_NEWSLETTER_SETTINGS: NewsletterSettings = { leadDays: 7 };
+
+export type NewsletterDraftStatus = "draft" | "sent";
+
+/**
+ * One newsletter issue for one audience segment. Drafts are editable and their
+ * recipient list stays dynamic; once `status` is "sent" the draft is an
+ * immutable record of what went out and to how many people.
+ */
+export interface NewsletterDraft {
+  id: string;
+  /** Target month, `YYYY-MM`. */
+  month: string;
+  /** Canonical group-segment key: sorted unique groups joined by `+`, or `all`. */
+  segment: string;
+  subject: string;
+  /** Editable Markdown body. */
+  body: string;
+  /** Copyable, anonymous LLM prompt for the introduction. */
+  prompt: string;
+  /** Audience groups (normalized). Empty = all groups. */
+  groups: string[];
+  createdAt: string;
+  updatedAt: string;
+  status: NewsletterDraftStatus;
+  sentAt?: string;
+  sentBy?: string;
+  recipientCount?: number;
 }
 
 /** An append-only record of a change, keyed by who made it. */

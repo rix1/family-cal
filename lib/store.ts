@@ -1,4 +1,14 @@
-import type { AuditEntry, FamilyEvent, GroupInfo, Invite, Person, Viewer } from "./model.ts";
+import {
+  type AuditEntry,
+  DEFAULT_NEWSLETTER_SETTINGS,
+  type FamilyEvent,
+  type GroupInfo,
+  type Invite,
+  type NewsletterDraft,
+  type NewsletterSettings,
+  type Person,
+  type Viewer,
+} from "./model.ts";
 
 /**
  * Storage seam. The generator, feed and edit API depend only on this interface,
@@ -29,6 +39,14 @@ export interface Store {
   upsertInvite(invite: Invite): Promise<Invite>;
   deleteInvite(token: string): Promise<void>;
 
+  getNewsletterSettings(): Promise<NewsletterSettings>;
+  setNewsletterSettings(settings: NewsletterSettings): Promise<void>;
+
+  getNewsletterDraft(id: string): Promise<NewsletterDraft | null>;
+  listNewsletterDrafts(): Promise<NewsletterDraft[]>;
+  upsertNewsletterDraft(draft: NewsletterDraft): Promise<NewsletterDraft>;
+  deleteNewsletterDraft(id: string): Promise<void>;
+
   appendAudit(entry: AuditEntry): Promise<void>;
   /** Most-recent-first. */
   listAudit(limit?: number): Promise<AuditEntry[]>;
@@ -46,6 +64,8 @@ export class SeedStore implements Store {
   #invites: Map<string, Invite>;
   #events: Map<string, FamilyEvent>;
   #audit: AuditEntry[] = [];
+  #newsletterSettings: NewsletterSettings | null = null;
+  #newsletterDrafts = new Map<string, NewsletterDraft>();
 
   constructor(
     people: Person[] = [],
@@ -157,6 +177,38 @@ export class SeedStore implements Store {
   // deno-lint-ignore require-await
   async deleteInvite(token: string): Promise<void> {
     this.#invites.delete(token);
+  }
+
+  // deno-lint-ignore require-await
+  async getNewsletterSettings(): Promise<NewsletterSettings> {
+    return clone(this.#newsletterSettings ?? DEFAULT_NEWSLETTER_SETTINGS);
+  }
+
+  // deno-lint-ignore require-await
+  async setNewsletterSettings(settings: NewsletterSettings): Promise<void> {
+    this.#newsletterSettings = clone(settings);
+  }
+
+  // deno-lint-ignore require-await
+  async getNewsletterDraft(id: string): Promise<NewsletterDraft | null> {
+    const draft = this.#newsletterDrafts.get(id);
+    return draft ? clone(draft) : null;
+  }
+
+  // deno-lint-ignore require-await
+  async listNewsletterDrafts(): Promise<NewsletterDraft[]> {
+    return clone([...this.#newsletterDrafts.values()]);
+  }
+
+  // deno-lint-ignore require-await
+  async upsertNewsletterDraft(draft: NewsletterDraft): Promise<NewsletterDraft> {
+    this.#newsletterDrafts.set(draft.id, clone(draft));
+    return clone(draft);
+  }
+
+  // deno-lint-ignore require-await
+  async deleteNewsletterDraft(id: string): Promise<void> {
+    this.#newsletterDrafts.delete(id);
   }
 
   // deno-lint-ignore require-await

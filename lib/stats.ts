@@ -14,7 +14,7 @@ export interface NamedAge {
   age: number;
 }
 
-export interface TwinGroup {
+export interface SameAgeGroup {
   age: number;
   names: string[];
 }
@@ -32,7 +32,7 @@ export interface FamilyStats {
   /** The birth month shared by the most people (1-12), earliest month on ties. */
   busiestMonth: { month: number; count: number } | null;
   /** Living members who share an age, grouped, oldest age first. */
-  twins: TwinGroup[];
+  sameAge: SameAgeGroup[];
   subscribers: number;
   activeViewers: number;
 }
@@ -68,15 +68,15 @@ export function familyStats(
     }
   }
 
-  // "Twins": living members who share an age. `ages` is already sorted oldest
-  // first, then by name, so each group's names keep that order.
+  // Same-age groups: living members who share an age. `ages` is already sorted
+  // oldest first, then by name, so each group's names keep that order.
   const byAge = new Map<number, string[]>();
   for (const { name, age } of ages) {
     const names = byAge.get(age);
     if (names) names.push(name);
     else byAge.set(age, [name]);
   }
-  const twins: TwinGroup[] = [...byAge.entries()]
+  const sameAge: SameAgeGroup[] = [...byAge.entries()]
     .filter(([, names]) => names.length >= 2)
     .map(([age, names]) => ({ age, names }))
     .sort((a, b) => b.age - a.age);
@@ -90,7 +90,7 @@ export function familyStats(
     oldest: ages[0] ?? null,
     youngest: ages.at(-1) ?? null,
     busiestMonth,
-    twins,
+    sameAge,
     subscribers: activeSubscribers(viewers).length,
     activeViewers: viewers.filter(viewerIsActive).length,
   };

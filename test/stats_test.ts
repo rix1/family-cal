@@ -51,7 +51,7 @@ Deno.test("familyStats derives ages, range and busiest month from full birthdays
   assertEquals(stats.youngest, { name: "Emil", age: 0 });
   // July: Olav, Emil, Ada = 3; May: Solveig = 1; Jan: Ghost = 1.
   assertEquals(stats.busiestMonth, { month: 7, count: 3 });
-  assertEquals(stats.twins, []); // every living member has a distinct age
+  assertEquals(stats.sameAge, []); // every living member has a distinct age
 });
 
 Deno.test("familyStats groups living members who share an age", () => {
@@ -66,7 +66,7 @@ Deno.test("familyStats groups living members who share an age", () => {
   const stats = familyStats(people, [], "2026-06-21");
 
   // Oldest age first; names alphabetical within a group; singles excluded.
-  assertEquals(stats.twins, [
+  assertEquals(stats.sameAge, [
     { age: 36, names: ["Ada", "Mia"] },
     { age: 26, names: ["Eli", "Ola"] },
   ]);
@@ -85,5 +85,5 @@ Deno.test("familyStats counts active subscribers and viewers", () => {
   assertEquals(stats.averageAge, null);
   assertEquals(stats.oldest, null);
   assertEquals(stats.busiestMonth, null);
-  assertEquals(stats.twins, []);
+  assertEquals(stats.sameAge, []);
 });

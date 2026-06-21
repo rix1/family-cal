@@ -143,12 +143,12 @@ export default define.page<typeof handlers>(({ data }) => (
         </div>
 
         <div class="card p-5 sm:col-span-2 xl:col-span-3">
-          <p class="kicker">Twins</p>
+          <p class="kicker">Same age</p>
           <p class="mt-1 text-xs text-ink-3">Living members who share an age.</p>
-          {data.stats.twins.length
+          {data.stats.sameAge.length
             ? (
               <ul class="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                {data.stats.twins.map((group) => (
+                {data.stats.sameAge.map((group) => (
                   <li class="flex items-baseline gap-3 rounded-lg bg-inset px-3 py-2">
                     <span class="shrink-0 text-lg font-semibold tabular-nums">
                       {group.age}

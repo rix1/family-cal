@@ -1075,7 +1075,7 @@ export function Calendar({
             {highlight && <span class="badge bg-accent text-on-accent">Next</span>}
           </p>
           <p class="text-sm tabular-nums">
-            <span class={`font-medium ${highlight ? "text-accent-2" : "text-ink"}`}>
+            <span class={`${highlight ? "text-accent-2" : "text-ink"}`}>
               {when}
             </span>
             <span class={highlight ? "text-accent-2/70" : "text-ink-3"}>
@@ -1146,7 +1146,7 @@ export function Calendar({
                 In memory of {event.person.name}
               </button>
               {group && (
-                <span class="badge bg-inset text-ink-2">
+                <span class="badge ml-auto bg-inset text-ink-2">
                   {group.label}
                 </span>
               )}
@@ -1189,7 +1189,7 @@ export function Calendar({
               </span>
             )}
             {group && (
-              <span class="badge bg-inset text-ink-2">
+              <span class="badge ml-auto bg-inset text-ink-2">
                 {group.label}
               </span>
             )}

@@ -1,9 +1,10 @@
+import { resolveKvPath } from "@/lib/db.ts";
 import { KvStore } from "@/lib/kv_store.ts";
 import { loadSeedData } from "@/lib/seed.ts";
 
 const force = Deno.args.includes("--force");
 const seedDir = Deno.args.find((arg) => !arg.startsWith("--")) ?? "seed";
-const store = await KvStore.create(Deno.env.get("KV_PATH"));
+const store = await KvStore.create(await resolveKvPath());
 
 try {
   const [people, groups, viewers, invites] = await Promise.all([

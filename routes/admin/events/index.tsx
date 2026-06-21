@@ -5,6 +5,7 @@ import { eventKindLabels, normalizeEvent } from "@/lib/family_events.ts";
 import { EVENT_KINDS } from "@/lib/model.ts";
 import { ValidationError } from "@/lib/people.ts";
 import { MentionTextarea } from "@/islands/MentionTextarea.tsx";
+import { Toast } from "@/islands/Toast.tsx";
 import { define } from "@/utils.ts";
 import { HttpError, page } from "fresh";
 
@@ -170,16 +171,8 @@ export default define.page<typeof handlers>(({ data }) => {
           </details>
         </div>
 
-        {data.saved && (
-          <p class="mt-6 rounded-xl border border-accent/40 bg-accent-soft px-4 py-3 text-sm font-medium text-accent-2">
-            Event added.
-          </p>
-        )}
-        {data.deleted && (
-          <p class="mt-6 rounded-xl border border-accent/40 bg-accent-soft px-4 py-3 text-sm font-medium text-accent-2">
-            Event deleted.
-          </p>
-        )}
+        {data.saved && <Toast message="Event added." />}
+        {data.deleted && <Toast message="Event deleted." />}
 
         <div class="card mt-8 overflow-x-auto">
           <table class="data-table">

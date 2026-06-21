@@ -1,5 +1,6 @@
 import { AdminShell } from "@/components/AdminShell.tsx";
 import { CopyButton } from "@/islands/CopyButton.tsx";
+import { Toast } from "@/islands/Toast.tsx";
 import { accessUrls, createViewer, expirePreviousViewerLinks } from "@/lib/access_links.ts";
 import { adminDenied, adminViewer } from "@/lib/admin_auth.ts";
 import { getStore } from "@/lib/db.ts";
@@ -171,11 +172,7 @@ export default define.page<typeof handlers>(({ data }) => (
         </section>
       )}
 
-      {data.expired && (
-        <p class="mt-6 rounded-xl border border-accent/40 bg-accent-soft px-4 py-3 text-sm font-medium text-accent-2">
-          Viewer link expired.
-        </p>
-      )}
+      {data.expired && <Toast message="Viewer link expired." />}
 
       <form
         method="get"

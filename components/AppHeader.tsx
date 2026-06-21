@@ -62,13 +62,13 @@ export function AppHeader({
           wide ? "max-w-7xl" : "max-w-5xl"
         }`}
       >
-        <div class="flex min-w-0 items-center gap-3">
+        <a href="/calendar/" class="flex min-w-0 items-center gap-3">
           <BrandMark />
           <div class="min-w-0">
             <p class="kicker">{eyebrow}</p>
             <h1 class="truncate text-[15px] font-semibold leading-snug">{title}</h1>
           </div>
-        </div>
+        </a>
         <div class="flex shrink-0 items-center gap-2">
           {children}
           {viewerName

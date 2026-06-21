@@ -1,4 +1,5 @@
 import { accessUrls, createViewer, expirePreviousViewerLinks } from "@/lib/access_links.ts";
+import { resolveKvPath } from "@/lib/db.ts";
 import { KvStore } from "@/lib/kv_store.ts";
 
 function option(name: string): string | undefined {
@@ -29,7 +30,7 @@ const viewer = createViewer({
   canEdit: Deno.args.includes("--edit"),
 });
 
-const store = await KvStore.create(Deno.env.get("KV_PATH"));
+const store = await KvStore.create(await resolveKvPath());
 try {
   const knownGroups = new Set((await store.listGroups()).map((group) => group.key));
   const invalidGroups = groups.filter((group) => !knownGroups.has(group));

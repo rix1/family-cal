@@ -1,3 +1,4 @@
+import { resolveKvPath } from "@/lib/db.ts";
 import { KvStore } from "@/lib/kv_store.ts";
 
 function option(name: string): string | undefined {
@@ -12,7 +13,7 @@ if (!token || !["true", "false"].includes(edit ?? "")) {
   Deno.exit(1);
 }
 
-const store = await KvStore.create(Deno.env.get("KV_PATH"));
+const store = await KvStore.create(await resolveKvPath());
 try {
   const viewer = await store.getViewer(token);
   if (!viewer) {

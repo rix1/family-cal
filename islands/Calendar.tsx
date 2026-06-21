@@ -1,8 +1,8 @@
 import { AppHeader } from "@/components/AppHeader.tsx";
-import type { CalendarViewData, ViewEvent, ViewPerson } from "@/lib/view_data.ts";
 import { ageAtDate } from "@/lib/dates.ts";
 import { retainAvailable, toggleSelection } from "@/lib/filter_selection.ts";
 import { activeMention, insertMention, type MentionMatch } from "@/lib/mentions.ts";
+import type { CalendarViewData, ViewEvent, ViewPerson } from "@/lib/view_data.ts";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 
 type CalendarEvent =
@@ -57,6 +57,25 @@ function addDays(date: Date, days: number): Date {
   return next;
 }
 
+const monthsShort = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
+
+function shortDate(date: string): string {
+  return `${monthsShort[Number(date.slice(5, 7)) - 1]} ${Number(date.slice(8, 10))}`;
+}
+
 function monthDayOf(person: ViewPerson): string {
   if (!person.date) return "";
   return person.date.length === 10 ? person.date.slice(5) : person.date;
@@ -78,6 +97,71 @@ function milestone(age: number | null): string {
   if (age! > 0 && age! % 10 === 0) return "major";
   if (age! > 0 && age! % 5 === 0) return "minor";
   return "";
+}
+
+// ---- Year heatmap experiment (delete this block + its call site to remove) ----
+
+interface HeatmapEvent {
+  date: string;
+  text: string;
+}
+
+interface HeatmapCell {
+  label: string;
+  events: HeatmapEvent[];
+  isCurrentWeek: boolean;
+}
+
+const heatmapCellSize = 13;
+const heatmapGap = 3;
+const heatmapColumns = 13;
+
+/** One cell per week (Sun-Sat) spanning the full calendar `year`. */
+function weekCells(
+  year: number,
+  eventMap: Map<string, string[]>,
+  todayKey: string,
+): HeatmapCell[] {
+  const start = new Date(year, 0, 1);
+  start.setDate(start.getDate() - start.getDay());
+  const end = new Date(year, 11, 31);
+  end.setDate(end.getDate() + (6 - end.getDay()));
+  const cells: HeatmapCell[] = [];
+  let cursor = start;
+  while (cursor <= end) {
+    const events: HeatmapEvent[] = [];
+    let firstInYear: Date | null = null;
+    let isCurrentWeek = false;
+    for (let i = 0; i < 7; i++) {
+      const date = toKey(cursor);
+      if (date === todayKey) isCurrentWeek = true;
+      if (cursor.getFullYear() === year) {
+        firstInYear ??= cursor;
+        for (const text of eventMap.get(date) ?? []) events.push({ date, text });
+      }
+      cursor = addDays(cursor, 1);
+    }
+    events.sort((a, b) => a.date.localeCompare(b.date));
+    const label = firstInYear
+      ? `Week of ${monthsShort[firstInYear.getMonth()]} ${firstInYear.getDate()}`
+      : "";
+    cells.push({ label, events, isCurrentWeek });
+  }
+  return cells;
+}
+
+const heatmapLevelClasses = [
+  "bg-inset",
+  "bg-accent/25",
+  "bg-accent/50",
+  "bg-accent/75",
+  "bg-accent",
+];
+
+function heatmapLevelClass(count: number, max: number): string {
+  if (count <= 0 || max <= 0) return heatmapLevelClasses[0];
+  const level = Math.max(1, Math.min(4, Math.ceil((count / max) * 4)));
+  return heatmapLevelClasses[level];
 }
 
 const iconProps = {
@@ -575,6 +659,59 @@ export function Calendar({
     ? Math.round((birthdaysCelebratedThisYear / birthdayPeopleThisYear.length) * 100)
     : 0;
 
+  const yearEventMap = useMemo(() => {
+    const map = new Map<string, string[]>();
+    const add = (date: string, label: string) => {
+      const list = map.get(date);
+      if (list) list.push(label);
+      else map.set(date, [label]);
+    };
+    for (const person of people) {
+      if (!activeGroups.has(person.group)) continue;
+      if (person.date && !person.died) {
+        const md = monthDayOf(person);
+        const date = `${currentYear}-${md}`;
+        if (!hasYear(person) || date >= person.date) add(date, `🎂 ${person.name}`);
+      }
+      if (person.died) {
+        const diedMd = person.died.slice(5);
+        const date = `${currentYear}-${diedMd}`;
+        if (date >= person.died) add(date, `In memory of ${person.name}`);
+      }
+    }
+    for (const occasion of occasions) {
+      if (!occasion.groups.some((group) => activeGroups.has(group))) continue;
+      const hasYr = occasion.date.length === 10;
+      const md = hasYr ? occasion.date.slice(5) : occasion.date;
+      const date = `${currentYear}-${md}`;
+      if (hasYr && date < occasion.date) continue;
+      add(date, occasion.title);
+    }
+    return map;
+  }, [people, occasions, activeGroups, currentYear]);
+
+  const heatmapCells = useMemo(
+    () => weekCells(currentYear, yearEventMap, todayKey),
+    [currentYear, yearEventMap, todayKey],
+  );
+  const heatmapMax = Math.max(1, ...heatmapCells.map((cell) => cell.events.length));
+  const heatmapWrap = useRef<HTMLDivElement | null>(null);
+  const [heatmapTip, setHeatmapTip] = useState<
+    { cell: HeatmapCell; left: number; top: number } | null
+  >(null);
+
+  function showHeatmapTip(target: HTMLElement, cell: HeatmapCell) {
+    const wrap = heatmapWrap.current;
+    if (!wrap) return;
+    const wrapRect = wrap.getBoundingClientRect();
+    const cellRect = target.getBoundingClientRect();
+    setHeatmapTip({
+      cell,
+      left: cellRect.left - wrapRect.left + cellRect.width / 2,
+      top: cellRect.top - wrapRect.top,
+    });
+  }
+
   function nextBirthdayDate(person: ViewPerson): string | null {
     const md = monthDayOf(person);
     if (!md) return null;
@@ -844,6 +981,9 @@ export function Calendar({
     highlight?: boolean;
   }) {
     const text = ageText(event);
+    const relative = relativeLabel(event.date);
+    const main = text ? (event.date === todayKey ? text : `${text} ${relative}`) : relative;
+    const line = `${shortDate(event.date)} · ${main.charAt(0).toUpperCase()}${main.slice(1)}`;
     return (
       <div
         class={`flex items-center gap-3 rounded-lg px-2.5 py-2 ${
@@ -873,8 +1013,7 @@ export function Calendar({
             {highlight && <span class="badge bg-accent text-on-accent">Next</span>}
           </p>
           <p class={`text-sm tabular-nums ${highlight ? "text-accent-2" : "text-ink-2"}`}>
-            {relativeLabel(event.date)}
-            {text ? ` · ${text}` : ""}
+            {line}
           </p>
         </div>
       </div>
@@ -1159,6 +1298,82 @@ export function Calendar({
                 ? "All known birthdays are behind us."
                 : `${birthdaysRemainingThisYear} still ahead this year.`}
             </p>
+
+            {
+              /* Year heatmap experiment: delete this <div> through the legend below,
+                plus the heatmap state/memos above, to remove it cleanly. */
+            }
+            <div class="mt-4 flex gap-1.5">
+              <div class="flex flex-col justify-between">
+                <span class="text-[0.625rem] text-ink-3">Jan</span>
+                <span class="text-[0.625rem] text-ink-3">Dec</span>
+              </div>
+              <div ref={heatmapWrap} class="relative">
+                <div
+                  class="grid"
+                  style={{
+                    gridTemplateColumns: `repeat(${heatmapColumns}, ${heatmapCellSize}px)`,
+                    gap: `${heatmapGap}px`,
+                  }}
+                >
+                  {heatmapCells.map((cell, i) => (
+                    <div
+                      key={i}
+                      tabIndex={0}
+                      aria-label={cell.events.length
+                        ? `${cell.label}: ${cell.events.length} event${
+                          cell.events.length === 1 ? "" : "s"
+                        }, ${cell.events.map((event) => event.text).join(", ")}`
+                        : cell.label}
+                      onMouseEnter={(e) => showHeatmapTip(e.currentTarget, cell)}
+                      onMouseLeave={() => setHeatmapTip(null)}
+                      onFocus={(e) => showHeatmapTip(e.currentTarget, cell)}
+                      onBlur={() => setHeatmapTip(null)}
+                      class={`rounded-[2px] outline-none ${
+                        heatmapLevelClass(cell.events.length, heatmapMax)
+                      } ${cell.isCurrentWeek ? "ring-2 ring-accent" : ""}`}
+                      style={{ width: `${heatmapCellSize}px`, height: `${heatmapCellSize}px` }}
+                    />
+                  ))}
+                </div>
+                <div
+                  class={`heatmap-tip ${heatmapTip ? "visible" : ""}`}
+                  style={heatmapTip
+                    ? { left: `${heatmapTip.left}px`, top: `${heatmapTip.top}px` }
+                    : undefined}
+                >
+                  {heatmapTip && (
+                    <>
+                      <p class="text-[0.625rem] font-semibold uppercase tracking-wide text-page/60">
+                        {heatmapTip.cell.label}
+                      </p>
+                      {heatmapTip.cell.events.length
+                        ? (
+                          <ul class="mt-0.5 grid gap-0.5">
+                            {heatmapTip.cell.events.map((event, i) => (
+                              <li key={i}>
+                                {shortDate(event.date)}: {event.text}
+                              </li>
+                            ))}
+                          </ul>
+                        )
+                        : <p class="mt-0.5">No events</p>}
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div class="mt-1.5 flex items-center justify-end gap-1 text-[0.625rem] text-ink-3">
+              <span>Less</span>
+              {heatmapLevelClasses.map((cls, level) => (
+                <span
+                  key={level}
+                  class={`rounded-[2px] ${cls}`}
+                  style={{ width: "9px", height: "9px" }}
+                />
+              ))}
+              <span>More</span>
+            </div>
           </article>
           <article class="card p-5 sm:col-span-2">
             <div class="flex items-baseline justify-between gap-3">

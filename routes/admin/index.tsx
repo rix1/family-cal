@@ -141,6 +141,25 @@ export default define.page<typeof handlers>(({ data }) => (
             {data.stats.activeViewers === 1 ? "viewer" : "viewers"}
           </p>
         </div>
+
+        <div class="card p-5 sm:col-span-2 xl:col-span-3">
+          <p class="kicker">Twins</p>
+          <p class="mt-1 text-xs text-ink-3">Living members who share an age.</p>
+          {data.stats.twins.length
+            ? (
+              <ul class="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                {data.stats.twins.map((group) => (
+                  <li class="flex items-baseline gap-3 rounded-lg bg-inset px-3 py-2">
+                    <span class="shrink-0 text-lg font-semibold tabular-nums">
+                      {group.age}
+                    </span>
+                    <span class="text-sm text-ink-2">{group.names.join(", ")}</span>
+                  </li>
+                ))}
+              </ul>
+            )
+            : <p class="mt-3 text-sm text-ink-3">No two members share an age yet.</p>}
+        </div>
       </div>
     </AdminShell>
   </>

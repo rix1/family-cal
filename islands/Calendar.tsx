@@ -1239,7 +1239,27 @@ export function Calendar({
     const age = hasYear(person) ? currentYear - Number(person.date.slice(0, 4)) : null;
     const born = person.date || "Unknown";
     const ageAtDeath = ageAtDate(person.date || null, person.died || null);
-    return { next, nextMemorial, group, age, ageAtDeath, born };
+    // Incoming backlinks: people whose notes @-mention this person, oldest first.
+    const id = person.id.toLowerCase();
+    const mentionedBy = people
+      .filter((p) => {
+        if (p.id.toLowerCase() === id) return false;
+        const regex = /@([a-z0-9-]+)/gi;
+        let match;
+        while ((match = regex.exec(p.notes || "")) !== null) {
+          if (match[1].toLowerCase() === id) return true;
+        }
+        return false;
+      })
+      .map((p) => ({
+        person: p,
+        age: hasYear(p) ? currentYear - Number(p.date.slice(0, 4)) : null,
+      }))
+      .sort((a, b) =>
+        (b.age ?? -Infinity) - (a.age ?? -Infinity) ||
+        a.person.name.localeCompare(b.person.name, "nb")
+      );
+    return { next, nextMemorial, group, age, ageAtDeath, born, mentionedBy };
   }
 
   function DayGroup({
@@ -1968,6 +1988,31 @@ export function Calendar({
                       {selectedPerson.notes ? linkedNotes(selectedPerson.notes) : "No notes yet."}
                     </p>
                   </div>
+
+                  {selectedDetail.mentionedBy.length > 0 && (
+                    <div class="mt-4">
+                      <p class="kicker">
+                        Mentioned by {selectedDetail.mentionedBy.length}
+                      </p>
+                      <ul class="mt-2 grid gap-0.5">
+                        {selectedDetail.mentionedBy.map(({ person, age }) => (
+                          <li key={person.id}>
+                            <button
+                              type="button"
+                              onClick={() => openPerson(person)}
+                              class="flex w-full items-center justify-between gap-3 rounded-md px-1.5 py-1 text-left text-sm hover:bg-inset"
+                              title={person.notes}
+                            >
+                              <span class="font-medium">{person.name}</span>
+                              <span class="tabular-nums text-ink-3">
+                                {age === null ? "—" : `${age} ${age === 1 ? "year" : "years"}`}
+                              </span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
 
                   {(saveUrl || editUrl || selectedDetail.next) && (
                     <div class="mt-6 grid gap-2 sm:mt-auto">

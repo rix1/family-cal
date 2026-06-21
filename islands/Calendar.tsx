@@ -1279,13 +1279,16 @@ export function Calendar({
 
   const selectedDetail = selectedPerson ? personDetail(selectedPerson) : null;
 
+  // The default forward view trims the current month to today onward; once past
+  // months are loaded the current month is mid-timeline, so show all of it.
+  const pastLoaded = firstMonthOffset < 0;
   const months = [];
   for (let offset = firstMonthOffset; offset < firstMonthOffset + renderedMonthCount; offset++) {
     const d = monthDate(offset);
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
     const isCurrent = key === todayKey.slice(0, 7);
     const monthEvents = events.filter(
-      (e) => e.date.slice(0, 7) === key && (!isCurrent || e.date >= todayKey),
+      (e) => e.date.slice(0, 7) === key && (!isCurrent || pastLoaded || e.date >= todayKey),
     );
     if (!monthEvents.length && !isCurrent) continue;
     const byDay = new Map<string, CalendarEvent[]>();
@@ -1298,7 +1301,8 @@ export function Calendar({
       key,
       date: d,
       events: monthEvents,
-      days: [...byDay.entries()],
+      // today is seeded first for its empty-state slot; sort so it lands in date order.
+      days: [...byDay.entries()].sort((a, b) => a[0].localeCompare(b[0])),
     });
   }
 
@@ -1560,7 +1564,7 @@ export function Calendar({
             disabled={firstMonthOffset <= -maxPastMonths}
             class="btn btn-ghost btn-sm"
           >
-            {firstMonthOffset <= -maxPastMonths ? "No more past events loaded" : "Load past events"}
+            {firstMonthOffset <= -maxPastMonths ? "No more past years to load" : "Load past year"}
           </button>
         </div>
 

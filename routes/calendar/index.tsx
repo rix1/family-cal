@@ -15,6 +15,7 @@ export const handlers = define.handlers({
       viewerName: viewer.name,
       editUrl: viewer.canEdit ? "/admin/" : undefined,
       saveUrl: viewer.canEdit ? `/api/people/${viewer.token}` : undefined,
+      subscribed: Boolean(viewer.newsletter),
     });
   },
 });
@@ -27,6 +28,7 @@ export default define.page<typeof handlers>(({ data }) => (
       viewerName={data.viewerName}
       editUrl={data.editUrl}
       saveUrl={data.saveUrl}
+      subscribed={data.subscribed}
       logoutUrl="/logout"
     />
   </>

@@ -184,6 +184,25 @@ function SparkIcon({ class: cls = "size-3" }: { class?: string }) {
   );
 }
 
+/* Envelope for the newsletter call to action. */
+function MailIcon({ class: cls = "size-4" }: { class?: string }) {
+  return (
+    <svg class={cls} {...iconProps}>
+      <rect x="2.5" y="4" width="11" height="8" rx="1.4" />
+      <path d="M3 5l5 3.4L13 5" />
+    </svg>
+  );
+}
+
+/* Check mark for confirmed states. */
+function CheckIcon({ class: cls = "size-4" }: { class?: string }) {
+  return (
+    <svg class={cls} {...iconProps}>
+      <path d="M3.5 8.5 6.5 11.5 12.5 4.5" />
+    </svg>
+  );
+}
+
 /* Event-type glyphs: cake, candle, rings, droplet, spark, pennant. */
 function TypeIcon({ type, class: cls = "size-4" }: { type: string; class?: string }) {
   if (type === "memorial") {
@@ -279,6 +298,8 @@ interface CalendarProps extends CalendarViewData {
   editUrl?: string;
   saveUrl?: string;
   logoutUrl?: string;
+  /** Whether this viewer has opted into the monthly email. */
+  subscribed?: boolean;
 }
 
 interface PersonDraft {
@@ -379,6 +400,7 @@ export function Calendar({
   editUrl,
   saveUrl,
   logoutUrl,
+  subscribed = false,
 }: CalendarProps) {
   const [people, setPeople] = useState(initialPeople);
   const [query, setQuery] = useState("");
@@ -684,7 +706,20 @@ export function Calendar({
     )
     .reverse()
     .slice(0, 5) as Extract<CalendarEvent, { type: "birthday" }>[];
-  const missing = people.filter((p) => !p.date && activeGroups.has(p.group));
+  // Incomplete birth dates: no date at all, or a month-day with the year still unknown.
+  const missing = people.filter((p) => !hasYear(p) && activeGroups.has(p.group));
+  // "Family roots": people whose notes link to no one else yet. While the tree is
+  // being filled in this is a to-do list; once it is, the remainder are the top nodes.
+  const familyRoots = people.filter((p) => {
+    if (!activeGroups.has(p.group)) return false;
+    const regex = /@([a-z0-9-]+)/gi;
+    let match;
+    while ((match = regex.exec(p.notes || "")) !== null) {
+      const id = match[1].toLowerCase();
+      if (id !== p.id.toLowerCase() && personLookup.has(id)) return false;
+    }
+    return true;
+  });
   const birthdayPeopleThisYear = people.filter((person) => {
     if (!person.date || person.died || !activeGroups.has(person.group)) return false;
     const date = `${currentYear}-${monthDayOf(person)}`;
@@ -1476,43 +1511,107 @@ export function Calendar({
                 )}
             </div>
           </article>
-          <article class="card grid content-start gap-3 p-5">
-            <div>
-              <p class="kicker">Missing dates</p>
-              <div class="mt-3 flex flex-wrap gap-1.5">
-                {missing.length
-                  ? (
-                    missing.map((p) => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => openPerson(p)}
-                        class="rounded-full border border-line bg-surface px-2.5 py-1 text-xs font-medium text-ink-2 hover:border-line-2 hover:text-ink"
-                        title={p.notes}
-                      >
-                        {p.name}
-                      </button>
-                    ))
-                  )
-                  : (
-                    <p class="text-sm text-ink-2">
-                      All dates filled in.
-                    </p>
-                  )}
+          <article class="card flex flex-col gap-4 p-5">
+            <p class="kicker">In focus</p>
+            {missing.length > 0 && (
+              <div>
+                <p class="text-sm font-medium">
+                  {missing.length} missing {missing.length === 1 ? "date" : "dates"}
+                </p>
+                <p class="mt-0.5 text-xs text-ink-3">
+                  Tap a name to add a birthday or fill in a missing year.
+                </p>
+                <div class="mt-2.5 flex flex-wrap gap-1.5">
+                  {missing.map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => openPerson(p)}
+                      class="rounded-full border border-line bg-surface px-2.5 py-1 text-xs font-medium text-ink-2 hover:border-line-2 hover:text-ink"
+                      title={p.notes}
+                    >
+                      {p.name}
+                    </button>
+                  ))}
+                </div>
               </div>
+            )}
+            <div>
+              <p class="text-sm font-medium">Family roots</p>
+              {familyRoots.length
+                ? (
+                  <>
+                    <p class="mt-0.5 text-xs text-ink-3">
+                      Not linked to anyone yet — open a card to @mention a relative in their notes.
+                    </p>
+                    <div class="mt-2.5 flex flex-wrap gap-1.5">
+                      {familyRoots.map((p) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => openPerson(p)}
+                          class="rounded-full border border-line bg-surface px-2.5 py-1 text-xs font-medium text-ink-2 hover:border-line-2 hover:text-ink"
+                          title={p.notes}
+                        >
+                          {p.name}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )
+                : (
+                  <p class="mt-0.5 text-xs text-ink-3">
+                    Everyone is linked into the family tree.
+                  </p>
+                )}
             </div>
-            <a
-              href="/newsletter/"
-              class="flex items-center justify-between gap-3 rounded-lg border border-line-2 px-3.5 py-3 text-sm transition-colors hover:bg-inset"
-            >
-              <span>
-                <span class="block font-medium">Monthly email</span>
-                <span class="mt-0.5 block text-xs text-ink-3">
-                  Next month's birthdays in your inbox
-                </span>
-              </span>
-              <span class="text-ink-3" aria-hidden="true">→</span>
-            </a>
+            <div class="mt-auto">
+              {subscribed
+                ? (
+                  <a
+                    href="/newsletter/"
+                    class="group flex items-center gap-3 rounded-lg border border-line-2 px-3.5 py-3 text-sm transition-colors hover:bg-inset"
+                  >
+                    <span class="grid size-9 shrink-0 place-items-center rounded-lg bg-accent-soft text-accent-2">
+                      <CheckIcon />
+                    </span>
+                    <span class="min-w-0 flex-1">
+                      <span class="block font-medium">Subscribed to the monthly email</span>
+                      <span class="mt-0.5 block text-xs text-ink-3">
+                        Change groups or unsubscribe
+                      </span>
+                    </span>
+                    <span
+                      class="text-ink-3 transition-transform group-hover:translate-x-0.5"
+                      aria-hidden="true"
+                    >
+                      →
+                    </span>
+                  </a>
+                )
+                : (
+                  <a
+                    href="/newsletter/"
+                    class="group flex items-center gap-3 rounded-lg border border-accent/30 bg-accent-soft px-3.5 py-3 text-sm transition-colors hover:border-accent/60"
+                  >
+                    <span class="grid size-9 shrink-0 place-items-center rounded-lg bg-accent text-on-accent">
+                      <MailIcon />
+                    </span>
+                    <span class="min-w-0 flex-1">
+                      <span class="block font-medium text-accent-2">Get the monthly email</span>
+                      <span class="mt-0.5 block text-xs text-ink-3">
+                        Next month's birthdays in your inbox
+                      </span>
+                    </span>
+                    <span
+                      class="text-accent-2 transition-transform group-hover:translate-x-0.5"
+                      aria-hidden="true"
+                    >
+                      →
+                    </span>
+                  </a>
+                )}
+            </div>
           </article>
         </section>
 

@@ -3,6 +3,7 @@ import { ageAtDate } from "@/lib/dates.ts";
 import { retainAvailable, toggleSelection } from "@/lib/filter_selection.ts";
 import { activeMention, insertMention, type MentionMatch } from "@/lib/mentions.ts";
 import type { CalendarViewData, ViewEvent, ViewPerson } from "@/lib/view_data.ts";
+import type { ComponentChildren } from "preact";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 
 type CalendarEvent =
@@ -113,7 +114,7 @@ interface HeatmapCell {
 }
 
 const heatmapCellSize = 13;
-const heatmapGap = 3;
+const heatmapGap = 4;
 const heatmapColumns = 13;
 
 /** One cell per week (Sun-Sat) spanning the full calendar `year`. */
@@ -437,6 +438,47 @@ export function Calendar({
     () => new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric" }),
     [],
   );
+  const fullDateFormatter = useMemo(
+    () => new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric" }),
+    [],
+  );
+  const dayMonthFormatter = useMemo(
+    () => new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long" }),
+    [],
+  );
+
+  /** Render a stored date (YYYY-MM-DD, or MM-DD when the year is unknown) for reading. */
+  function formatPersonDate(value: string | null | undefined): string {
+    if (!value || value === "Unknown") return "Unknown";
+    const parts = value.split("-").map(Number);
+    if (parts.length === 3) {
+      const [year, month, day] = parts;
+      return fullDateFormatter.format(new Date(year, month - 1, day));
+    }
+    const [month, day] = parts;
+    return dayMonthFormatter.format(new Date(2000, month - 1, day));
+  }
+
+  /**
+   * Human-readable date in a semantic <time>, keeping the machine value
+   * reachable via datetime/title. `short` renders the compact "Jul 12" form;
+   * `children` lets callers supply their own inner markup (e.g. the timeline's
+   * stacked day number + weekday).
+   */
+  function PersonDate({ value, short = false, class: cls, children }: {
+    value: string | null | undefined;
+    short?: boolean;
+    class?: string;
+    children?: ComponentChildren;
+  }) {
+    if (!value || value === "Unknown") return <>{children ?? "Unknown"}</>;
+    return (
+      <time dateTime={value} title={value} class={cls}>
+        {children ?? (short ? shortDate(value) : formatPersonDate(value))}
+      </time>
+    );
+  }
+
   const personLookup = useMemo(
     () => new Map(people.map((person) => [person.id.toLowerCase(), person])),
     [people],
@@ -980,10 +1022,10 @@ export function Calendar({
     event: Extract<CalendarEvent, { type: "birthday" }>;
     highlight?: boolean;
   }) {
-    const text = ageText(event);
+    // "today" is already carried by the relative label, so drop ageText's suffix.
+    const age = ageText(event).replace(/ today$/, "");
     const relative = relativeLabel(event.date);
-    const main = text ? (event.date === todayKey ? text : `${text} ${relative}`) : relative;
-    const line = `${shortDate(event.date)} · ${main.charAt(0).toUpperCase()}${main.slice(1)}`;
+    const when = `${relative.charAt(0).toUpperCase()}${relative.slice(1)}`;
     return (
       <div
         class={`flex items-center gap-3 rounded-lg px-2.5 py-2 ${
@@ -1012,8 +1054,15 @@ export function Calendar({
             </button>
             {highlight && <span class="badge bg-accent text-on-accent">Next</span>}
           </p>
-          <p class={`text-sm tabular-nums ${highlight ? "text-accent-2" : "text-ink-2"}`}>
-            {line}
+          <p class="text-sm tabular-nums">
+            <span class={`font-medium ${highlight ? "text-accent-2" : "text-ink"}`}>
+              {when}
+            </span>
+            <span class={highlight ? "text-accent-2/70" : "text-ink-3"}>
+              {" · "}
+              <PersonDate value={event.date} short />
+              {age ? ` · ${age}` : ""}
+            </span>
           </p>
         </div>
       </div>
@@ -1188,7 +1237,10 @@ export function Calendar({
         class="grid gap-x-4 gap-y-2 sm:grid-cols-[72px_1fr]"
         style={{ scrollMarginTop: "118px" }}
       >
-        <div class="flex items-center gap-2 sm:flex-col sm:items-end sm:gap-1 sm:pt-2.5 sm:text-right">
+        <PersonDate
+          value={dateKey}
+          class="flex items-center gap-2 sm:flex-col sm:items-end sm:gap-1 sm:pt-2.5 sm:text-right"
+        >
           <span
             class={`text-xl font-semibold leading-none tabular-nums ${
               isToday ? "text-accent-2" : "text-ink"
@@ -1204,7 +1256,7 @@ export function Calendar({
               Today
             </span>
           )}
-        </div>
+        </PersonDate>
         <div class="space-y-2">
           {dayEvents.length
             ? (
@@ -1303,7 +1355,7 @@ export function Calendar({
               /* Year heatmap experiment: delete this <div> through the legend below,
                 plus the heatmap state/memos above, to remove it cleanly. */
             }
-            <div class="mt-4 flex gap-1.5">
+            <div class="mt-6 flex gap-1.5">
               <div class="flex flex-col justify-between">
                 <span class="text-[0.625rem] text-ink-3">Jan</span>
                 <span class="text-[0.625rem] text-ink-3">Dec</span>
@@ -1361,18 +1413,18 @@ export function Calendar({
                     </>
                   )}
                 </div>
+                <div class="mt-1.5 flex items-center justify-end gap-1 text-[0.625rem] text-ink-3">
+                  <span>Less</span>
+                  {heatmapLevelClasses.map((cls, level) => (
+                    <span
+                      key={level}
+                      class={`rounded-[2px] ${cls}`}
+                      style={{ width: "9px", height: "9px" }}
+                    />
+                  ))}
+                  <span>More</span>
+                </div>
               </div>
-            </div>
-            <div class="mt-1.5 flex items-center justify-end gap-1 text-[0.625rem] text-ink-3">
-              <span>Less</span>
-              {heatmapLevelClasses.map((cls, level) => (
-                <span
-                  key={level}
-                  class={`rounded-[2px] ${cls}`}
-                  style={{ width: "9px", height: "9px" }}
-                />
-              ))}
-              <span>More</span>
             </div>
           </article>
           <article class="card p-5 sm:col-span-2">
@@ -1771,7 +1823,7 @@ export function Calendar({
                     <div class="rounded-lg bg-inset p-3">
                       <dt class="kicker">Born</dt>
                       <dd class="mt-1 font-medium tabular-nums">
-                        {selectedDetail.born}
+                        <PersonDate value={selectedDetail.born} />
                       </dd>
                     </div>
                     <div class="rounded-lg bg-inset p-3">
@@ -1787,7 +1839,7 @@ export function Calendar({
                         <div class="rounded-lg bg-inset p-3">
                           <dt class="kicker">Died</dt>
                           <dd class="mt-1 font-medium tabular-nums">
-                            {selectedPerson.died}
+                            <PersonDate value={selectedPerson.died} />
                           </dd>
                         </div>
                         <div class="rounded-lg bg-inset p-3">
@@ -1802,7 +1854,12 @@ export function Calendar({
                       <dt class="kicker">Next birthday</dt>
                       <dd class="mt-1 font-medium tabular-nums">
                         {selectedDetail.next
-                          ? `${selectedDetail.next} · ${relativeLabel(selectedDetail.next)}`
+                          ? (
+                            <>
+                              <PersonDate value={selectedDetail.next} /> ·{" "}
+                              {relativeLabel(selectedDetail.next)}
+                            </>
+                          )
                           : "Unknown"}
                       </dd>
                     </div>
@@ -1810,7 +1867,7 @@ export function Calendar({
                       <div class="col-span-2 rounded-lg bg-inset p-3">
                         <dt class="kicker">Next remembrance</dt>
                         <dd class="mt-1 font-medium tabular-nums">
-                          {selectedDetail.nextMemorial} ·{" "}
+                          <PersonDate value={selectedDetail.nextMemorial} /> ·{" "}
                           {relativeLabel(selectedDetail.nextMemorial)}
                         </dd>
                       </div>

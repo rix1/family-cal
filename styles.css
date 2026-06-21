@@ -486,8 +486,9 @@ html[data-theme="dark"] {
     .heatmap-tip {
         position: absolute;
         z-index: 20;
+        width: max-content;
         min-width: 8rem;
-        max-width: 14rem;
+        max-width: 18rem;
         border-radius: 0.5rem;
         background: var(--ink);
         padding: 0.375rem 0.625rem;

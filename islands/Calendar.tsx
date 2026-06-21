@@ -1,5 +1,5 @@
 import { AppHeader } from "@/components/AppHeader.tsx";
-import { ageAtDate } from "@/lib/dates.ts";
+import { ageAtDate, MONTH_NAMES_SHORT } from "@/lib/dates.ts";
 import { retainAvailable, toggleSelection } from "@/lib/filter_selection.ts";
 import { activeMention, insertMention, type MentionMatch } from "@/lib/mentions.ts";
 import type { CalendarViewData, ViewEvent, ViewPerson } from "@/lib/view_data.ts";
@@ -58,23 +58,8 @@ function addDays(date: Date, days: number): Date {
   return next;
 }
 
-const monthsShort = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-];
-
 function shortDate(date: string): string {
-  return `${monthsShort[Number(date.slice(5, 7)) - 1]} ${Number(date.slice(8, 10))}`;
+  return `${MONTH_NAMES_SHORT[Number(date.slice(5, 7)) - 1]} ${Number(date.slice(8, 10))}`;
 }
 
 function monthDayOf(person: ViewPerson): string {
@@ -144,7 +129,7 @@ function weekCells(
     }
     events.sort((a, b) => a.date.localeCompare(b.date));
     const label = firstInYear
-      ? `Week of ${monthsShort[firstInYear.getMonth()]} ${firstInYear.getDate()}`
+      ? `Week of ${MONTH_NAMES_SHORT[firstInYear.getMonth()]} ${firstInYear.getDate()}`
       : "";
     cells.push({ label, events, isCurrentWeek });
   }

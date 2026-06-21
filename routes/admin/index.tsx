@@ -1,6 +1,6 @@
 import { AdminShell } from "@/components/AdminShell.tsx";
 import { adminCookie, adminDenied, adminViewer } from "@/lib/admin_auth.ts";
-import { pad2 } from "@/lib/dates.ts";
+import { MONTH_NAMES, pad2 } from "@/lib/dates.ts";
 import { getStore } from "@/lib/db.ts";
 import { viewerIsActive } from "@/lib/model.ts";
 import { osloToday } from "@/lib/newsletter.ts";
@@ -9,21 +9,6 @@ import { viewerCookie } from "@/lib/viewer_auth.ts";
 import { define } from "@/utils.ts";
 import { HttpError } from "fresh";
 import { page } from "fresh";
-
-const MONTHS = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
-];
 
 export const handlers = define.handlers({
   async GET(ctx) {
@@ -126,7 +111,7 @@ export default define.page<typeof handlers>(({ data }) => (
         <div class="card p-5">
           <p class="kicker">Busiest birth month</p>
           <p class="mt-2 text-3xl font-semibold tracking-tight">
-            {data.stats.busiestMonth ? MONTHS[data.stats.busiestMonth.month - 1] : "—"}
+            {data.stats.busiestMonth ? MONTH_NAMES[data.stats.busiestMonth.month - 1] : "—"}
           </p>
           <p class="mt-1 text-xs text-ink-3">
             {data.stats.busiestMonth

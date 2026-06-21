@@ -1,5 +1,24 @@
 import type { CalDate, PartialDate } from "./model.ts";
 
+/** English month names, indexed 0-11. Use `MONTH_NAMES[month - 1]` for 1-12. */
+export const MONTH_NAMES = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+
+/** Three-letter English month abbreviations, indexed 0-11. */
+export const MONTH_NAMES_SHORT = MONTH_NAMES.map((name) => name.slice(0, 3));
+
 export function pad2(n: number): string {
   return String(n).padStart(2, "0");
 }

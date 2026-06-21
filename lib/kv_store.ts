@@ -1,11 +1,9 @@
 import {
   type AuditEntry,
-  DEFAULT_NEWSLETTER_SETTINGS,
   type FamilyEvent,
   type GroupInfo,
   type Invite,
   type NewsletterDraft,
-  type NewsletterSettings,
   type Person,
   type Viewer,
 } from "./model.ts";
@@ -17,7 +15,6 @@ const VIEWERS = "viewers";
 const INVITES = "invites";
 const EVENTS = "events";
 const AUDIT = "audit";
-const NEWSLETTER_SETTINGS = "newsletter_settings";
 const NEWSLETTER_DRAFTS = "newsletter_drafts";
 
 /** Store backed by Deno KV. Same contract as SeedStore; the deploy target. */
@@ -129,15 +126,6 @@ export class KvStore implements Store {
 
   async deleteInvite(token: string): Promise<void> {
     await this.#kv.delete([INVITES, token]);
-  }
-
-  async getNewsletterSettings(): Promise<NewsletterSettings> {
-    const res = await this.#kv.get<NewsletterSettings>([NEWSLETTER_SETTINGS]);
-    return res.value ?? { ...DEFAULT_NEWSLETTER_SETTINGS };
-  }
-
-  async setNewsletterSettings(settings: NewsletterSettings): Promise<void> {
-    await this.#kv.set([NEWSLETTER_SETTINGS], settings);
   }
 
   async getNewsletterDraft(id: string): Promise<NewsletterDraft | null> {

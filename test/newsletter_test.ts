@@ -1,5 +1,5 @@
 import { createViewer, expirePreviousViewerLinks } from "../lib/access_links.ts";
-import type { GroupInfo, Person, Viewer } from "../lib/model.ts";
+import type { FamilyEvent, GroupInfo, Person, Viewer } from "../lib/model.ts";
 import {
   addMonths,
   birthdaysForMonth,
@@ -10,12 +10,13 @@ import {
   defaultSubject,
   deleteDraft,
   draftRecipients,
-  ensureDraftsForMonth,
-  inLeadWindow,
+  generateDraftsForMonth,
   INTRO_PLACEHOLDER,
   markDraftSent,
+  missingSegments,
   monthKey,
-  normalizeLeadDays,
+  monthOccasions,
+  monthRemembrances,
   osloToday,
   parseMonthKey,
   regenerateDraft,
@@ -25,13 +26,7 @@ import {
   updateDraftContent,
 } from "../lib/newsletter.ts";
 import { SeedStore } from "../lib/store.ts";
-import {
-  assert,
-  assertEquals,
-  assertRejects,
-  assertStringIncludes,
-  assertThrows,
-} from "./asserts.ts";
+import { assert, assertEquals, assertRejects, assertStringIncludes } from "./asserts.ts";
 
 const GROUPS: GroupInfo[] = [
   { key: "berg-siden", label: "Norwegian side", flag: "🇳🇴" },
@@ -93,19 +88,13 @@ function subscriber(token: string, name: string, email: string, groups: string[]
   };
 }
 
-Deno.test("oslo lead window includes exactly the final N calendar days", () => {
-  // Summer (CEST, UTC+2): June has 30 days, leadDays 7 → window opens June 24.
+Deno.test("oslo today crosses midnight at the right UTC offset", () => {
+  // Summer (CEST, UTC+2): 22:00 UTC is already the next day in Oslo.
   assertEquals(osloToday(new Date("2026-06-23T21:59:59Z")), { year: 2026, month: 6, day: 23 });
   assertEquals(osloToday(new Date("2026-06-23T22:00:00Z")), { year: 2026, month: 6, day: 24 });
-  assert(!inLeadWindow(new Date("2026-06-23T21:59:59Z"), 7));
-  assert(inLeadWindow(new Date("2026-06-23T22:00:00Z"), 7));
-  assert(inLeadWindow(new Date("2026-06-30T10:00:00Z"), 7));
-  // Winter (CET, UTC+1): December has 31 days, leadDays 7 → window opens Dec 25.
-  assert(!inLeadWindow(new Date("2026-12-24T22:59:59Z"), 7));
-  assert(inLeadWindow(new Date("2026-12-24T23:00:00Z"), 7));
-  // February 2028 is a leap month: 29 days, leadDays 1 → only Feb 29.
-  assert(!inLeadWindow(new Date("2028-02-28T12:00:00Z"), 1));
-  assert(inLeadWindow(new Date("2028-02-29T12:00:00Z"), 1));
+  // Winter (CET, UTC+1): the boundary shifts to 23:00 UTC.
+  assertEquals(osloToday(new Date("2026-12-24T22:59:59Z")), { year: 2026, month: 12, day: 24 });
+  assertEquals(osloToday(new Date("2026-12-24T23:00:00Z")), { year: 2026, month: 12, day: 25 });
 });
 
 Deno.test("month keys parse, format and add across year boundaries", () => {
@@ -117,15 +106,6 @@ Deno.test("month keys parse, format and add across year boundaries", () => {
   assertEquals(addMonths({ year: 2026, month: 12 }, 1), { year: 2027, month: 1 });
   assertEquals(addMonths({ year: 2026, month: 1 }, -1), { year: 2025, month: 12 });
   assertEquals(addMonths({ year: 2026, month: 6 }, 12), { year: 2027, month: 6 });
-});
-
-Deno.test("lead days accept 1–28 and reject everything else", () => {
-  assertEquals(normalizeLeadDays("1"), 1);
-  assertEquals(normalizeLeadDays(28), 28);
-  assertThrows(() => normalizeLeadDays(0));
-  assertThrows(() => normalizeLeadDays(29));
-  assertThrows(() => normalizeLeadDays(7.5));
-  assertThrows(() => normalizeLeadDays("soon"));
 });
 
 Deno.test("segment keys are canonical: sorted, deduplicated, empty = all", () => {
@@ -151,6 +131,85 @@ Deno.test("birthdays for a month: filtering, order, ages, unknown years, decease
   // Any selected group matches; people in several groups appear once.
   const dansk = birthdaysForMonth(PEOPLE, JUNE, ["dahl-siden"]);
   assertEquals(dansk.map((b) => b.personId), ["ola", "begge"]);
+});
+
+const REMEMBERED: Person[] = [
+  {
+    id: "farfar",
+    name: "Farfar",
+    born: null,
+    died: "2023-06-20",
+    groups: ["berg-siden"],
+    notes: "",
+  },
+  {
+    id: "nylig",
+    name: "Nylig Gått",
+    born: null,
+    died: "2026-06-05",
+    groups: ["berg-siden"],
+    notes: "",
+  },
+  {
+    id: "annen-mnd",
+    name: "Vinterbarn",
+    born: null,
+    died: "2018-01-02",
+    groups: ["berg-siden"],
+    notes: "",
+  },
+];
+
+const EVENTS: FamilyEvent[] = [
+  {
+    id: "w1",
+    kind: "wedding",
+    title: "Solveig & Halvor",
+    date: "2018-06-04",
+    groups: ["berg-siden"],
+    notes: "",
+  },
+  {
+    id: "b1",
+    kind: "baptism",
+    title: "Emils dåp",
+    date: "06-15",
+    groups: ["dahl-siden"],
+    notes: "",
+  },
+];
+
+Deno.test("monthRemembrances: anniversaries from the first year onward, by group", () => {
+  // 2026 - 2023 = 3 years; the same-year death and other months are excluded.
+  const june = monthRemembrances(REMEMBERED, JUNE, []);
+  assertEquals(june.map((r) => r.personId), ["farfar"]);
+  assertEquals(june[0].yearsSince, 3);
+
+  assertEquals(monthRemembrances(REMEMBERED, JUNE, ["dahl-siden"]), []);
+});
+
+Deno.test("monthOccasions: family events recurring in the month, year known or not", () => {
+  const all = monthOccasions(EVENTS, JUNE, []);
+  assertEquals(all.map((o) => o.id), ["w1", "b1"]);
+  assertEquals(all[0].yearsSince, 8);
+  assertEquals(all[1].year, null);
+  assertEquals(all[1].yearsSince, null);
+
+  assertEquals(monthOccasions(EVENTS, JUNE, ["berg-siden"]).map((o) => o.id), ["w1"]);
+});
+
+Deno.test("the body notes remembrances and occasions in one sentence, never a list", () => {
+  const remembrances = monthRemembrances(REMEMBERED, JUNE, ["berg-siden"]);
+  const occasions = monthOccasions(EVENTS, JUNE, ["berg-siden"]);
+  const body = buildBody(JUNE, [], remembrances, occasions);
+  assertStringIncludes(
+    body,
+    "Det er også 3 år siden Farfar forlot oss (20. jun 2023) og " +
+      "8 år siden Solveig & Halvor (bryllup) (4. jun 2018) denne måneden.",
+  );
+
+  // No remembrances or occasions: no trailing sentence at all.
+  assertEquals(buildBody(JUNE, []).trim().endsWith("2026"), true);
 });
 
 Deno.test("the Norwegian body lists birthdays with the right wording", () => {
@@ -224,7 +283,7 @@ Deno.test("segments derive from active subscribers only", () => {
   assertEquals(segments[1].subscribers.length, 2);
 });
 
-Deno.test("draft generation is idempotent and skips segments without birthdays", async () => {
+Deno.test("draft generation skips segments without birthdays and has no idempotency key", async () => {
   const store = new SeedStore(PEOPLE, GROUPS, [
     subscriber("a1", "Anna", "anna@example.com", []),
     subscriber("b1", "Bo", "bo@example.com", ["dahl-siden"]),
@@ -232,47 +291,85 @@ Deno.test("draft generation is idempotent and skips segments without birthdays",
   ]);
   // July: only Per (berg-siden) has a birthday, so the dahl-siden segment is skipped.
   const july = { year: 2026, month: 7 };
-  const created = await ensureDraftsForMonth(store, july, "Admin");
+  const created = await generateDraftsForMonth(store, july, "Admin");
   assertEquals(created.map((d) => `${d.month} ${d.segment}`).sort(), [
     "2026-07 all",
     "2026-07 berg-siden",
   ]);
   assertEquals(created[0].status, "draft");
   assertStringIncludes(created[0].subject, "juli 2026");
-  // Ids are opaque and URL-safe; month+segment is the natural key.
   assert(created.every((d) => /^[0-9a-f-]{36}$/.test(d.id)));
 
-  const again = await ensureDraftsForMonth(store, july, "Admin");
-  assertEquals(again, []);
-  assertEquals((await store.listNewsletterDrafts()).length, 2);
+  // Generating the same month again adds more drafts rather than skipping.
+  const again = await generateDraftsForMonth(store, july, "Admin");
+  assertEquals(again.length, 2);
+  assertEquals((await store.listNewsletterDrafts()).length, 4);
 });
 
-Deno.test("drafts can be deleted; a still-valid month/segment regenerates", async () => {
+Deno.test("draft generation also covers segments with only a remembrance or an occasion", async () => {
+  const store = new SeedStore(
+    [...PEOPLE, ...REMEMBERED],
+    GROUPS,
+    [subscriber("a1", "Anna", "anna@example.com", ["berg-siden"])],
+    [],
+    EVENTS,
+  );
+  // June: berg-siden has birthdays AND a remembrance/occasion; no other segment exists here,
+  // so generate against a month where only the remembrance/occasion carries the draft.
+  const noBirthdaysMonth = { year: 2026, month: 9 };
+  const created = await generateDraftsForMonth(store, noBirthdaysMonth, "Admin");
+  assertEquals(created, []);
+
+  await store.upsertEvent({
+    id: "w2",
+    kind: "wedding",
+    title: "September-bryllup",
+    date: "09-10",
+    groups: ["berg-siden"],
+    notes: "",
+  });
+  const withOccasion = await generateDraftsForMonth(store, noBirthdaysMonth, "Admin");
+  assertEquals(withOccasion.length, 1);
+  assertStringIncludes(withOccasion[0].body, "September-bryllup (bryllup)");
+});
+
+Deno.test("drafts (and sent records) can be deleted", async () => {
   const store = new SeedStore(PEOPLE, GROUPS, [
     subscriber("a1", "Anna", "anna@example.com", []),
   ]);
-  const [draft] = await ensureDraftsForMonth(store, JUNE, "Admin");
+  const [draft] = await generateDraftsForMonth(store, JUNE, "Admin");
   await deleteDraft(store, draft.id, "Admin");
   assertEquals(await store.listNewsletterDrafts(), []);
   await assertRejects(() => deleteDraft(store, draft.id, "Admin"));
 
-  const recreated = await ensureDraftsForMonth(store, JUNE, "Admin");
-  assertEquals(recreated.length, 1);
-  assert(recreated[0].id !== draft.id);
-
   // Sent records can be removed too.
-  await markDraftSent(store, recreated[0].id, "Admin");
-  await deleteDraft(store, recreated[0].id, "Admin");
+  const [recreated] = await generateDraftsForMonth(store, JUNE, "Admin");
+  await markDraftSent(store, recreated.id, "Admin");
+  await deleteDraft(store, recreated.id, "Admin");
   assertEquals(await store.listNewsletterDrafts(), []);
   const actions = (await store.listAudit()).map((entry) => entry.action);
   assertEquals(actions.filter((action) => action === "newsletter_delete").length, 2);
+});
+
+Deno.test("missingSegments names segments with birthdays but no draft yet", async () => {
+  const store = new SeedStore(PEOPLE, GROUPS, [
+    subscriber("a1", "Anna", "anna@example.com", []),
+    subscriber("b1", "Bo", "bo@example.com", ["dahl-siden"]),
+    subscriber("e1", "Eli", "eli@example.com", ["berg-siden"]),
+  ]);
+  // July: only Per (berg-siden) has a birthday, so the dahl-siden segment is excluded.
+  const july = { year: 2026, month: 7 };
+  assertEquals((await missingSegments(store, july)).map((s) => s.key), ["all", "berg-siden"]);
+
+  await generateDraftsForMonth(store, july, "Admin");
+  assertEquals(await missingSegments(store, july), []);
 });
 
 Deno.test("manual edits persist; regeneration discards them after confirmation", async () => {
   const store = new SeedStore(PEOPLE, GROUPS, [
     subscriber("a1", "Anna", "anna@example.com", []),
   ]);
-  const [draft] = await ensureDraftsForMonth(store, JUNE, "Admin");
+  const [draft] = await generateDraftsForMonth(store, JUNE, "Admin");
 
   const edited = await updateDraftContent(store, draft.id, {
     subject: "Sommerhilsen",
@@ -294,7 +391,7 @@ Deno.test("recipients stay dynamic until sent; sent drafts are immutable", async
   const store = new SeedStore(PEOPLE, GROUPS, [
     subscriber("a1", "Anna", "anna@example.com", []),
   ]);
-  const [draft] = await ensureDraftsForMonth(store, JUNE, "Admin");
+  const [draft] = await generateDraftsForMonth(store, JUNE, "Admin");
   assertEquals(
     draftRecipients(await store.listViewers(), draft).map((v) => v.newsletter!.email),
     ["anna@example.com"],
@@ -313,9 +410,6 @@ Deno.test("recipients stay dynamic until sent; sent drafts are immutable", async
   );
   await assertRejects(() => regenerateDraft(store, draft.id, "Admin"));
   await assertRejects(() => markDraftSent(store, draft.id, "Admin"));
-
-  // Idempotency key covers the month+segment: no new draft while one exists.
-  assertEquals(await ensureDraftsForMonth(store, JUNE, "Admin"), []);
 });
 
 Deno.test("subscribing validates, normalizes and audits; duplicates are rejected", async () => {

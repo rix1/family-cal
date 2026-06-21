@@ -8,7 +8,7 @@ Deno.env.set("KV_PATH", ":memory:");
 
 const newsletterRoute = await import("../routes/newsletter/index.tsx");
 const adminNewslettersRoute = await import("../routes/admin/newsletters/index.tsx");
-const draftRoute = await import("../routes/admin/newsletters/[id]/index.tsx");
+const draftRoute = await import("../routes/admin/newsletters/[id].tsx");
 
 function ctx(
   url: string,
@@ -126,31 +126,10 @@ routeTest("admin newsletters require an editor capability", async () => {
     ctx("http://localhost/admin/newsletters/", { headers: ADMIN }),
   );
   assert(!(page instanceof Response));
-  assertEquals(page.data.settings.leadDays, 7);
   assertEquals(page.data.drafts, []);
 });
 
-routeTest("lead-time settings are validated and saved", async () => {
-  const saved = await adminNewslettersRoute.handlers.POST(
-    ctx("http://localhost/admin/newsletters/", {
-      method: "POST",
-      headers: ADMIN,
-      body: form({ action: "settings", leadDays: "14" }),
-    }),
-  );
-  assert(saved instanceof Response);
-  assertEquals(saved.status, 303);
-  assertEquals((await (await getStore()).getNewsletterSettings()).leadDays, 14);
-
-  await assertRejects(() =>
-    adminNewslettersRoute.handlers.POST(
-      ctx("http://localhost/admin/newsletters/", {
-        method: "POST",
-        headers: ADMIN,
-        body: form({ action: "settings", leadDays: "0" }),
-      }),
-    )
-  );
+routeTest("unknown newsletter actions are rejected", async () => {
   await assertRejects(() =>
     adminNewslettersRoute.handlers.POST(
       ctx("http://localhost/admin/newsletters/", {
@@ -204,19 +183,27 @@ routeTest("generation, editing, sending and deleting a draft work end-to-end", a
   assert(generated instanceof Response);
   assertEquals(generated.headers.get("location"), "/admin/newsletters/?generated=1");
 
+  // Generating the same month again has no idempotency key: it adds another draft.
+  await adminNewslettersRoute.handlers.POST(
+    ctx("http://localhost/admin/newsletters/", {
+      method: "POST",
+      headers: ADMIN,
+      body: form({ action: "generate", month }),
+    }),
+  );
   const list = await adminNewslettersRoute.handlers.GET(
     ctx("http://localhost/admin/newsletters/", { headers: ADMIN }),
   );
   assert(!(list instanceof Response));
-  assertEquals(list.data.drafts.length, 1);
+  assertEquals(list.data.drafts.length, 2);
   assertEquals(list.data.drafts[0].segment, "all");
   assertEquals(list.data.subscribers.map((s) => s.email), ["rix@example.com"]);
 
   const id = list.data.drafts[0].id;
-  const url = `http://localhost/admin/newsletters/${id}/`;
+  const url = `http://localhost/admin/newsletters/${id}`;
   await assertRejects(() =>
     draftRoute.handlers.GET(
-      ctx("http://localhost/admin/newsletters/nope/", { headers: ADMIN }, { id: "nope" }),
+      ctx("http://localhost/admin/newsletters/nope", { headers: ADMIN }, { id: "nope" }),
     )
   );
   const detail = await draftRoute.handlers.GET(ctx(url, { headers: ADMIN }, { id }));
@@ -264,34 +251,156 @@ routeTest("generation, editing, sending and deleting a draft work end-to-end", a
   assertEquals(await store.getNewsletterDraft(id), null);
 });
 
-routeTest("the ensure action is admin-only, idempotent JSON; GET stays read-only", async () => {
+routeTest(
+  "the admin page flags subscriber segments missing a draft for the current month",
+  async () => {
+    const store = await getStore();
+    // Reading the page never creates drafts.
+    const before = await adminNewslettersRoute.handlers.GET(
+      ctx("http://localhost/admin/newsletters/", { headers: ADMIN }),
+    );
+    assert(!(before instanceof Response));
+    assertEquals(await store.listNewsletterDrafts(), []);
+    assertEquals(before.data.missing, []); // no subscribers yet
+
+    const today = osloToday();
+    await store.upsertPerson({
+      id: "nl-current",
+      name: "Bursdagsbarn",
+      born: `1990-${pad2(today.month)}-${pad2(today.day)}`,
+      died: null,
+      groups: ["no"],
+      notes: "",
+    });
+    await newsletterRoute.handlers.POST(
+      ctx("http://localhost/newsletter/", {
+        method: "POST",
+        headers: VIEWER,
+        body: form({ email: "rix@example.com" }),
+      }),
+    );
+
+    const withSubscriber = await adminNewslettersRoute.handlers.GET(
+      ctx("http://localhost/admin/newsletters/", { headers: ADMIN }),
+    );
+    assert(!(withSubscriber instanceof Response));
+    assertEquals(withSubscriber.data.missing, ["all"]);
+
+    await adminNewslettersRoute.handlers.POST(
+      ctx("http://localhost/admin/newsletters/", {
+        method: "POST",
+        headers: ADMIN,
+        body: form({ action: "generate", month: withSubscriber.data.currentMonth }),
+      }),
+    );
+    const afterGenerate = await adminNewslettersRoute.handlers.GET(
+      ctx("http://localhost/admin/newsletters/", { headers: ADMIN }),
+    );
+    assert(!(afterGenerate instanceof Response));
+    assertEquals(afterGenerate.data.missing, []);
+  },
+);
+
+routeTest("a draft can be deleted directly from the list page", async () => {
   const store = await getStore();
+  const today = osloToday();
+  await store.upsertPerson({
+    id: "nl-list-delete",
+    name: "Listebarn",
+    born: `1990-${pad2(today.month)}-${pad2(today.day)}`,
+    died: null,
+    groups: ["no"],
+    notes: "",
+  });
+  await newsletterRoute.handlers.POST(
+    ctx("http://localhost/newsletter/", {
+      method: "POST",
+      headers: VIEWER,
+      body: form({ email: "rix@example.com" }),
+    }),
+  );
+  const month = monthKey({ year: today.year, month: today.month });
+  await adminNewslettersRoute.handlers.POST(
+    ctx("http://localhost/admin/newsletters/", {
+      method: "POST",
+      headers: ADMIN,
+      body: form({ action: "generate", month }),
+    }),
+  );
+  const [draft] = await store.listNewsletterDrafts();
+
   await assertRejects(() =>
     adminNewslettersRoute.handlers.POST(
       ctx("http://localhost/admin/newsletters/", {
         method: "POST",
-        body: form({ action: "ensure" }),
+        body: form({ action: "delete", id: draft.id }),
       }),
     )
   );
-
-  // Reading the page never creates drafts, with or without subscribers.
-  await adminNewslettersRoute.handlers.GET(
-    ctx("http://localhost/admin/newsletters/", { headers: ADMIN }),
-  );
-  assertEquals(await store.listNewsletterDrafts(), []);
-
-  // No subscribers: nothing to ensure regardless of the lead window.
-  const res = await adminNewslettersRoute.handlers.POST(
+  const deleted = await adminNewslettersRoute.handlers.POST(
     ctx("http://localhost/admin/newsletters/", {
       method: "POST",
       headers: ADMIN,
-      body: form({ action: "ensure" }),
+      body: form({ action: "delete", id: draft.id }),
     }),
   );
-  assert(res instanceof Response);
-  assertEquals(res.status, 200);
-  const body = await res.json();
-  assertEquals(typeof body.created, "number");
-  assertEquals(body.created, 0);
+  assert(deleted instanceof Response);
+  assertEquals(deleted.headers.get("location"), "/admin/newsletters/?deleted=1");
+  assertEquals(await store.getNewsletterDraft(draft.id), null);
+
+  await assertRejects(() =>
+    adminNewslettersRoute.handlers.POST(
+      ctx("http://localhost/admin/newsletters/", {
+        method: "POST",
+        headers: ADMIN,
+        body: form({ action: "delete", id: draft.id }),
+      }),
+    )
+  );
+});
+
+routeTest("an admin can remove a subscriber from the newsletter", async () => {
+  const store = await getStore();
+  await newsletterRoute.handlers.POST(
+    ctx("http://localhost/newsletter/", {
+      method: "POST",
+      headers: VIEWER,
+      body: form({ email: "rix@example.com" }),
+    }),
+  );
+  const before = await adminNewslettersRoute.handlers.GET(
+    ctx("http://localhost/admin/newsletters/", { headers: ADMIN }),
+  );
+  assert(!(before instanceof Response));
+  assertEquals(before.data.subscribers.map((s) => s.email), ["rix@example.com"]);
+  const token = before.data.subscribers[0].token;
+
+  await assertRejects(() =>
+    adminNewslettersRoute.handlers.POST(
+      ctx("http://localhost/admin/newsletters/", {
+        method: "POST",
+        body: form({ action: "unsubscribe", token }),
+      }),
+    )
+  );
+  const removed = await adminNewslettersRoute.handlers.POST(
+    ctx("http://localhost/admin/newsletters/", {
+      method: "POST",
+      headers: ADMIN,
+      body: form({ action: "unsubscribe", token }),
+    }),
+  );
+  assert(removed instanceof Response);
+  assertEquals(removed.headers.get("location"), "/admin/newsletters/?unsubscribed=1");
+  assertEquals((await store.getViewer(token))?.newsletter, undefined);
+
+  await assertRejects(() =>
+    adminNewslettersRoute.handlers.POST(
+      ctx("http://localhost/admin/newsletters/", {
+        method: "POST",
+        headers: ADMIN,
+        body: form({ action: "unsubscribe", token: "no-such-token" }),
+      }),
+    )
+  );
 });

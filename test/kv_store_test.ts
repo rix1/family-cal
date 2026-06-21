@@ -106,14 +106,9 @@ Deno.test("KvStore upsertViewer persists issued capabilities", async () => {
   }
 });
 
-Deno.test("KvStore persists newsletter settings and drafts", async () => {
+Deno.test("KvStore persists newsletter drafts", async () => {
   const store = await freshStore();
   try {
-    // Defaults apply before anything is stored; existing KV needs no migration.
-    assertEquals(await store.getNewsletterSettings(), { leadDays: 7 });
-    await store.setNewsletterSettings({ leadDays: 14 });
-    assertEquals(await store.getNewsletterSettings(), { leadDays: 14 });
-
     assertEquals(await store.listNewsletterDrafts(), []);
     const draft = {
       id: "draft-1",

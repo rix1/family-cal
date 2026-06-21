@@ -2,6 +2,7 @@ import { render } from "@deno/gfm";
 import { AdminShell } from "@/components/AdminShell.tsx";
 import { CopyButton } from "@/islands/CopyButton.tsx";
 import { NewsletterPreview } from "@/islands/NewsletterPreview.tsx";
+import { Toast } from "@/islands/Toast.tsx";
 import { adminDenied, adminViewer } from "@/lib/admin_auth.ts";
 import { getStore } from "@/lib/db.ts";
 import {
@@ -60,7 +61,7 @@ export const handlers = define.handlers({
     const back = (flag: string) =>
       new Response(null, {
         status: 303,
-        headers: { location: `/admin/newsletters/${encodeURIComponent(id)}/?${flag}=1` },
+        headers: { location: `/admin/newsletters/${encodeURIComponent(id)}?${flag}=1` },
       });
     try {
       if (action === "save") {
@@ -181,21 +182,9 @@ export default define.page<typeof handlers>(({ data }) => {
           </div>
         </div>
 
-        {data.saved && (
-          <p class="mt-6 rounded-xl border border-accent/40 bg-accent-soft px-4 py-3 text-sm font-medium text-accent-2">
-            Draft saved.
-          </p>
-        )}
-        {data.regenerated && (
-          <p class="mt-6 rounded-xl border border-accent/40 bg-accent-soft px-4 py-3 text-sm font-medium text-accent-2">
-            Draft regenerated from current birthday data.
-          </p>
-        )}
-        {data.sent && (
-          <p class="mt-6 rounded-xl border border-accent/40 bg-accent-soft px-4 py-3 text-sm font-medium text-accent-2">
-            Marked as sent. The draft is now an immutable record.
-          </p>
-        )}
+        {data.saved && <Toast message="Draft saved." />}
+        {data.regenerated && <Toast message="Draft regenerated from current birthday data." />}
+        {data.sent && <Toast message="Marked as sent. The draft is now an immutable record." />}
 
         {isSent && (
           <section class="card mt-6 p-5">

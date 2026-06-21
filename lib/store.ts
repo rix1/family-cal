@@ -1,11 +1,9 @@
 import {
   type AuditEntry,
-  DEFAULT_NEWSLETTER_SETTINGS,
   type FamilyEvent,
   type GroupInfo,
   type Invite,
   type NewsletterDraft,
-  type NewsletterSettings,
   type Person,
   type Viewer,
 } from "./model.ts";
@@ -39,9 +37,6 @@ export interface Store {
   upsertInvite(invite: Invite): Promise<Invite>;
   deleteInvite(token: string): Promise<void>;
 
-  getNewsletterSettings(): Promise<NewsletterSettings>;
-  setNewsletterSettings(settings: NewsletterSettings): Promise<void>;
-
   getNewsletterDraft(id: string): Promise<NewsletterDraft | null>;
   listNewsletterDrafts(): Promise<NewsletterDraft[]>;
   upsertNewsletterDraft(draft: NewsletterDraft): Promise<NewsletterDraft>;
@@ -64,7 +59,6 @@ export class SeedStore implements Store {
   #invites: Map<string, Invite>;
   #events: Map<string, FamilyEvent>;
   #audit: AuditEntry[] = [];
-  #newsletterSettings: NewsletterSettings | null = null;
   #newsletterDrafts = new Map<string, NewsletterDraft>();
 
   constructor(
@@ -177,16 +171,6 @@ export class SeedStore implements Store {
   // deno-lint-ignore require-await
   async deleteInvite(token: string): Promise<void> {
     this.#invites.delete(token);
-  }
-
-  // deno-lint-ignore require-await
-  async getNewsletterSettings(): Promise<NewsletterSettings> {
-    return clone(this.#newsletterSettings ?? DEFAULT_NEWSLETTER_SETTINGS);
-  }
-
-  // deno-lint-ignore require-await
-  async setNewsletterSettings(settings: NewsletterSettings): Promise<void> {
-    this.#newsletterSettings = clone(settings);
   }
 
   // deno-lint-ignore require-await

@@ -6,7 +6,14 @@
  */
 
 import { pad2, splitDate } from "./dates.ts";
-import { type NewsletterDraft, type Person, type Viewer, viewerIsActive } from "./model.ts";
+import {
+  type EventKind,
+  type FamilyEvent,
+  type NewsletterDraft,
+  type Person,
+  type Viewer,
+  viewerIsActive,
+} from "./model.ts";
 import { ValidationError } from "./people.ts";
 import type { Store } from "./store.ts";
 
@@ -43,10 +50,6 @@ export function osloToday(now = new Date()): { year: number; month: number; day:
   return { year, month, day };
 }
 
-export function daysInMonth(year: number, month: number): number {
-  return new Date(Date.UTC(year, month, 0)).getUTCDate();
-}
-
 export function monthKey(ref: MonthRef): string {
   return `${ref.year}-${pad2(ref.month)}`;
 }
@@ -61,20 +64,6 @@ export function parseMonthKey(key: string): MonthRef | null {
 export function addMonths(ref: MonthRef, delta: number): MonthRef {
   const total = ref.year * 12 + (ref.month - 1) + delta;
   return { year: Math.floor(total / 12), month: (total % 12 + 12) % 12 + 1 };
-}
-
-/** True when `now` (Oslo) falls in the final `leadDays` calendar days of its month. */
-export function inLeadWindow(now: Date, leadDays: number): boolean {
-  const today = osloToday(now);
-  return today.day > daysInMonth(today.year, today.month) - leadDays;
-}
-
-export function normalizeLeadDays(value: unknown): number {
-  const leadDays = Number(value);
-  if (!Number.isInteger(leadDays) || leadDays < 1 || leadDays > 28) {
-    throw new ValidationError("lead time must be a whole number of days from 1 to 28");
-  }
-  return leadDays;
 }
 
 // --- Audience segments ---
@@ -133,8 +122,10 @@ export interface MonthBirthday {
 
 /**
  * Birthdays in `month` visible to `groups` (any selected group matches; empty
- * = everyone), chronological, then by name. Only `born` matters here: notes,
- * death anniversaries, holidays and family events stay out of the newsletter.
+ * = everyone), chronological, then by name. Only `born` matters here: death
+ * anniversaries and family events are handled separately by
+ * `monthRemembrances`/`monthOccasions`; notes and holidays stay out of the
+ * newsletter entirely.
  */
 export function birthdaysForMonth(
   people: Person[],
@@ -163,6 +154,81 @@ export function birthdaysForMonth(
   return out.sort((a, b) => a.day - b.day || a.name.localeCompare(b.name, "nb"));
 }
 
+// --- Death anniversaries and family events for a month ---
+
+export interface MonthRemembrance {
+  personId: string;
+  name: string;
+  day: number;
+  year: number;
+  yearsSince: number;
+}
+
+/**
+ * Death anniversaries in `month` visible to `groups`, first anniversary
+ * onward (the month someone dies is grief, not yet an anniversary).
+ */
+export function monthRemembrances(
+  people: Person[],
+  month: MonthRef,
+  groups: string[],
+): MonthRemembrance[] {
+  const visible = groups.length
+    ? people.filter((person) => person.groups.some((group) => groups.includes(group)))
+    : people;
+  const out: MonthRemembrance[] = [];
+  for (const person of visible) {
+    const parts = splitDate(person.died);
+    if (!parts || parts.month !== month.month || parts.year === null) continue;
+    const yearsSince = month.year - parts.year;
+    if (yearsSince < 1) continue;
+    out.push({
+      personId: person.id,
+      name: person.name,
+      day: parts.day,
+      year: parts.year,
+      yearsSince,
+    });
+  }
+  return out.sort((a, b) => a.day - b.day || a.name.localeCompare(b.name, "nb"));
+}
+
+export interface MonthOccasion {
+  id: string;
+  kind: EventKind;
+  title: string;
+  day: number;
+  year: number | null;
+  /** Years since the first occurrence, when the year is known and has passed. */
+  yearsSince: number | null;
+}
+
+/** Explicit family events (weddings, baptisms, ...) recurring in `month`, visible to `groups`. */
+export function monthOccasions(
+  events: FamilyEvent[],
+  month: MonthRef,
+  groups: string[],
+): MonthOccasion[] {
+  const visible = groups.length
+    ? events.filter((event) => event.groups.some((group) => groups.includes(group)))
+    : events;
+  const out: MonthOccasion[] = [];
+  for (const event of visible) {
+    const parts = splitDate(event.date);
+    if (!parts || parts.month !== month.month) continue;
+    const yearsSince = parts.year !== null ? month.year - parts.year : null;
+    out.push({
+      id: event.id,
+      kind: event.kind,
+      title: event.title,
+      day: parts.day,
+      year: parts.year,
+      yearsSince: yearsSince !== null && yearsSince >= 1 ? yearsSince : null,
+    });
+  }
+  return out.sort((a, b) => a.day - b.day || a.title.localeCompare(b.title, "nb"));
+}
+
 // --- Norwegian (bokmål) rendering ---
 
 const MONTHS_NB = [
@@ -178,6 +244,21 @@ const MONTHS_NB = [
   "oktober",
   "november",
   "desember",
+];
+
+const MONTHS_NB_SHORT = [
+  "jan",
+  "feb",
+  "mar",
+  "apr",
+  "mai",
+  "jun",
+  "jul",
+  "aug",
+  "sep",
+  "okt",
+  "nov",
+  "des",
 ];
 
 export function monthNameNb(month: number): string {
@@ -202,15 +283,69 @@ function birthdayLine(birthday: MonthBirthday, month: MonthRef): string {
     : `- ${date} – ${birthday.name} har bursdag`;
 }
 
-export function buildBody(month: MonthRef, birthdays: MonthBirthday[]): string {
-  return [
+/** Norwegian (bokmål) list join: "a", "a og b", "a, b og c". */
+function joinNb(items: string[]): string {
+  if (items.length <= 1) return items[0] ?? "";
+  return `${items.slice(0, -1).join(", ")} og ${items.at(-1)}`;
+}
+
+const EVENT_KIND_LABELS_NB: Partial<Record<EventKind, string>> = {
+  wedding: "bryllup",
+  baptism: "dåp",
+  confirmation: "konfirmasjon",
+};
+
+function remembrancePhrase(month: MonthRef, remembrance: MonthRemembrance): string {
+  const date = `${remembrance.day}. ${MONTHS_NB_SHORT[month.month - 1]} ${remembrance.year}`;
+  return `${remembrance.yearsSince} år siden ${remembrance.name} forlot oss (${date})`;
+}
+
+function occasionPhrase(month: MonthRef, occasion: MonthOccasion): string {
+  const kindLabel = EVENT_KIND_LABELS_NB[occasion.kind];
+  const label = kindLabel ? `${occasion.title} (${kindLabel})` : occasion.title;
+  const date = occasion.year
+    ? `${occasion.day}. ${MONTHS_NB_SHORT[month.month - 1]} ${occasion.year}`
+    : `${occasion.day}. ${MONTHS_NB_SHORT[month.month - 1]}`;
+  return occasion.yearsSince
+    ? `${occasion.yearsSince} år siden ${label} (${date})`
+    : `${label} (${date})`;
+}
+
+/**
+ * One tasteful sentence noting death anniversaries and family events for the
+ * month — never a bulleted list, since each carries a name or two rather
+ * than the dozens a birthday list can hold.
+ */
+function buildRemembranceSentence(
+  month: MonthRef,
+  remembrances: MonthRemembrance[],
+  occasions: MonthOccasion[],
+): string {
+  const items = [
+    ...remembrances.map((remembrance) => remembrancePhrase(month, remembrance)),
+    ...occasions.map((occasion) => occasionPhrase(month, occasion)),
+  ];
+  if (!items.length) return "";
+  return `Det er også ${joinNb(items)} denne måneden.`;
+}
+
+export function buildBody(
+  month: MonthRef,
+  birthdays: MonthBirthday[],
+  remembrances: MonthRemembrance[] = [],
+  occasions: MonthOccasion[] = [],
+): string {
+  const lines = [
     INTRO_PLACEHOLDER,
     "",
     `## Bursdager i ${monthNameNb(month.month)} ${month.year}`,
     "",
     ...birthdays.map((birthday) => birthdayLine(birthday, month)),
-    "",
-  ].join("\n");
+  ];
+  const sentence = buildRemembranceSentence(month, remembrances, occasions);
+  if (sentence) lines.push("", sentence);
+  lines.push("");
+  return lines.join("\n");
 }
 
 /**
@@ -245,35 +380,35 @@ export function buildPrompt(month: MonthRef, birthdays: MonthBirthday[]): string
 // --- Draft lifecycle ---
 
 /**
- * Idempotently create next-month/manual drafts: one per distinct subscriber
- * segment, skipping segments that already have a draft for the month and
- * segments with no birthdays. Draft ids are opaque (URL-safe) — the
- * `(month, segment)` pair is the natural key. Returns only newly created
- * drafts.
+ * Create one draft per distinct subscriber segment with birthdays, death
+ * anniversaries or family events in `month`, skipping only segments with
+ * none of those. No dedup against existing drafts — generating the same
+ * month again adds more drafts; delete unwanted ones instead. Draft ids are
+ * opaque (URL-safe).
  */
-export async function ensureDraftsForMonth(
+export async function generateDraftsForMonth(
   store: Store,
   month: MonthRef,
   actor: string,
 ): Promise<NewsletterDraft[]> {
-  const [viewers, people, drafts] = await Promise.all([
+  const [viewers, people, events] = await Promise.all([
     store.listViewers(),
     store.listPeople(),
-    store.listNewsletterDrafts(),
+    store.listEvents(),
   ]);
-  const existing = new Set(drafts.map((draft) => `${draft.month}|${draft.segment}`));
   const created: NewsletterDraft[] = [];
   for (const segment of subscriberSegments(viewers)) {
-    if (existing.has(`${monthKey(month)}|${segment.key}`)) continue;
     const birthdays = birthdaysForMonth(people, month, segment.groups);
-    if (!birthdays.length) continue;
+    const remembrances = monthRemembrances(people, month, segment.groups);
+    const occasions = monthOccasions(events, month, segment.groups);
+    if (!birthdays.length && !remembrances.length && !occasions.length) continue;
     const now = new Date().toISOString();
     const draft: NewsletterDraft = {
       id: crypto.randomUUID(),
       month: monthKey(month),
       segment: segment.key,
       subject: defaultSubject(month),
-      body: buildBody(month, birthdays),
+      body: buildBody(month, birthdays, remembrances, occasions),
       prompt: buildPrompt(month, birthdays),
       groups: segment.groups,
       createdAt: now,
@@ -291,6 +426,31 @@ export async function ensureDraftsForMonth(
     created.push(draft);
   }
   return created;
+}
+
+/**
+ * Subscriber segments with birthdays, death anniversaries or family events in
+ * `month` that have no draft yet — surfaced as an informational nudge, not
+ * auto-generated.
+ */
+export async function missingSegments(store: Store, month: MonthRef): Promise<Segment[]> {
+  const [viewers, people, events, drafts] = await Promise.all([
+    store.listViewers(),
+    store.listPeople(),
+    store.listEvents(),
+    store.listNewsletterDrafts(),
+  ]);
+  const key = monthKey(month);
+  const existing = new Set(
+    drafts.filter((draft) => draft.month === key).map((draft) => draft.segment),
+  );
+  return subscriberSegments(viewers).filter((segment) =>
+    !existing.has(segment.key) && (
+      birthdaysForMonth(people, month, segment.groups).length ||
+      monthRemembrances(people, month, segment.groups).length ||
+      monthOccasions(events, month, segment.groups).length
+    )
+  );
 }
 
 async function editableDraft(store: Store, id: string): Promise<NewsletterDraft> {
@@ -337,12 +497,15 @@ export async function regenerateDraft(
   const draft = await editableDraft(store, id);
   const month = parseMonthKey(draft.month);
   if (!month) throw new ValidationError(`draft has an invalid month "${draft.month}"`);
-  const birthdays = birthdaysForMonth(await store.listPeople(), month, draft.groups);
+  const [people, events] = await Promise.all([store.listPeople(), store.listEvents()]);
+  const birthdays = birthdaysForMonth(people, month, draft.groups);
+  const remembrances = monthRemembrances(people, month, draft.groups);
+  const occasions = monthOccasions(events, month, draft.groups);
   const now = new Date().toISOString();
   const next: NewsletterDraft = {
     ...draft,
     subject: defaultSubject(month),
-    body: buildBody(month, birthdays),
+    body: buildBody(month, birthdays, remembrances, occasions),
     prompt: buildPrompt(month, birthdays),
     updatedAt: now,
   };
@@ -448,16 +611,25 @@ export async function setNewsletterPreference(
   return next;
 }
 
-/** Unsubscribe immediately. No-op when not subscribed. */
-export async function clearNewsletterPreference(store: Store, viewer: Viewer): Promise<Viewer> {
+/**
+ * Unsubscribe immediately. No-op when not subscribed. `actor` defaults to the
+ * viewer themselves (self-service unsubscribe); pass the admin's name when
+ * removing another viewer's subscription instead.
+ */
+export async function clearNewsletterPreference(
+  store: Store,
+  viewer: Viewer,
+  actor = viewer.name,
+): Promise<Viewer> {
   if (!viewer.newsletter) return viewer;
   const { newsletter: _, ...rest } = viewer;
   const next: Viewer = { ...rest };
   await store.upsertViewer(next);
   await store.appendAudit({
     at: new Date().toISOString(),
-    actor: viewer.name,
+    actor,
     action: "newsletter_unsubscribe",
+    detail: actor === viewer.name ? undefined : `Removed ${viewer.name}'s subscription`,
   });
   return next;
 }

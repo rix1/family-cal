@@ -110,17 +110,6 @@ export function inviteIsActive(invite: Invite, now = new Date()): boolean {
   return remaining === null || remaining > 0;
 }
 
-/** Admin-configurable newsletter behavior. */
-export interface NewsletterSettings {
-  /**
-   * Drafts for next month are auto-ensured during the final `leadDays`
-   * calendar days of a month (Europe/Oslo). Valid range 1–28.
-   */
-  leadDays: number;
-}
-
-export const DEFAULT_NEWSLETTER_SETTINGS: NewsletterSettings = { leadDays: 7 };
-
 export type NewsletterDraftStatus = "draft" | "sent";
 
 /**

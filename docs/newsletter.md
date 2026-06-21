@@ -15,16 +15,16 @@ birthday newsletters. No cron or email provider is introduced.
   - Empty `groups` means all groups.
   - Expired viewers are excluded.
   - Direct viewer-link rotation preserves the latest newsletter preference.
-- Add `NewsletterSettings { leadDays }`, defaulting to 7, valid from 1–28.
 - Add `NewsletterDraft` containing:
-  - An opaque, URL-safe id (UUID); `(month, segment)` is the natural key that
-    keeps generation idempotent.
+  - An opaque, URL-safe id (UUID). Generation is not deduplicated by
+    `(month, segment)` — running it again for the same month adds more
+    drafts; delete unwanted ones instead.
   - Target month and canonical group-segment key.
   - Subject, editable Markdown body, anonymous LLM prompt.
   - Audience groups and timestamps.
   - `draft | sent` status, sender, send time, and recipient count.
-- Add Store/SeedStore/KvStore methods and new KV prefixes for settings and
-  drafts. Existing KV records require no migration.
+- Add Store/SeedStore/KvStore methods and a new KV prefix for drafts. Existing
+  KV records require no migration.
 - Add viewer-authenticated `/newsletter/` and admin-authenticated
   `/admin/newsletters/` routes.
 
@@ -42,14 +42,16 @@ birthday newsletters. No cron or email provider is introduced.
 
 ## Draft Generation
 
-- Treat the final N calendar days inclusively using the Europe/Oslo timezone.
-- When an admin opens Newsletters during that window, a small island sends an
-  idempotent POST that ensures next month's drafts exist. GET requests remain
-  read-only.
-- Also provide manual generation with a month picker, allowing the current
-  month through twelve months ahead.
+- Generation is manual only: a month picker on the admin page, allowing the
+  current month through twelve months ahead. There is no cron, lead-window
+  auto-generation, or admin-configurable settings for it.
+- When the current month has subscriber segments with birthdays but no draft
+  yet, show an info box naming the missing segment(s) — a nudge, not an
+  automatic action.
 - Generate one draft per distinct normalized group combination among active
-  subscribers.
+  subscribers. Generating for a month that already has drafts is allowed and
+  simply adds more; there is no `(month, segment)` idempotency key. Delete
+  drafts you don't want.
 - Filter people using the existing "any selected group matches" behavior.
   Avoid duplicate people.
 - Skip audience segments with no birthdays.
@@ -88,12 +90,11 @@ birthday newsletters. No cron or email provider is introduced.
   birthday data after confirmation, and therefore discards manual edits.
 - Sent drafts are immutable and retain their content, audience, send
   timestamp, sender, and recipient count.
-- Drafts (and sent records) can be deleted after confirmation. While a
-  deleted month/segment still has subscribers and birthdays, generation —
-  including the lead-window autogen — recreates it; deletion is for drafts
-  whose audience no longer exists or that were created by mistake.
-- The admin page lists active subscribers, audience segments, historical
-  drafts, and the configurable lead time.
+- Drafts (and sent records) can be deleted after confirmation. Generation is
+  manual and unrestricted, so a deleted month/segment is only recreated if an
+  admin generates that month again.
+- The admin page lists active subscribers, audience segments, and historical
+  drafts.
 - Manual delivery uses BCC so recipients cannot see one another's addresses.
 
 ## Test Plan

@@ -7,8 +7,7 @@ import { osloToday } from "@/lib/newsletter.ts";
 import { familyStats } from "@/lib/stats.ts";
 import { viewerCookie } from "@/lib/viewer_auth.ts";
 import { define } from "@/utils.ts";
-import { HttpError } from "fresh";
-import { page } from "fresh";
+import { HttpError, page } from "fresh";
 
 export const handlers = define.handlers({
   async GET(ctx) {
@@ -151,7 +150,7 @@ export default define.page<typeof handlers>(({ data }) => (
                 {data.stats.sameAge.map((group) => (
                   <li class="flex items-baseline gap-3 rounded-lg bg-inset px-3 py-2">
                     <span class="shrink-0 text-lg font-semibold tabular-nums">
-                      {group.age}
+                      {group.age} years
                     </span>
                     <span class="text-sm text-ink-2">{group.names.join(", ")}</span>
                   </li>

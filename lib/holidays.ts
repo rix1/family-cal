@@ -8,6 +8,19 @@ export interface Holiday {
 }
 
 /**
+ * Display name for a holiday: country-qualified when observed in only one of the
+ * two countries ("Norwegian Constitution Day"), or the plain name when shared
+ * ("Christmas Day").
+ */
+export function holidayLabel(holiday: Pick<Holiday, "name" | "countries">): string {
+  const no = holiday.countries.includes("NO");
+  const dk = holiday.countries.includes("DK");
+  if (no && !dk) return `Norwegian ${holiday.name}`;
+  if (dk && !no) return `Danish ${holiday.name}`;
+  return holiday.name;
+}
+
+/**
  * Easter Sunday for a given year (Gregorian / Anonymous algorithm, Meeus).
  * Deterministic — this is why holidays need no external API.
  */

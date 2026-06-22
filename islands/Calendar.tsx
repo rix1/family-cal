@@ -20,7 +20,6 @@ type CalendarEvent =
     date: string;
     type: "holiday";
     name: string;
-    countries: Array<"NO" | "DK">;
   }
   | {
     date: string;
@@ -270,13 +269,6 @@ function occasionLabel(kind: string): string {
 
 function csvDateForMonthOffset(today: Date, offset: number): Date {
   return new Date(today.getFullYear(), today.getMonth() + offset, 1);
-}
-
-function countryPills(countries: Array<"NO" | "DK">) {
-  return countries.map((country) => {
-    const styles = country === "NO" ? "bg-norway-soft text-norway" : "bg-denmark-soft text-denmark";
-    return <span class={`badge ${styles}`}>{country}</span>;
-  });
 }
 
 interface CalendarProps extends CalendarViewData {
@@ -1019,9 +1011,8 @@ export function Calendar({
   function EventCard({ event }: { event: CalendarEvent }) {
     if (event.type === "holiday") {
       return (
-        <div class="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-inset px-3.5 py-2.5">
+        <div class="rounded-lg bg-inset px-3.5 py-2.5">
           <p class="text-sm font-medium text-ink-2">{event.name}</p>
-          <div class="flex gap-1">{countryPills(event.countries)}</div>
         </div>
       );
     }

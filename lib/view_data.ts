@@ -1,4 +1,4 @@
-import { holidaysForYears } from "@/lib/holidays.ts";
+import { holidayLabel, holidaysForYears } from "@/lib/holidays.ts";
 import type { FamilyEvent, GroupInfo, Person } from "@/lib/model.ts";
 import type { Store } from "@/lib/store.ts";
 
@@ -21,7 +21,6 @@ export interface ViewPerson {
 export interface ViewHoliday {
   date: string;
   name: string;
-  countries: Array<"NO" | "DK">;
 }
 
 /** An explicit life event (wedding, baptism, ...); all recur yearly. */
@@ -66,8 +65,7 @@ function holidayWindow(): ViewHoliday[] {
     date: `${h.date.year}-${String(h.date.month).padStart(2, "0")}-${
       String(h.date.day).padStart(2, "0")
     }`,
-    name: h.name,
-    countries: h.countries,
+    name: holidayLabel(h),
   }));
 }
 

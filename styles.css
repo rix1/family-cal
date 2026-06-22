@@ -5,542 +5,616 @@
 @source "./routes";
 @source "./components";
 @source "./islands";
+@source "./lib";
 
 /* ---------------------------------------------------------------------------
    Design tokens. The whole app reads from these semantic variables; dark mode
    only swaps the values, so no per-component overrides exist anywhere.
 --------------------------------------------------------------------------- */
 :root {
-    color-scheme: light;
+  color-scheme: light;
 
-    --page: #f4f3ef;
-    --surface: #fffefb;
-    --inset: #edebe3;
-    --ink: #211f1a;
-    --ink-2: #5d594e;
-    --ink-3: #8e8a7d;
-    --line: #e4e2d9;
-    --line-2: #cfccc0;
+  --page: #f4f3ef;
+  --surface: #fffefb;
+  --inset: #edebe3;
+  --ink: #211f1a;
+  --ink-2: #5d594e;
+  --ink-3: #8e8a7d;
+  --line: #e4e2d9;
+  --line-2: #cfccc0;
 
-    --accent: #0e7466;
-    --accent-2: #0a5249;
-    --accent-soft: #dfefe9;
-    --on-accent: #ffffff;
+  --accent: #0e7466;
+  --accent-2: #0a5249;
+  --accent-soft: #dfefe9;
+  --on-accent: #ffffff;
 
-    --gold: #8a6411;
-    --gold-soft: #f5ecd5;
-    --norway: #36608d;
-    --norway-soft: #e4ecf6;
-    --denmark: #9e3d34;
-    --denmark-soft: #f6e7e4;
-    --danger: #b3362b;
-    --danger-soft: #f9e9e7;
+  --gold: #8a6411;
+  --gold-soft: #f5ecd5;
+  --norway: #36608d;
+  --norway-soft: #e4ecf6;
+  --denmark: #9e3d34;
+  --denmark-soft: #f6e7e4;
+  --danger: #b3362b;
+  --danger-soft: #f9e9e7;
 
-    --sh-card: 0 1px 2px rgb(33 31 26 / 0.05);
-    --sh-pop: 0 4px 12px rgb(33 31 26 / 0.08), 0 16px 40px rgb(33 31 26 / 0.14);
+  /* Group tag palette (8 colors). `-soft` is the badge background. */
+  --gc-slate: #5d594e;
+  --gc-slate-soft: #e9e7e0;
+  --gc-teal: #0c5d52;
+  --gc-teal-soft: #d8ece6;
+  --gc-green: #3f6b34;
+  --gc-green-soft: #e0efd9;
+  --gc-blue: #345f8c;
+  --gc-blue-soft: #e1ebf6;
+  --gc-indigo: #534aa0;
+  --gc-indigo-soft: #e7e6f6;
+  --gc-pink: #9c3b6f;
+  --gc-pink-soft: #f7e5ef;
+  --gc-rose: #b23a2f;
+  --gc-rose-soft: #f8e4e1;
+  --gc-amber: #8a6411;
+  --gc-amber-soft: #f6ead2;
+
+  --sh-card: 0 1px 2px rgb(33 31 26 / 0.05);
+  --sh-pop: 0 4px 12px rgb(33 31 26 / 0.08), 0 16px 40px rgb(33 31 26 / 0.14);
 }
 
 html[data-theme="dark"] {
-    color-scheme: dark;
+  color-scheme: dark;
 
-    --page: #141311;
-    --surface: #1d1c19;
-    --inset: #27251f;
-    --ink: #eae8e1;
-    --ink-2: #a6a296;
-    --ink-3: #777265;
-    --line: #2e2c26;
-    --line-2: #403d35;
+  --page: #141311;
+  --surface: #1d1c19;
+  --inset: #27251f;
+  --ink: #eae8e1;
+  --ink-2: #a6a296;
+  --ink-3: #777265;
+  --line: #2e2c26;
+  --line-2: #403d35;
 
-    --accent: #38ad9b;
-    --accent-2: #74d2c1;
-    --accent-soft: #11302a;
-    --on-accent: #10231f;
+  --accent: #38ad9b;
+  --accent-2: #74d2c1;
+  --accent-soft: #11302a;
+  --on-accent: #10231f;
 
-    --gold: #d8ab55;
-    --gold-soft: #2e2614;
-    --norway: #8cb4e2;
-    --norway-soft: #1d2c3e;
-    --denmark: #df9d93;
-    --denmark-soft: #392321;
-    --danger: #e08176;
-    --danger-soft: #3a211e;
+  --gold: #d8ab55;
+  --gold-soft: #2e2614;
+  --norway: #8cb4e2;
+  --norway-soft: #1d2c3e;
+  --denmark: #df9d93;
+  --denmark-soft: #392321;
+  --danger: #e08176;
+  --danger-soft: #3a211e;
 
-    --sh-card: 0 1px 2px rgb(0 0 0 / 0.4);
-    --sh-pop: 0 4px 12px rgb(0 0 0 / 0.4), 0 16px 40px rgb(0 0 0 / 0.5);
+  --gc-slate: #a6a296;
+  --gc-slate-soft: #2b2922;
+  --gc-teal: #74d2c1;
+  --gc-teal-soft: #11302a;
+  --gc-green: #9cc78c;
+  --gc-green-soft: #1f2c1a;
+  --gc-blue: #8cb4e2;
+  --gc-blue-soft: #1d2c3e;
+  --gc-indigo: #b1a6ec;
+  --gc-indigo-soft: #232038;
+  --gc-pink: #e89cc3;
+  --gc-pink-soft: #341f2b;
+  --gc-rose: #e08176;
+  --gc-rose-soft: #3a211e;
+  --gc-amber: #d8ab55;
+  --gc-amber-soft: #2e2614;
+
+  --sh-card: 0 1px 2px rgb(0 0 0 / 0.4);
+  --sh-pop: 0 4px 12px rgb(0 0 0 / 0.4), 0 16px 40px rgb(0 0 0 / 0.5);
 }
 
 @theme inline {
-    --color-page: var(--page);
-    --color-surface: var(--surface);
-    --color-inset: var(--inset);
-    --color-ink: var(--ink);
-    --color-ink-2: var(--ink-2);
-    --color-ink-3: var(--ink-3);
-    --color-line: var(--line);
-    --color-line-2: var(--line-2);
-    --color-accent: var(--accent);
-    --color-accent-2: var(--accent-2);
-    --color-accent-soft: var(--accent-soft);
-    --color-on-accent: var(--on-accent);
-    --color-gold: var(--gold);
-    --color-gold-soft: var(--gold-soft);
-    --color-norway: var(--norway);
-    --color-norway-soft: var(--norway-soft);
-    --color-denmark: var(--denmark);
-    --color-denmark-soft: var(--denmark-soft);
-    --color-danger: var(--danger);
-    --color-danger-soft: var(--danger-soft);
-    --shadow-card: var(--sh-card);
-    --shadow-pop: var(--sh-pop);
+  --color-page: var(--page);
+  --color-surface: var(--surface);
+  --color-inset: var(--inset);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-line: var(--line);
+  --color-line-2: var(--line-2);
+  --color-accent: var(--accent);
+  --color-accent-2: var(--accent-2);
+  --color-accent-soft: var(--accent-soft);
+  --color-on-accent: var(--on-accent);
+  --color-gold: var(--gold);
+  --color-gold-soft: var(--gold-soft);
+  --color-norway: var(--norway);
+  --color-norway-soft: var(--norway-soft);
+  --color-denmark: var(--denmark);
+  --color-denmark-soft: var(--denmark-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-gc-slate: var(--gc-slate);
+  --color-gc-slate-soft: var(--gc-slate-soft);
+  --color-gc-teal: var(--gc-teal);
+  --color-gc-teal-soft: var(--gc-teal-soft);
+  --color-gc-green: var(--gc-green);
+  --color-gc-green-soft: var(--gc-green-soft);
+  --color-gc-blue: var(--gc-blue);
+  --color-gc-blue-soft: var(--gc-blue-soft);
+  --color-gc-indigo: var(--gc-indigo);
+  --color-gc-indigo-soft: var(--gc-indigo-soft);
+  --color-gc-pink: var(--gc-pink);
+  --color-gc-pink-soft: var(--gc-pink-soft);
+  --color-gc-rose: var(--gc-rose);
+  --color-gc-rose-soft: var(--gc-rose-soft);
+  --color-gc-amber: var(--gc-amber);
+  --color-gc-amber-soft: var(--gc-amber-soft);
+  --shadow-card: var(--sh-card);
+  --shadow-pop: var(--sh-pop);
 }
 
 @layer base {
-    html {
-        scroll-behavior: smooth;
-    }
+  html {
+    scroll-behavior: smooth;
+  }
 
-    body {
-        margin: 0;
-        background: var(--page);
-        color: var(--ink);
-        font-family:
-            ui-sans-serif,
-            system-ui,
-            -apple-system,
-            "Segoe UI",
-            sans-serif;
-        font-feature-settings: "ss01", "cv01";
-        -webkit-font-smoothing: antialiased;
-    }
+  body {
+    margin: 0;
+    background: var(--page);
+    color: var(--ink);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-feature-settings: "ss01", "cv01";
+    -webkit-font-smoothing: antialiased;
+  }
 
-    ::selection {
-        background: var(--accent-soft);
-        color: var(--accent-2);
-    }
+  ::selection {
+    background: var(--accent-soft);
+    color: var(--accent-2);
+  }
 }
 
 @layer components {
-    /* Small uppercase section label. */
-    .kicker {
-        font-size: 0.6875rem;
-        font-weight: 600;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: var(--ink-3);
-    }
+  /* Small uppercase section label. */
+  .kicker {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
 
-    .card {
-        border: 1px solid var(--line);
-        border-radius: 0.75rem;
-        background: var(--surface);
-        box-shadow: var(--sh-card);
-    }
+  .card {
+    border: 1px solid var(--line);
+    border-radius: 0.75rem;
+    background: var(--surface);
+    box-shadow: var(--sh-card);
+  }
 
-    .btn {
-        display: inline-flex;
-        min-height: 2.25rem;
-        align-items: center;
-        justify-content: center;
-        gap: 0.4rem;
-        white-space: nowrap;
-        border: 1px solid transparent;
-        border-radius: 0.5rem;
-        padding: 0.4375rem 0.875rem;
-        font: inherit;
-        font-size: 0.875rem;
-        font-weight: 500;
-        line-height: 1.25rem;
-        color: var(--ink);
-        text-decoration: none;
-        cursor: pointer;
-        transition:
-            background 120ms ease,
-            border-color 120ms ease,
-            color 120ms ease;
-    }
+  .btn {
+    display: inline-flex;
+    min-height: 2.25rem;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    white-space: nowrap;
+    border: 1px solid transparent;
+    border-radius: 0.5rem;
+    padding: 0.4375rem 0.875rem;
+    font: inherit;
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1.25rem;
+    color: var(--ink);
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+  }
 
-    .btn:focus-visible {
-        outline: 2px solid var(--accent);
-        outline-offset: 2px;
-    }
+  .btn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
 
-    .btn:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
 
-    .btn-primary {
-        background: var(--accent);
-        color: var(--on-accent);
-    }
+  .btn-primary {
+    background: var(--accent);
+    color: var(--on-accent);
+  }
 
-    .btn-primary:hover:not(:disabled) {
-        background: var(--accent-2);
-    }
+  .btn-primary:hover:not(:disabled) {
+    background: var(--accent-2);
+  }
 
-    .btn-ghost {
-        border-color: var(--line-2);
-        background: var(--surface);
-    }
+  .btn-ghost {
+    border-color: var(--line-2);
+    background: var(--surface);
+  }
 
-    .btn-ghost:hover:not(:disabled) {
-        background: var(--inset);
-    }
+  .btn-ghost:hover:not(:disabled) {
+    background: var(--inset);
+  }
 
-    .btn-danger {
-        border-color: var(--line-2);
-        background: var(--surface);
-        color: var(--danger);
-    }
+  .btn-danger {
+    border-color: var(--line-2);
+    background: var(--surface);
+    color: var(--danger);
+  }
 
-    .btn-danger:hover:not(:disabled) {
-        border-color: var(--danger);
-        background: var(--danger-soft);
-    }
+  .btn-danger:hover:not(:disabled) {
+    border-color: var(--danger);
+    background: var(--danger-soft);
+  }
 
-    .btn-sm {
-        min-height: 1.875rem;
-        border-radius: 0.4375rem;
-        padding: 0.1875rem 0.625rem;
-        font-size: 0.8125rem;
-    }
+  .btn-sm {
+    min-height: 1.875rem;
+    border-radius: 0.4375rem;
+    padding: 0.1875rem 0.625rem;
+    font-size: 0.8125rem;
+  }
 
-    .input {
-        width: 100%;
-        box-sizing: border-box;
-        border: 1px solid var(--line-2);
-        border-radius: 0.5rem;
-        background: var(--surface);
-        padding: 0.5rem 0.75rem;
-        font: inherit;
-        font-size: 0.875rem;
-        line-height: 1.45;
-        color: var(--ink);
-        transition:
-            border-color 120ms ease,
-            box-shadow 120ms ease;
-    }
+  .input {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid var(--line-2);
+    border-radius: 0.5rem;
+    background: var(--surface);
+    padding: 0.5rem 0.75rem;
+    font: inherit;
+    font-size: 0.875rem;
+    line-height: 1.45;
+    color: var(--ink);
+    transition: border-color 120ms ease, box-shadow 120ms ease;
+  }
 
-    .input::placeholder {
-        color: var(--ink-3);
-    }
+  .input::placeholder {
+    color: var(--ink-3);
+  }
 
-    .input:focus {
-        outline: none;
-        border-color: var(--accent);
-        box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
-    }
+  .input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+  }
 
-    .input-invalid {
-        border-color: var(--danger);
-        background: var(--danger-soft);
-    }
+  .input-invalid {
+    border-color: var(--danger);
+    background: var(--danger-soft);
+  }
 
-    /* Small status/category pill; color it with bg- and text- utilities. */
-    .badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.3rem;
-        border-radius: 999px;
-        padding: 0.1875rem 0.5625rem;
-        font-size: 0.6875rem;
-        font-weight: 600;
-        line-height: 1rem;
-        white-space: nowrap;
-    }
+  /* Small status/category pill; color it with bg- and text- utilities. */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    border-radius: 999px;
+    padding: 0.1875rem 0.5625rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: 1rem;
+    white-space: nowrap;
+  }
 
-    /* Toggleable filter/group pill driven by aria-pressed. */
-    .chip {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.35rem;
-        cursor: pointer;
-        border: 1px solid var(--line-2);
-        border-radius: 999px;
-        background: var(--surface);
-        padding: 0.3125rem 0.75rem;
-        font: inherit;
-        font-size: 0.8125rem;
-        font-weight: 500;
-        color: var(--ink-2);
-        transition:
-            background 120ms ease,
-            color 120ms ease,
-            border-color 120ms ease;
-    }
+  /* Groups editor: a badge preview that tracks the row's checked color radio,
+     no JS required. Keys mirror GROUP_COLORS in lib/group_colors.ts. */
+  .group-preview {
+    background: var(--gc-slate-soft);
+    color: var(--gc-slate);
+  }
+  tr:has(input[value="slate"]:checked) .group-preview {
+    background: var(--gc-slate-soft);
+    color: var(--gc-slate);
+  }
+  tr:has(input[value="teal"]:checked) .group-preview {
+    background: var(--gc-teal-soft);
+    color: var(--gc-teal);
+  }
+  tr:has(input[value="green"]:checked) .group-preview {
+    background: var(--gc-green-soft);
+    color: var(--gc-green);
+  }
+  tr:has(input[value="blue"]:checked) .group-preview {
+    background: var(--gc-blue-soft);
+    color: var(--gc-blue);
+  }
+  tr:has(input[value="indigo"]:checked) .group-preview {
+    background: var(--gc-indigo-soft);
+    color: var(--gc-indigo);
+  }
+  tr:has(input[value="pink"]:checked) .group-preview {
+    background: var(--gc-pink-soft);
+    color: var(--gc-pink);
+  }
+  tr:has(input[value="rose"]:checked) .group-preview {
+    background: var(--gc-rose-soft);
+    color: var(--gc-rose);
+  }
+  tr:has(input[value="amber"]:checked) .group-preview {
+    background: var(--gc-amber-soft);
+    color: var(--gc-amber);
+  }
 
-    .chip:hover {
-        background: var(--inset);
-    }
+  /* Toggleable filter/group pill driven by aria-pressed. */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    cursor: pointer;
+    border: 1px solid var(--line-2);
+    border-radius: 999px;
+    background: var(--surface);
+    padding: 0.3125rem 0.75rem;
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--ink-2);
+    transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+  }
 
-    .chip[aria-pressed="true"] {
-        border-color: var(--accent);
-        background: var(--accent-soft);
-        color: var(--accent-2);
-    }
+  .chip:hover {
+    background: var(--inset);
+  }
 
-    /* Dropdown panel anchored to a <details> menu; styles its action children
-     so pages can pass plain <a>/<button>/<form> items. */
-    .menu {
-        position: absolute;
-        right: 0;
-        top: calc(100% + 0.5rem);
-        z-index: 50;
-        display: grid;
-        min-width: 13rem;
-        border: 1px solid var(--line);
-        border-radius: 0.75rem;
-        background: var(--surface);
-        padding: 0.375rem;
-        box-shadow: var(--sh-pop);
-    }
+  .chip[aria-pressed="true"] {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent-2);
+  }
 
-    .menu form {
-        display: contents;
-    }
+  /* Dropdown panel anchored to a <details> menu; styles its action children
+   so pages can pass plain <a>/<button>/<form> items. */
+  .menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 0.5rem);
+    z-index: 50;
+    display: grid;
+    min-width: 13rem;
+    border: 1px solid var(--line);
+    border-radius: 0.75rem;
+    background: var(--surface);
+    padding: 0.375rem;
+    box-shadow: var(--sh-pop);
+  }
 
-    .menu a,
-    .menu button {
-        display: flex;
-        width: 100%;
-        box-sizing: border-box;
-        align-items: center;
-        justify-content: space-between;
-        gap: 1rem;
-        border: 0;
-        border-radius: 0.5rem;
-        background: transparent;
-        padding: 0.5rem 0.625rem;
-        color: var(--ink);
-        font: inherit;
-        font-size: 0.8125rem;
-        font-weight: 500;
-        text-align: left;
-        text-decoration: none;
-        cursor: pointer;
-    }
+  .menu form {
+    display: contents;
+  }
 
-    .menu a:hover,
-    .menu button:hover {
-        background: var(--inset);
-    }
+  .menu a,
+  .menu button {
+    display: flex;
+    width: 100%;
+    box-sizing: border-box;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    border: 0;
+    border-radius: 0.5rem;
+    background: transparent;
+    padding: 0.5rem 0.625rem;
+    color: var(--ink);
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+  }
 
-    .menu hr {
-        width: 100%;
-        margin: 0.375rem 0;
-        border: 0;
-        border-top: 1px solid var(--line);
-    }
+  .menu a:hover,
+  .menu button:hover {
+    background: var(--inset);
+  }
 
-    .menu svg {
-        width: 1rem;
-        height: 1rem;
-        flex: none;
-        fill: none;
-        stroke: currentColor;
-        stroke-width: 1.8;
-        stroke-linecap: round;
-        stroke-linejoin: round;
-        color: var(--ink-3);
-    }
+  .menu hr {
+    width: 100%;
+    margin: 0.375rem 0;
+    border: 0;
+    border-top: 1px solid var(--line);
+  }
 
-    .data-table {
-        width: 100%;
-        border-collapse: collapse;
-        text-align: left;
-        font-size: 0.875rem;
-    }
+  .menu svg {
+    width: 1rem;
+    height: 1rem;
+    flex: none;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    color: var(--ink-3);
+  }
 
-    .data-table th {
-        padding: 0.625rem 1rem;
-        border-bottom: 1px solid var(--line);
-        font-size: 0.6875rem;
-        font-weight: 600;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-        color: var(--ink-3);
-    }
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+    font-size: 0.875rem;
+  }
 
-    .data-table td {
-        padding: 0.75rem 1rem;
-        border-bottom: 1px solid var(--line);
-        vertical-align: top;
-    }
+  .data-table th {
+    padding: 0.625rem 1rem;
+    border-bottom: 1px solid var(--line);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
 
-    .data-table tr:last-child td {
-        border-bottom: 0;
-    }
+  .data-table td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
 
-    /* Rendered newsletter Markdown; styles are inlined on rich-text copy. */
-    .md-preview {
-        font-size: 0.9375rem;
-        line-height: 1.6;
-        color: var(--ink);
-    }
+  .data-table tr:last-child td {
+    border-bottom: 0;
+  }
 
-    .md-preview h1,
-    .md-preview h2,
-    .md-preview h3 {
-        margin: 1.25em 0 0.5em;
-        font-weight: 600;
-        line-height: 1.3;
-        letter-spacing: -0.01em;
-    }
+  /* Rendered newsletter Markdown; styles are inlined on rich-text copy. */
+  .md-preview {
+    font-size: 0.9375rem;
+    line-height: 1.6;
+    color: var(--ink);
+  }
 
-    /* @deno/gfm adds a GitHub-style permalink icon to every heading; meaningless here. */
-    .md-preview .anchor {
-        display: none;
-    }
+  .md-preview h1,
+  .md-preview h2,
+  .md-preview h3 {
+    margin: 1.25em 0 0.5em;
+    font-weight: 600;
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+  }
 
-    .md-preview h1 {
-        font-size: 1.25rem;
-    }
+  /* @deno/gfm adds a GitHub-style permalink icon to every heading; meaningless here. */
+  .md-preview .anchor {
+    display: none;
+  }
 
-    .md-preview h2 {
-        font-size: 1.125rem;
-    }
+  .md-preview h1 {
+    font-size: 1.25rem;
+  }
 
-    .md-preview h3 {
-        font-size: 1rem;
-    }
+  .md-preview h2 {
+    font-size: 1.125rem;
+  }
 
-    .md-preview > :first-child {
-        margin-top: 0;
-    }
+  .md-preview h3 {
+    font-size: 1rem;
+  }
 
-    .md-preview p {
-        margin: 0.75em 0;
-    }
+  .md-preview > :first-child {
+    margin-top: 0;
+  }
 
-    .md-preview ul,
-    .md-preview ol {
-        margin: 0.75em 0;
-        padding-left: 1.5em;
-    }
+  .md-preview p {
+    margin: 0.75em 0;
+  }
 
-    .md-preview li {
-        margin: 0.3em 0;
-    }
+  .md-preview ul,
+  .md-preview ol {
+    margin: 0.75em 0;
+    padding-left: 1.5em;
+  }
 
-    .md-preview a {
-        color: var(--accent-2);
-        text-decoration: underline;
-    }
+  .md-preview li {
+    margin: 0.3em 0;
+  }
 
-    .md-preview em {
-        color: var(--ink-2);
-    }
+  .md-preview a {
+    color: var(--accent-2);
+    text-decoration: underline;
+  }
 
-    /* Person detail sheet: bottom drawer on mobile, side panel on larger screens. */
-    .backdrop {
-        animation: backdrop-in 160ms ease-out both;
-    }
+  .md-preview em {
+    color: var(--ink-2);
+  }
 
-    .backdrop.is-closing {
-        animation: backdrop-out 180ms ease-in both;
-    }
+  /* Person detail sheet: bottom drawer on mobile, side panel on larger screens. */
+  .backdrop {
+    animation: backdrop-in 160ms ease-out both;
+  }
 
+  .backdrop.is-closing {
+    animation: backdrop-out 180ms ease-in both;
+  }
+
+  .sheet {
+    transform: translateY(100%);
+    transition: transform 190ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .sheet.is-open {
+    transform: translateY(0);
+  }
+
+  @media (min-width: 640px) {
     .sheet {
-        transform: translateY(100%);
-        transition: transform 190ms cubic-bezier(0.22, 1, 0.36, 1);
+      transform: translateX(100%);
     }
 
     .sheet.is-open {
-        transform: translateY(0);
+      transform: translateX(0);
     }
+  }
 
-    @media (min-width: 640px) {
-        .sheet {
-            transform: translateX(100%);
-        }
+  .toast {
+    pointer-events: none;
+    border-radius: 0.5rem;
+    background: var(--ink);
+    padding: 0.625rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--page);
+    box-shadow: var(--sh-pop);
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 180ms ease, transform 180ms ease;
+  }
 
-        .sheet.is-open {
-            transform: translateX(0);
-        }
-    }
+  .toast.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
 
-    .toast {
-        pointer-events: none;
-        border-radius: 0.5rem;
-        background: var(--ink);
-        padding: 0.625rem 1rem;
-        font-size: 0.875rem;
-        font-weight: 500;
-        color: var(--page);
-        box-shadow: var(--sh-pop);
-        opacity: 0;
-        transform: translateY(8px);
-        transition:
-            opacity 180ms ease,
-            transform 180ms ease;
-    }
+  /* Fast-appearing tooltip for the year heatmap; native title tooltips have a
+   distracting ~600ms delay, so this fades/pops in on hover instead. */
+  .heatmap-tip {
+    position: absolute;
+    z-index: 20;
+    width: max-content;
+    min-width: 8rem;
+    max-width: 18rem;
+    border-radius: 0.5rem;
+    background: var(--ink);
+    padding: 0.375rem 0.625rem;
+    color: var(--page);
+    font-size: 0.75rem;
+    line-height: 1.35;
+    pointer-events: none;
+    box-shadow: var(--sh-pop);
+    opacity: 0;
+    transform: translate(-50%, calc(-100% - 10px)) scale(0.92);
+  }
 
-    .toast.visible {
-        opacity: 1;
-        transform: translateY(0);
-    }
-
-    /* Fast-appearing tooltip for the year heatmap; native title tooltips have a
-     distracting ~600ms delay, so this fades/pops in on hover instead. */
-    .heatmap-tip {
-        position: absolute;
-        z-index: 20;
-        width: max-content;
-        min-width: 8rem;
-        max-width: 18rem;
-        border-radius: 0.5rem;
-        background: var(--ink);
-        padding: 0.375rem 0.625rem;
-        color: var(--page);
-        font-size: 0.75rem;
-        line-height: 1.35;
-        pointer-events: none;
-        box-shadow: var(--sh-pop);
-        opacity: 0;
-        transform: translate(-50%, calc(-100% - 10px)) scale(0.92);
-    }
-
-    .heatmap-tip.visible {
-        opacity: 1;
-        transform: translate(-50%, calc(-100% - 12px)) scale(1);
-        transition:
-            opacity 100ms ease,
-            transform 100ms ease;
-    }
+  .heatmap-tip.visible {
+    opacity: 1;
+    transform: translate(-50%, calc(-100% - 12px)) scale(1);
+    transition: opacity 100ms ease, transform 100ms ease;
+  }
 }
 
 @keyframes backdrop-in {
-    from {
-        opacity: 0;
-    }
+  from {
+    opacity: 0;
+  }
 
-    to {
-        opacity: 1;
-    }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes backdrop-out {
-    from {
-        opacity: 1;
-    }
+  from {
+    opacity: 1;
+  }
 
-    to {
-        opacity: 0;
-    }
+  to {
+    opacity: 0;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    html {
-        scroll-behavior: auto;
-    }
+  html {
+    scroll-behavior: auto;
+  }
 
-    .backdrop,
-    .backdrop.is-closing {
-        animation-duration: 1ms;
-    }
+  .backdrop,
+  .backdrop.is-closing {
+    animation-duration: 1ms;
+  }
 
-    .sheet {
-        transition-duration: 1ms;
-    }
+  .sheet {
+    transition-duration: 1ms;
+  }
 }

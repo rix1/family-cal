@@ -2,6 +2,7 @@ import { AppHeader } from "@/components/AppHeader.tsx";
 import { PersonForm } from "@/islands/PersonForm.tsx";
 import { ageAtDate, MONTH_NAMES_SHORT } from "@/lib/dates.ts";
 import { retainAvailable, toggleSelection } from "@/lib/filter_selection.ts";
+import { groupBadgeClass } from "@/lib/group_colors.ts";
 import type { CalendarViewData, ViewEvent, ViewPerson } from "@/lib/view_data.ts";
 import type { ComponentChildren } from "preact";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
@@ -1072,7 +1073,7 @@ export function Calendar({
                 In memory of {event.person.name}
               </button>
               {group && (
-                <span class="badge ml-auto bg-inset text-ink-2">
+                <span class={`badge ml-auto ${groupBadgeClass(group.color)}`}>
                   {group.label}
                 </span>
               )}
@@ -1115,7 +1116,7 @@ export function Calendar({
               </span>
             )}
             {group && (
-              <span class="badge ml-auto bg-inset text-ink-2">
+              <span class={`badge ml-auto ${groupBadgeClass(group.color)}`}>
                 {group.label}
               </span>
             )}
@@ -1667,9 +1668,9 @@ export function Calendar({
                   {adding ? "New person" : selectedPerson?.name}
                 </h2>
                 {!adding && !editing && selectedDetail?.group && (
-                  <p class="mt-1.5 text-sm text-ink-2">
+                  <span class={`badge mt-1.5 ${groupBadgeClass(selectedDetail.group.color)}`}>
                     {selectedDetail.group.label}
-                  </p>
+                  </span>
                 )}
               </div>
               <button

@@ -26,7 +26,8 @@ export interface Person {
 export interface GroupInfo {
   key: string;
   label: string;
-  flag: string;
+  /** Palette key from `group_colors.ts`; styles the group's badges. */
+  color: string;
 }
 
 export const EVENT_KINDS = ["wedding", "baptism", "confirmation", "other"] as const;

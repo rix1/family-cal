@@ -4,7 +4,7 @@ import type { Store } from "@/lib/store.ts";
 
 export interface ViewGroup {
   label: string;
-  flag: string;
+  color: string;
 }
 
 export interface ViewPerson {
@@ -44,7 +44,7 @@ export interface CalendarViewData {
 }
 
 function groupsToMap(groups: GroupInfo[]): Record<string, ViewGroup> {
-  return Object.fromEntries(groups.map((g) => [g.key, { label: g.label, flag: g.flag }]));
+  return Object.fromEntries(groups.map((g) => [g.key, { label: g.label, color: g.color }]));
 }
 
 function peopleToView(people: Person[]): ViewPerson[] {

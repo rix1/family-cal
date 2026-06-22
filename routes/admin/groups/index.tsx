@@ -2,6 +2,7 @@ import { AdminShell } from "@/components/AdminShell.tsx";
 import { Toast } from "@/islands/Toast.tsx";
 import { adminDenied, adminViewer } from "@/lib/admin_auth.ts";
 import { getStore } from "@/lib/db.ts";
+import { DEFAULT_GROUP_COLOR, GROUP_COLORS } from "@/lib/group_colors.ts";
 import type { GroupInfo } from "@/lib/model.ts";
 import { define } from "@/utils.ts";
 import { page } from "fresh";
@@ -24,12 +25,13 @@ export const handlers = define.handlers({
     const form = await ctx.req.formData();
     const keys = form.getAll("key").map(String);
     const labels = form.getAll("label").map(String);
-    const flags = form.getAll("flag").map(String);
+    // Color is a per-row radio group (`color-<index>`), aligned with the
+    // positional key/label arrays above.
     const groups: GroupInfo[] = keys
       .map((key, index) => ({
         key: key.trim(),
         label: labels[index]?.trim() ?? "",
-        flag: flags[index]?.trim() ?? "",
+        color: String(form.get(`color-${index}`) ?? DEFAULT_GROUP_COLOR),
       }))
       .filter((group) => group.key && group.label);
     await store.setGroups(groups);
@@ -41,7 +43,7 @@ export const handlers = define.handlers({
 });
 
 export default define.page<typeof handlers>(({ data }) => {
-  const rows = [...data.groups, { key: "", label: "", flag: "" }];
+  const rows = [...data.groups, { key: "", label: "", color: DEFAULT_GROUP_COLOR }];
   return (
     <>
       <title>Groups | Family Calendar Admin</title>
@@ -59,11 +61,12 @@ export default define.page<typeof handlers>(({ data }) => {
                 <tr>
                   <th>Key</th>
                   <th>Label</th>
-                  <th>Flag</th>
+                  <th>Color</th>
+                  <th>Preview</th>
                 </tr>
               </thead>
               <tbody>
-                {rows.map((group) => (
+                {rows.map((group, index) => (
                   <tr>
                     <td>
                       <input name="key" value={group.key} class="input font-mono text-xs" />
@@ -72,7 +75,26 @@ export default define.page<typeof handlers>(({ data }) => {
                       <input name="label" value={group.label} class="input" />
                     </td>
                     <td>
-                      <input name="flag" value={group.flag} class="input" />
+                      <div class="flex flex-wrap gap-1.5">
+                        {GROUP_COLORS.map((color) => (
+                          <label class="cursor-pointer" title={color.label}>
+                            <input
+                              type="radio"
+                              name={`color-${index}`}
+                              value={color.key}
+                              checked={(group.color || DEFAULT_GROUP_COLOR) === color.key}
+                              class="peer sr-only"
+                            />
+                            <span
+                              class={`block size-6 rounded-full border-2 opacity-60 transition peer-checked:opacity-100 peer-checked:ring-2 peer-checked:ring-ink/25 peer-checked:ring-offset-1 peer-checked:ring-offset-surface peer-focus-visible:ring-2 peer-focus-visible:ring-accent ${color.bg} ${color.border}`}
+                            />
+                            <span class="sr-only">{color.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </td>
+                    <td>
+                      <span class="badge group-preview">{group.label || "Preview"}</span>
                     </td>
                   </tr>
                 ))}

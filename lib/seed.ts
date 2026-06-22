@@ -1,3 +1,4 @@
+import { DEFAULT_GROUP_COLOR } from "./group_colors.ts";
 import type { GroupInfo, Person, Viewer } from "./model.ts";
 
 /** CSV seed-file parser used only by the explicit seed command and tests. */
@@ -56,7 +57,7 @@ export function loadSeedData(root: string): {
   const groups: GroupInfo[] = readSeedCsv(normalizedRoot, "groups.csv").map((row) => ({
     key: row.key,
     label: row.label,
-    flag: row.flag,
+    color: row.color || DEFAULT_GROUP_COLOR,
   }));
   const people: Person[] = readSeedCsv(normalizedRoot, "people.csv").map((row) => ({
     id: row.id,

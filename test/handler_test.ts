@@ -253,11 +253,11 @@ routeTest("private calendar and admin pages enforce viewer capabilities", async 
   }
 
   const groupForm = new FormData();
-  for (const group of TEST_GROUPS) {
+  TEST_GROUPS.forEach((group, index) => {
     groupForm.append("key", group.key);
     groupForm.append("label", group.label);
-    groupForm.append("flag", group.flag);
-  }
+    groupForm.append(`color-${index}`, group.color);
+  });
   const groupSave = await adminGroupsRoute.handlers.POST(
     ctx("http://localhost/admin/groups/", {
       method: "POST",

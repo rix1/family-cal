@@ -53,8 +53,8 @@ Deno.test("KvStore upsert/get/delete round-trips a person", async () => {
 Deno.test("KvStore setGroups replaces group configuration", async () => {
   const store = await freshStore();
   try {
-    await store.setGroups([{ key: "family", label: "Family", flag: "F" }]);
-    assertEquals(await store.listGroups(), [{ key: "family", label: "Family", flag: "F" }]);
+    await store.setGroups([{ key: "family", label: "Family", color: "teal" }]);
+    assertEquals(await store.listGroups(), [{ key: "family", label: "Family", color: "teal" }]);
   } finally {
     store.close();
   }

@@ -29,8 +29,8 @@ import { SeedStore } from "../lib/store.ts";
 import { assert, assertEquals, assertRejects, assertStringIncludes } from "./asserts.ts";
 
 const GROUPS: GroupInfo[] = [
-  { key: "berg-siden", label: "Norwegian side", flag: "🇳🇴" },
-  { key: "dahl-siden", label: "Danish side", flag: "🇩🇰" },
+  { key: "berg-siden", label: "Norwegian side", color: "blue" },
+  { key: "dahl-siden", label: "Danish side", color: "rose" },
 ];
 
 const PEOPLE: Person[] = [

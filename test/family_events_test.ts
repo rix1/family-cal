@@ -90,7 +90,7 @@ Deno.test("calendarViewData subsets events by the viewer's groups", async () => 
   };
   const store = new SeedStore(
     people,
-    [{ key: "no", label: "Norge", flag: "" }, { key: "dk", label: "Danmark", flag: "" }],
+    [{ key: "no", label: "Norge", color: "blue" }, { key: "dk", label: "Danmark", color: "rose" }],
     [],
     [],
     [wedding],

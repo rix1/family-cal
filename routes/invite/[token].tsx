@@ -1,7 +1,10 @@
 import { BrandMark } from "@/components/AppHeader.tsx";
 import { createViewer } from "@/lib/access_links.ts";
 import { getStore } from "@/lib/db.ts";
+import { emailInUse } from "@/lib/login.ts";
 import { inviteIsActive } from "@/lib/model.ts";
+import { normalizeEmail } from "@/lib/newsletter.ts";
+import { ValidationError } from "@/lib/people.ts";
 import { clientKey, RateLimiter } from "@/lib/rate_limit.ts";
 import { define } from "@/utils.ts";
 import { HttpError, page } from "fresh";
@@ -35,6 +38,20 @@ export const handlers = define.handlers({
     const name = String(form.get("name") ?? "").trim();
     if (!name) throw new HttpError(400, "Your name is required.");
 
+    let email: string;
+    try {
+      email = normalizeEmail(form.get("email"));
+    } catch (error) {
+      if (error instanceof ValidationError) {
+        throw new HttpError(400, "Please enter a valid email address.");
+      }
+      throw error;
+    }
+    // Email identifies you for magic-link sign-in, so it must be unique.
+    if (await emailInUse(store, email)) {
+      throw new HttpError(400, "That email is already used by another family member.");
+    }
+
     const knownGroups = new Set((await store.listGroups()).map((group) => group.key));
     const groups = form.getAll("groups").map(String);
     if (groups.some((group) => !knownGroups.has(group))) {
@@ -44,7 +61,7 @@ export const handlers = define.handlers({
     // Self-chosen names are untrusted, so we do NOT expire existing same-named
     // viewers here (that would let a redeemer lock out an admin). Each signup is
     // an independent capability; the viewer token makes the audit entry unambiguous.
-    const viewer = createViewer({ name, groups, canEdit: invite.canEdit });
+    const viewer = createViewer({ name, email, groups, canEdit: invite.canEdit });
     await store.upsertViewer(viewer);
     // Count this redemption so a signup limit (if set) is enforced on the next open.
     await store.upsertInvite({ ...invite, uses: (invite.uses ?? 0) + 1 });
@@ -85,6 +102,21 @@ export default define.page<typeof handlers>(({ data }) => (
               class="input"
               placeholder="First and last name"
             />
+          </label>
+
+          <label class="grid gap-2 text-sm font-medium">
+            Your email
+            <input
+              type="email"
+              name="email"
+              required
+              autocomplete="email"
+              class="input"
+              placeholder="you@example.com"
+            />
+            <span class="text-xs font-normal text-ink-3">
+              Lets you sign in on a new device later, and powers the optional monthly email.
+            </span>
           </label>
 
           <fieldset>

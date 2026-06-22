@@ -3,6 +3,7 @@ import {
   type FamilyEvent,
   type GroupInfo,
   type Invite,
+  type LoginToken,
   type NewsletterDraft,
   type Person,
   type Viewer,
@@ -37,6 +38,10 @@ export interface Store {
   upsertInvite(invite: Invite): Promise<Invite>;
   deleteInvite(token: string): Promise<void>;
 
+  getLoginToken(token: string): Promise<LoginToken | null>;
+  upsertLoginToken(loginToken: LoginToken): Promise<LoginToken>;
+  deleteLoginToken(token: string): Promise<void>;
+
   getNewsletterDraft(id: string): Promise<NewsletterDraft | null>;
   listNewsletterDrafts(): Promise<NewsletterDraft[]>;
   upsertNewsletterDraft(draft: NewsletterDraft): Promise<NewsletterDraft>;
@@ -60,6 +65,7 @@ export class SeedStore implements Store {
   #events: Map<string, FamilyEvent>;
   #audit: AuditEntry[] = [];
   #newsletterDrafts = new Map<string, NewsletterDraft>();
+  #loginTokens = new Map<string, LoginToken>();
 
   constructor(
     people: Person[] = [],
@@ -171,6 +177,23 @@ export class SeedStore implements Store {
   // deno-lint-ignore require-await
   async deleteInvite(token: string): Promise<void> {
     this.#invites.delete(token);
+  }
+
+  // deno-lint-ignore require-await
+  async getLoginToken(token: string): Promise<LoginToken | null> {
+    const loginToken = this.#loginTokens.get(token);
+    return loginToken ? clone(loginToken) : null;
+  }
+
+  // deno-lint-ignore require-await
+  async upsertLoginToken(loginToken: LoginToken): Promise<LoginToken> {
+    this.#loginTokens.set(loginToken.token, clone(loginToken));
+    return clone(loginToken);
+  }
+
+  // deno-lint-ignore require-await
+  async deleteLoginToken(token: string): Promise<void> {
+    this.#loginTokens.delete(token);
   }
 
   // deno-lint-ignore require-await

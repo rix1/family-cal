@@ -27,9 +27,12 @@ export default define.page<typeof handlers>(function AccessRequired() {
             <p class="mt-3 leading-relaxed text-ink-2">
               Birthdays, remembrances, and holidays for the whole family — kept in one quiet place.
             </p>
+            <a href="/login" class="btn btn-primary mt-6 w-full">
+              Log in
+            </a>
             <p class="mt-6 border-t border-line pt-5 text-sm leading-relaxed text-ink-3">
-              Access is by personal link only. If yours stopped working, ask the family member who
-              shared it for a new one.
+              On a new device? Log in with your email. No account yet? Access is by personal invite
+              — ask the family member who shared the calendar.
             </p>
           </div>
         </div>

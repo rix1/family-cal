@@ -3,6 +3,7 @@ import {
   type FamilyEvent,
   type GroupInfo,
   type Invite,
+  type LoginToken,
   type NewsletterDraft,
   type Person,
   type Viewer,
@@ -13,6 +14,7 @@ const PEOPLE = "people";
 const GROUPS = "groups";
 const VIEWERS = "viewers";
 const INVITES = "invites";
+const LOGIN_TOKENS = "login_tokens";
 const EVENTS = "events";
 const AUDIT = "audit";
 const NEWSLETTER_DRAFTS = "newsletter_drafts";
@@ -126,6 +128,20 @@ export class KvStore implements Store {
 
   async deleteInvite(token: string): Promise<void> {
     await this.#kv.delete([INVITES, token]);
+  }
+
+  async getLoginToken(token: string): Promise<LoginToken | null> {
+    const res = await this.#kv.get<LoginToken>([LOGIN_TOKENS, token]);
+    return res.value ?? null;
+  }
+
+  async upsertLoginToken(loginToken: LoginToken): Promise<LoginToken> {
+    await this.#kv.set([LOGIN_TOKENS, loginToken.token], loginToken);
+    return loginToken;
+  }
+
+  async deleteLoginToken(token: string): Promise<void> {
+    await this.#kv.delete([LOGIN_TOKENS, token]);
   }
 
   async getNewsletterDraft(id: string): Promise<NewsletterDraft | null> {

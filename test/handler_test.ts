@@ -1,5 +1,5 @@
 import { closeStoreForTests, getStore } from "../lib/db.ts";
-import { assert, assertEquals, assertStringIncludes } from "./asserts.ts";
+import { assert, assertEquals, assertRejects, assertStringIncludes } from "./asserts.ts";
 import { populateTestStore, TEST_GROUPS } from "./fixtures.ts";
 
 Deno.env.set("KV_PATH", ":memory:");
@@ -373,6 +373,7 @@ routeTest("family members can redeem an active invite and sign in as editors", a
 
   const form = new FormData();
   form.set("name", "New family member");
+  form.set("email", "New.Member@Example.com");
   form.append("groups", "no");
   const signup = await inviteRoute.handlers.POST(
     ctx(
@@ -388,6 +389,7 @@ routeTest("family members can redeem an active invite and sign in as editors", a
   assert(viewerToken);
   const viewer = await store.getViewer(viewerToken);
   assertEquals(viewer?.name, "New family member");
+  assertEquals(viewer?.email, "new.member@example.com");
   assertEquals(viewer?.groups, ["no"]);
   assertEquals(viewer?.canEdit, true);
 
@@ -398,6 +400,53 @@ routeTest("family members can redeem an active invite and sign in as editors", a
   const cookies = responseCookies(login);
   assertStringIncludes(cookies, `family_viewer=${viewerToken}`);
   assertStringIncludes(cookies, `family_admin=${viewerToken}`);
+});
+
+routeTest("invite signup requires a valid email", async () => {
+  const store = await getStore();
+  await store.upsertInvite({
+    token: "join-family",
+    createdAt: "2026-06-08T10:00:00Z",
+    expiresAt: "2099-06-15T10:00:00Z",
+    canEdit: false,
+  });
+  const form = new FormData();
+  form.set("name", "No Email");
+  form.set("email", "not-an-email");
+  await assertRejects(() =>
+    inviteRoute.handlers.POST(
+      ctx("http://localhost/invite/join-family", { method: "POST", body: form }, {
+        token: "join-family",
+      }),
+    )
+  );
+});
+
+routeTest("invite signup rejects an email already in use", async () => {
+  const store = await getStore();
+  await store.upsertViewer({
+    token: "existing",
+    name: "Existing",
+    email: "taken@example.com",
+    groups: ["no"],
+    canEdit: false,
+  });
+  await store.upsertInvite({
+    token: "join-family",
+    createdAt: "2026-06-08T10:00:00Z",
+    expiresAt: "2099-06-15T10:00:00Z",
+    canEdit: false,
+  });
+  const form = new FormData();
+  form.set("name", "Duplicate");
+  form.set("email", "Taken@example.com");
+  await assertRejects(() =>
+    inviteRoute.handlers.POST(
+      ctx("http://localhost/invite/join-family", { method: "POST", body: form }, {
+        token: "join-family",
+      }),
+    )
+  );
 });
 
 routeTest("admin can create a reusable expiring invite", async () => {

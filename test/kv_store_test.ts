@@ -150,3 +150,23 @@ Deno.test("KvStore persists invite capabilities", async () => {
     store.close();
   }
 });
+
+Deno.test("KvStore round-trips login tokens", async () => {
+  const store = await freshStore();
+  try {
+    const loginToken = {
+      token: "magic",
+      email: "kari@example.com",
+      viewerToken: "kari-token",
+      createdAt: "2026-06-08T12:00:00Z",
+      expiresAt: "2026-06-08T12:30:00Z",
+    };
+    assertEquals(await store.getLoginToken("magic"), null);
+    await store.upsertLoginToken(loginToken);
+    assertEquals(await store.getLoginToken("magic"), loginToken);
+    await store.deleteLoginToken("magic");
+    assertEquals(await store.getLoginToken("magic"), null);
+  } finally {
+    store.close();
+  }
+});

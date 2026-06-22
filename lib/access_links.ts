@@ -6,6 +6,8 @@ export interface AccessLinkOptions {
   groups: string[];
   canEdit: boolean;
   token?: string;
+  /** Profile email for magic-link login; omitted for admin-issued links. */
+  email?: string;
 }
 
 export function randomToken(): string {
@@ -22,12 +24,14 @@ function encodeBase64Url(bytes: Uint8Array): string {
 export function createViewer(options: AccessLinkOptions): Viewer {
   const name = options.name.trim();
   if (!name) throw new Error("--name is required");
-  return {
+  const viewer: Viewer = {
     token: options.token ?? randomToken(),
     name,
     groups: options.groups,
     canEdit: options.canEdit,
   };
+  if (options.email) viewer.email = options.email;
+  return viewer;
 }
 
 export function accessUrls(viewer: Viewer, baseUrl: string) {
@@ -56,6 +60,11 @@ export async function expirePreviousViewerLinks(
     .filter((pref) => pref !== undefined)
     .sort((a, b) => b!.updatedAt.localeCompare(a!.updatedAt))[0];
   if (inherited && !viewer.newsletter) viewer.newsletter = inherited;
+  // Likewise carry the login email forward so re-issued links stay sign-in-able.
+  if (!viewer.email) {
+    const inheritedEmail = matching.find((existing) => existing.email)?.email;
+    if (inheritedEmail) viewer.email = inheritedEmail;
+  }
   for (const existing of matching) {
     await store.upsertViewer({ ...existing, expiredAt });
   }

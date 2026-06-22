@@ -73,6 +73,13 @@ export interface NewsletterPreference {
 export interface Viewer {
   token: string;
   name: string;
+  /**
+   * Profile email, collected at onboarding. Identifies the viewer for magic-link
+   * login and seeds the newsletter. Distinct from `newsletter.email`, which is an
+   * opt-in and whose absence means unsubscribed. Optional so admin-issued links
+   * (and legacy viewers) stay valid without one.
+   */
+  email?: string;
   /** Group tags this viewer's feed includes. Empty = everyone. */
   groups: string[];
   /** Whether this capability may load the editor and mutate family data. */
@@ -85,6 +92,28 @@ export interface Viewer {
 
 export function viewerIsActive(viewer: Viewer): boolean {
   return !viewer.expiredAt;
+}
+
+/**
+ * A short-lived, single-use credential emailed for cross-device sign-in. Clicking
+ * the link rotates the named viewer's token (issuing a new one, expiring the old),
+ * so the link grants no standing access by itself.
+ */
+export interface LoginToken {
+  token: string;
+  /** Normalized email this link authenticates. */
+  email: string;
+  /** The viewer token to re-authenticate (rotate) when the link is clicked. */
+  viewerToken: string;
+  createdAt: string;
+  expiresAt: string;
+  /** Set the moment the link is redeemed; a used token can't be redeemed again. */
+  usedAt?: string;
+}
+
+export function loginTokenIsActive(token: LoginToken, now = new Date()): boolean {
+  if (token.usedAt) return false;
+  return new Date(token.expiresAt).getTime() > now.getTime();
 }
 
 /** A reusable signup capability that creates viewer links until it expires. */

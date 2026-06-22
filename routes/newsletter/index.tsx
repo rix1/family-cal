@@ -15,6 +15,7 @@ export const handlers = define.handlers({
       viewerName: viewer.name,
       adminUrl: viewer.canEdit ? "/admin/" : undefined,
       newsletter: viewer.newsletter ?? null,
+      profileEmail: viewer.email ?? null,
       groups: await store.listGroups(),
       saved: ctx.url.searchParams.get("saved") === "1",
       unsubscribed: ctx.url.searchParams.get("unsubscribed") === "1",
@@ -86,7 +87,7 @@ export default define.page<typeof handlers>(({ data }) => (
               autocomplete="email"
               class="input"
               placeholder="you@example.com"
-              value={data.newsletter?.email ?? ""}
+              value={data.newsletter?.email ?? data.profileEmail ?? ""}
             />
           </label>
 

@@ -1,7 +1,13 @@
 import { getStore } from "@/lib/db.ts";
 import { json } from "@/lib/http.ts";
 import { viewerIsActive } from "@/lib/model.ts";
-import { applyPeople, type PersonInput, updatePerson, ValidationError } from "@/lib/people.ts";
+import {
+  addPerson,
+  applyPeople,
+  type PersonInput,
+  updatePerson,
+  ValidationError,
+} from "@/lib/people.ts";
 import { define } from "@/utils.ts";
 
 export const handler = define.handlers({
@@ -22,6 +28,27 @@ export const handler = define.handlers({
     try {
       const people = await applyPeople(store, payload.people ?? [], viewer.name);
       return json({ people });
+    } catch (err) {
+      if (err instanceof ValidationError) return json({ error: err.message }, 400);
+      throw err;
+    }
+  },
+  async PUT(ctx) {
+    const store = await getStore();
+    const viewer = await store.getViewer(ctx.params.token);
+    if (!viewer) return json({ error: "unknown editor link" }, 404);
+    if (!viewerIsActive(viewer)) return json({ error: "editor link expired" }, 410);
+    if (!viewer.canEdit) return json({ error: "unknown editor link" }, 404);
+
+    let payload: { person?: PersonInput };
+    try {
+      payload = await ctx.req.json();
+    } catch {
+      return json({ error: "invalid JSON body" }, 400);
+    }
+
+    try {
+      return json({ person: await addPerson(store, payload.person ?? {}, viewer.name) });
     } catch (err) {
       if (err instanceof ValidationError) return json({ error: err.message }, 400);
       throw err;

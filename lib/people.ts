@@ -95,6 +95,26 @@ export async function applyPeople(
   return await store.listPeople();
 }
 
+/** Validate and create one new person without replacing the full collection. */
+export async function addPerson(
+  store: Store,
+  input: PersonInput,
+  actor: string,
+): Promise<Person> {
+  const knownGroups = new Set((await store.listGroups()).map((group) => group.key));
+  const next = normalizePerson(input, knownGroups);
+  if (await store.getPerson(next.id)) throw new ValidationError(`duplicate id "${next.id}"`);
+  await store.upsertPerson(next);
+  await store.appendAudit({
+    at: new Date().toISOString(),
+    actor,
+    action: "create",
+    targetId: next.id,
+    detail: next.name,
+  });
+  return next;
+}
+
 /** Validate and update one existing person without replacing the full collection. */
 export async function updatePerson(
   store: Store,

@@ -1,4 +1,10 @@
-import { applyPeople, normalizePerson, updatePerson, ValidationError } from "../lib/people.ts";
+import {
+  addPerson,
+  applyPeople,
+  normalizePerson,
+  updatePerson,
+  ValidationError,
+} from "../lib/people.ts";
 import { SeedStore } from "../lib/store.ts";
 import { assert, assertEquals } from "./asserts.ts";
 import { TEST_GROUPS, TEST_PEOPLE, TEST_VIEWERS } from "./fixtures.ts";
@@ -86,6 +92,45 @@ Deno.test("applyPeople rejects duplicate ids", async () => {
     threw = e instanceof ValidationError;
   }
   assert(threw, "expected ValidationError for duplicate ids");
+});
+
+Deno.test("addPerson creates one person, assigns an id, and audits a create", async () => {
+  const store = new SeedStore(TEST_PEOPLE, TEST_GROUPS, TEST_VIEWERS);
+  const before = (await store.listPeople()).length;
+
+  const created = await addPerson(
+    store,
+    { name: "Fresh Face", born: "2003-04-05", groups: ["no", "bogus"], notes: "@solveig" },
+    "Editor",
+  );
+
+  assert(created.id.startsWith("fresh-face-"));
+  assertEquals(created.groups, ["no"]); // unknown group dropped
+  assertEquals((await store.listPeople()).length, before + 1);
+  assert(
+    (await store.listAudit()).some((a) =>
+      a.action === "create" && a.targetId === created.id && a.actor === "Editor"
+    ),
+  );
+});
+
+Deno.test("addPerson rejects a duplicate id and an empty name", async () => {
+  const store = new SeedStore(TEST_PEOPLE, TEST_GROUPS, TEST_VIEWERS);
+  let threw = false;
+  try {
+    await addPerson(store, { id: "solveig", name: "Clash" }, "x");
+  } catch (e) {
+    threw = e instanceof ValidationError;
+  }
+  assert(threw, "expected ValidationError for a colliding id");
+
+  threw = false;
+  try {
+    await addPerson(store, { name: "  " }, "x");
+  } catch (e) {
+    threw = e instanceof ValidationError;
+  }
+  assert(threw, "expected ValidationError for an empty name");
 });
 
 Deno.test("updatePerson changes one person and audits the editor", async () => {

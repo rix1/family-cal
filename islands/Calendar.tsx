@@ -1,7 +1,7 @@
 import { AppHeader } from "@/components/AppHeader.tsx";
+import { PersonSheet } from "@/islands/PersonSheet.tsx";
 import { ageAtDate, MONTH_NAMES_SHORT } from "@/lib/dates.ts";
 import { retainAvailable, toggleSelection } from "@/lib/filter_selection.ts";
-import { activeMention, insertMention, type MentionMatch } from "@/lib/mentions.ts";
 import type { CalendarViewData, ViewEvent, ViewPerson } from "@/lib/view_data.ts";
 import type { ComponentChildren } from "preact";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
@@ -287,23 +287,6 @@ interface CalendarProps extends CalendarViewData {
   subscribed?: boolean;
 }
 
-interface PersonDraft {
-  name: string;
-  born: string;
-  died: string;
-  groups: string[];
-  notes: string;
-}
-
-interface PersonMentionMenu {
-  match: MentionMatch;
-  activeIndex: number;
-}
-
-const birthDateValid = (value: string) =>
-  value === "" || /^\d{4}-\d{2}-\d{2}$/.test(value) || /^\d{2}-\d{2}$/.test(value);
-const deathDateValid = (value: string) => value === "" || /^\d{4}-\d{2}-\d{2}$/.test(value);
-
 function FilterDropdown({
   label,
   options,
@@ -413,12 +396,9 @@ export function Calendar({
   const [selectedPerson, setSelectedPerson] = useState<ViewPerson | null>(null);
   const [personClosing, setPersonClosing] = useState(false);
   const [personOpen, setPersonOpen] = useState(false);
-  const [personDraft, setPersonDraft] = useState<PersonDraft | null>(null);
-  const [personMentionMenu, setPersonMentionMenu] = useState<PersonMentionMenu | null>(null);
-  const [personSaveState, setPersonSaveState] = useState<"idle" | "saving">("idle");
-  const [personSaveError, setPersonSaveError] = useState("");
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [sheetPerson, setSheetPerson] = useState<ViewPerson | null>(null);
   const closePersonButton = useRef<HTMLButtonElement | null>(null);
-  const personNotesInput = useRef<HTMLTextAreaElement | null>(null);
   const personTrigger = useRef<HTMLElement | null>(null);
   const pendingScrollToPerson = useRef<ViewPerson | null>(null);
   const restoreScroll = useRef<{ y: number; height: number } | null>(null);
@@ -631,8 +611,6 @@ export function Calendar({
 
   useEffect(() => {
     if (!selectedPerson) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     requestAnimationFrame(() => {
       setPersonOpen(true);
       closePersonButton.current?.focus();
@@ -644,11 +622,22 @@ export function Calendar({
 
     globalThis.addEventListener("keydown", onKeyDown);
     return () => {
-      document.body.style.overflow = previousOverflow;
       globalThis.removeEventListener("keydown", onKeyDown);
       personTrigger.current?.focus();
     };
   }, [selectedPerson?.id]);
+
+  // One scroll lock for both the detail fly-out and the add/edit sheet. Holding
+  // it at this level avoids the two sheets' cleanups fighting during a handoff.
+  const anySheetOpen = Boolean(selectedPerson) || sheetOpen;
+  useEffect(() => {
+    if (!anySheetOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [anySheetOpen]);
 
   useEffect(() => {
     return () => {
@@ -796,9 +785,6 @@ export function Calendar({
       : null;
     setPersonClosing(false);
     setPersonOpen(false);
-    setPersonDraft(null);
-    setPersonMentionMenu(null);
-    setPersonSaveError("");
     setSelectedPerson(person);
   }
 
@@ -809,111 +795,38 @@ export function Calendar({
     closePersonTimer.current = setTimeout(() => {
       setSelectedPerson(null);
       setPersonClosing(false);
-      setPersonDraft(null);
-      setPersonMentionMenu(null);
       closePersonTimer.current = null;
     }, 190);
   }
 
-  function startPersonEdit(person: ViewPerson) {
-    setPersonSaveError("");
-    setPersonDraft({
-      name: person.name,
-      born: person.date,
-      died: person.died,
-      groups: person.groups,
-      notes: person.notes,
-    });
+  // Open the add/edit slide-over. Editing first dismisses the detail fly-out so
+  // only one sheet shows at a time.
+  function openAddPerson() {
+    setSheetPerson(null);
+    setSheetOpen(true);
   }
 
-  function togglePersonGroup(group: string) {
-    if (!personDraft) return;
-    setPersonDraft({
-      ...personDraft,
-      groups: personDraft.groups.includes(group)
-        ? personDraft.groups.filter((key) => key !== group)
-        : [...personDraft.groups, group],
-    });
+  function openEditPerson(person: ViewPerson) {
+    closePerson();
+    setSheetPerson(person);
+    setSheetOpen(true);
   }
 
-  function updatePersonMentionMenu(input: HTMLTextAreaElement) {
-    const match = activeMention(input.value, input.selectionStart ?? input.value.length);
-    setPersonMentionMenu(match ? { match, activeIndex: 0 } : null);
+  function onPersonSaved(saved: ViewPerson) {
+    setPeople((current) =>
+      current.some((p) => p.id === saved.id)
+        ? current.map((p) => (p.id === saved.id ? saved : p))
+        : [...current, saved]
+    );
+    setSheetOpen(false);
+    setToast(`Saved ${saved.name}.`);
+    openPerson(saved);
   }
 
-  function personMentionSuggestions(menu: PersonMentionMenu) {
-    return people
-      .filter((person) => {
-        const query = menu.match.query;
-        return person.id.toLowerCase().includes(query) ||
-          person.name.toLowerCase().includes(query);
-      })
-      .slice(0, 6);
-  }
-
-  function choosePersonMention(person: ViewPerson) {
-    if (!personDraft || !personMentionMenu) return;
-    const result = insertMention(personDraft.notes, personMentionMenu.match, person.id);
-    setPersonDraft({ ...personDraft, notes: result.text });
-    setPersonMentionMenu(null);
-    requestAnimationFrame(() => {
-      personNotesInput.current?.focus();
-      personNotesInput.current?.setSelectionRange(result.cursor, result.cursor);
-    });
-  }
-
-  async function savePerson() {
-    if (!selectedPerson || !personDraft || !saveUrl) return;
-    if (!personDraft.name.trim()) return setPersonSaveError("Name is required.");
-    if (!birthDateValid(personDraft.born)) {
-      return setPersonSaveError("Born must be YYYY-MM-DD, MM-DD, or empty.");
-    }
-    if (!deathDateValid(personDraft.died)) {
-      return setPersonSaveError("Died must be YYYY-MM-DD or empty.");
-    }
-
-    setPersonSaveState("saving");
-    setPersonSaveError("");
-    try {
-      const response = await fetch(saveUrl, {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          id: selectedPerson.id,
-          person: {
-            name: personDraft.name,
-            born: personDraft.born || null,
-            died: personDraft.died || null,
-            groups: personDraft.groups,
-            notes: personDraft.notes,
-          },
-        }),
-      });
-      const body = await response.json();
-      if (!response.ok) {
-        setPersonSaveError(body.error || `Couldn't save (${response.status}).`);
-        return;
-      }
-      const saved = body.person;
-      const next: ViewPerson = {
-        id: saved.id,
-        name: saved.name,
-        date: saved.born || "",
-        died: saved.died || "",
-        groups: saved.groups || [],
-        group: saved.groups?.[0] || "",
-        notes: saved.notes || "",
-        type: "birthday",
-      };
-      setPeople((current) => current.map((person) => person.id === next.id ? next : person));
-      setSelectedPerson((current) => current?.id === next.id ? next : current);
-      setPersonDraft(null);
-      setToast(`Saved ${next.name}.`);
-    } catch {
-      setPersonSaveError("Couldn't reach the server.");
-    } finally {
-      setPersonSaveState("idle");
-    }
+  function closeSheet() {
+    setSheetOpen(false);
+    // Returning from an edit, restore the person's detail view.
+    if (sheetPerson) openPerson(sheetPerson);
   }
 
   function showPersonInTimeline(person: ViewPerson) {
@@ -1355,6 +1268,11 @@ export function Calendar({
         logoutUrl={logoutUrl}
         menuChildren={
           <>
+            {saveUrl && (
+              <button type="button" onClick={openAddPerson}>
+                Add person
+              </button>
+            )}
             <a href="/newsletter/">Monthly email</a>
             <button type="button" onClick={downloadIcs}>
               Export .ics
@@ -1760,294 +1678,138 @@ export function Calendar({
               </button>
             </div>
 
-            {personDraft
-              ? (
-                <form
-                  class="mt-6 grid gap-4"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    savePerson();
-                  }}
-                >
-                  <label class="grid gap-1.5 text-sm font-medium">
-                    Name
-                    <input
-                      value={personDraft.name}
-                      onInput={(event) =>
-                        setPersonDraft({
-                          ...personDraft,
-                          name: event.currentTarget.value,
-                        })}
-                      class="input"
-                    />
-                  </label>
-                  <label class="grid gap-1.5 text-sm font-medium">
-                    ID
-                    <input
-                      value={selectedPerson.id}
-                      readOnly
-                      class="input bg-inset font-mono text-xs text-ink-2"
-                    />
-                  </label>
-                  <div class="grid grid-cols-2 gap-3">
-                    <label class="grid gap-1.5 text-sm font-medium">
-                      Born
-                      <input
-                        value={personDraft.born}
-                        onInput={(event) =>
-                          setPersonDraft({
-                            ...personDraft,
-                            born: event.currentTarget.value,
-                          })}
-                        placeholder="YYYY-MM-DD / MM-DD"
-                        class="input min-w-0"
-                      />
-                    </label>
-                    <label class="grid gap-1.5 text-sm font-medium">
-                      Died
-                      <input
-                        value={personDraft.died}
-                        onInput={(event) =>
-                          setPersonDraft({
-                            ...personDraft,
-                            died: event.currentTarget.value,
-                          })}
-                        placeholder="YYYY-MM-DD"
-                        class="input min-w-0"
-                      />
-                    </label>
-                  </div>
-                  <fieldset>
-                    <legend class="text-sm font-medium">Groups</legend>
-                    <div class="mt-2 flex flex-wrap gap-2">
-                      {Object.entries(groups).map(([key, group]) => (
-                        <button
-                          key={key}
-                          type="button"
-                          class="chip"
-                          aria-pressed={personDraft.groups.includes(key)}
-                          onClick={() => togglePersonGroup(key)}
-                        >
-                          {group.label}
-                        </button>
-                      ))}
-                    </div>
-                  </fieldset>
-                  <div class="relative grid gap-1.5 text-sm font-medium">
-                    <label for="person-notes">Notes</label>
-                    <textarea
-                      id="person-notes"
-                      ref={personNotesInput}
-                      value={personDraft.notes}
-                      onInput={(event) => {
-                        setPersonDraft({
-                          ...personDraft,
-                          notes: event.currentTarget.value,
-                        });
-                        updatePersonMentionMenu(event.currentTarget);
-                      }}
-                      onClick={(event) => updatePersonMentionMenu(event.currentTarget)}
-                      onKeyDown={(event) => {
-                        if (!personMentionMenu) return;
-                        const suggestions = personMentionSuggestions(personMentionMenu);
-                        if (!suggestions.length) return;
-                        if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-                          event.preventDefault();
-                          const direction = event.key === "ArrowDown" ? 1 : -1;
-                          setPersonMentionMenu({
-                            ...personMentionMenu,
-                            activeIndex:
-                              (personMentionMenu.activeIndex + direction + suggestions.length) %
-                              suggestions.length,
-                          });
-                        } else if (event.key === "Enter") {
-                          event.preventDefault();
-                          choosePersonMention(suggestions[personMentionMenu.activeIndex]);
-                        } else if (event.key === "Escape") {
-                          setPersonMentionMenu(null);
-                        }
-                      }}
-                      onBlur={() => setTimeout(() => setPersonMentionMenu(null), 120)}
-                      rows={5}
-                      class="input resize-y leading-6"
-                      placeholder="Optional; type @ to link a person"
-                    />
-                    {personMentionMenu &&
-                      personMentionSuggestions(personMentionMenu).length > 0 && (
-                      <div class="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-lg border border-line bg-surface shadow-pop">
-                        {personMentionSuggestions(personMentionMenu).map((
-                          person,
-                          suggestionIndex,
-                        ) => (
-                          <button
-                            key={person.id}
-                            type="button"
-                            class={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm ${
-                              suggestionIndex === personMentionMenu.activeIndex
-                                ? "bg-accent-soft text-accent-2"
-                                : "hover:bg-inset"
-                            }`}
-                            onMouseDown={(event) => event.preventDefault()}
-                            onClick={() => choosePersonMention(person)}
-                          >
-                            <span class="font-medium">{person.name}</span>
-                            <span class="font-mono text-xs text-ink-3">
-                              @{person.id}
-                            </span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  {personSaveError && (
-                    <p class="rounded-lg bg-danger-soft px-3 py-2 text-sm font-medium text-danger">
-                      {personSaveError}
-                    </p>
-                  )}
-                  <div class="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      class="btn btn-ghost"
-                      onClick={() => {
-                        setPersonDraft(null);
-                        setPersonSaveError("");
-                      }}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      class="btn btn-primary"
-                      disabled={personSaveState === "saving"}
-                    >
-                      {personSaveState === "saving" ? "Saving…" : "Save changes"}
-                    </button>
-                  </div>
-                </form>
-              )
-              : (
+            <dl class="mt-6 grid grid-cols-2 gap-2 text-sm">
+              <div class="rounded-lg bg-inset p-3">
+                <dt class="kicker">Born</dt>
+                <dd class="mt-1 font-medium tabular-nums">
+                  <PersonDate value={selectedDetail.born} />
+                </dd>
+              </div>
+              <div class="rounded-lg bg-inset p-3">
+                <dt class="kicker">
+                  {selectedPerson.died ? "Would be this year" : "Age this year"}
+                </dt>
+                <dd class="mt-1 font-medium tabular-nums">
+                  {selectedDetail.age ?? "Unknown"}
+                </dd>
+              </div>
+              {selectedPerson.died && (
                 <>
-                  <dl class="mt-6 grid grid-cols-2 gap-2 text-sm">
-                    <div class="rounded-lg bg-inset p-3">
-                      <dt class="kicker">Born</dt>
-                      <dd class="mt-1 font-medium tabular-nums">
-                        <PersonDate value={selectedDetail.born} />
-                      </dd>
-                    </div>
-                    <div class="rounded-lg bg-inset p-3">
-                      <dt class="kicker">
-                        {selectedPerson.died ? "Would be this year" : "Age this year"}
-                      </dt>
-                      <dd class="mt-1 font-medium tabular-nums">
-                        {selectedDetail.age ?? "Unknown"}
-                      </dd>
-                    </div>
-                    {selectedPerson.died && (
-                      <>
-                        <div class="rounded-lg bg-inset p-3">
-                          <dt class="kicker">Died</dt>
-                          <dd class="mt-1 font-medium tabular-nums">
-                            <PersonDate value={selectedPerson.died} />
-                          </dd>
-                        </div>
-                        <div class="rounded-lg bg-inset p-3">
-                          <dt class="kicker">Age at death</dt>
-                          <dd class="mt-1 font-medium tabular-nums">
-                            {selectedDetail.ageAtDeath ?? "Unknown"}
-                          </dd>
-                        </div>
-                      </>
-                    )}
-                    <div class="col-span-2 rounded-lg bg-inset p-3">
-                      <dt class="kicker">Next birthday</dt>
-                      <dd class="mt-1 font-medium tabular-nums">
-                        {selectedDetail.next
-                          ? (
-                            <>
-                              <PersonDate value={selectedDetail.next} /> ·{" "}
-                              {relativeLabel(selectedDetail.next)}
-                            </>
-                          )
-                          : "Unknown"}
-                      </dd>
-                    </div>
-                    {selectedDetail.nextMemorial && (
-                      <div class="col-span-2 rounded-lg bg-inset p-3">
-                        <dt class="kicker">Next remembrance</dt>
-                        <dd class="mt-1 font-medium tabular-nums">
-                          <PersonDate value={selectedDetail.nextMemorial} /> ·{" "}
-                          {relativeLabel(selectedDetail.nextMemorial)}
-                        </dd>
-                      </div>
-                    )}
-                  </dl>
-
-                  <div class="mt-2 rounded-lg bg-inset p-3">
-                    <p class="kicker">Notes</p>
-                    <p class="mt-1.5 whitespace-pre-wrap text-sm leading-6 text-ink-2">
-                      {selectedPerson.notes ? linkedNotes(selectedPerson.notes) : "No notes yet."}
-                    </p>
+                  <div class="rounded-lg bg-inset p-3">
+                    <dt class="kicker">Died</dt>
+                    <dd class="mt-1 font-medium tabular-nums">
+                      <PersonDate value={selectedPerson.died} />
+                    </dd>
                   </div>
-
-                  {selectedDetail.mentionedBy.length > 0 && (
-                    <div class="mt-4">
-                      <p class="kicker">
-                        Mentioned by {selectedDetail.mentionedBy.length}
-                      </p>
-                      <ul class="mt-2 grid gap-0.5">
-                        {selectedDetail.mentionedBy.map(({ person, age }) => (
-                          <li key={person.id}>
-                            <button
-                              type="button"
-                              onClick={() => openPerson(person)}
-                              class="flex w-full items-center justify-between gap-3 rounded-md px-1.5 py-1 text-left text-sm hover:bg-inset"
-                              title={person.notes}
-                            >
-                              <span class="font-medium">{person.name}</span>
-                              <span class="tabular-nums text-ink-3">
-                                {age === null ? "—" : `${age} ${age === 1 ? "year" : "years"}`}
-                              </span>
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {(saveUrl || editUrl || selectedDetail.next) && (
-                    <div class="mt-6 grid gap-2 sm:mt-auto">
-                      {saveUrl && (
-                        <button
-                          type="button"
-                          class="btn btn-ghost w-full"
-                          onClick={() => startPersonEdit(selectedPerson)}
-                        >
-                          Edit person
-                        </button>
-                      )}
-                      {!saveUrl && editUrl && (
-                        <a
-                          class="btn btn-ghost w-full"
-                          href={`${editUrl}?person=${encodeURIComponent(selectedPerson.id)}`}
-                        >
-                          Edit person
-                        </a>
-                      )}
-                      {selectedDetail.next && (
-                        <button
-                          type="button"
-                          class="btn btn-primary w-full"
-                          onClick={() => showPersonInTimeline(selectedPerson)}
-                        >
-                          Show next birthday in timeline
-                        </button>
-                      )}
-                    </div>
-                  )}
+                  <div class="rounded-lg bg-inset p-3">
+                    <dt class="kicker">Age at death</dt>
+                    <dd class="mt-1 font-medium tabular-nums">
+                      {selectedDetail.ageAtDeath ?? "Unknown"}
+                    </dd>
+                  </div>
                 </>
               )}
+              <div class="col-span-2 rounded-lg bg-inset p-3">
+                <dt class="kicker">Next birthday</dt>
+                <dd class="mt-1 font-medium tabular-nums">
+                  {selectedDetail.next
+                    ? (
+                      <>
+                        <PersonDate value={selectedDetail.next} /> ·{" "}
+                        {relativeLabel(selectedDetail.next)}
+                      </>
+                    )
+                    : "Unknown"}
+                </dd>
+              </div>
+              {selectedDetail.nextMemorial && (
+                <div class="col-span-2 rounded-lg bg-inset p-3">
+                  <dt class="kicker">Next remembrance</dt>
+                  <dd class="mt-1 font-medium tabular-nums">
+                    <PersonDate value={selectedDetail.nextMemorial} /> ·{" "}
+                    {relativeLabel(selectedDetail.nextMemorial)}
+                  </dd>
+                </div>
+              )}
+            </dl>
+
+            <div class="mt-2 rounded-lg bg-inset p-3">
+              <p class="kicker">Notes</p>
+              <p class="mt-1.5 whitespace-pre-wrap text-sm leading-6 text-ink-2">
+                {selectedPerson.notes ? linkedNotes(selectedPerson.notes) : "No notes yet."}
+              </p>
+            </div>
+
+            {selectedDetail.mentionedBy.length > 0 && (
+              <div class="mt-4">
+                <p class="kicker">
+                  Mentioned by {selectedDetail.mentionedBy.length}
+                </p>
+                <ul class="mt-2 grid gap-0.5">
+                  {selectedDetail.mentionedBy.map(({ person, age }) => (
+                    <li key={person.id}>
+                      <button
+                        type="button"
+                        onClick={() => openPerson(person)}
+                        class="flex w-full items-center justify-between gap-3 rounded-md px-1.5 py-1 text-left text-sm hover:bg-inset"
+                        title={person.notes}
+                      >
+                        <span class="font-medium">{person.name}</span>
+                        <span class="tabular-nums text-ink-3">
+                          {age === null ? "—" : `${age} ${age === 1 ? "year" : "years"}`}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {(saveUrl || editUrl || selectedDetail.next) && (
+              <div class="mt-6 grid gap-2 sm:mt-auto">
+                {saveUrl && (
+                  <button
+                    type="button"
+                    class="btn btn-ghost w-full"
+                    onClick={() => openEditPerson(selectedPerson)}
+                  >
+                    Edit person
+                  </button>
+                )}
+                {!saveUrl && editUrl && (
+                  <a
+                    class="btn btn-ghost w-full"
+                    href={`${editUrl}?person=${encodeURIComponent(selectedPerson.id)}`}
+                  >
+                    Edit person
+                  </a>
+                )}
+                {selectedDetail.next && (
+                  <button
+                    type="button"
+                    class="btn btn-primary w-full"
+                    onClick={() => showPersonInTimeline(selectedPerson)}
+                  >
+                    Show next birthday in timeline
+                  </button>
+                )}
+              </div>
+            )}
           </aside>
         </div>
+      )}
+
+      {saveUrl && (
+        <PersonSheet
+          open={sheetOpen}
+          person={sheetPerson}
+          groups={groups}
+          people={people}
+          saveUrl={saveUrl}
+          onClose={closeSheet}
+          onSaved={onPersonSaved}
+          lockScroll={false}
+        />
       )}
 
       <div

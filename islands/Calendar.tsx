@@ -1,5 +1,5 @@
 import { AppHeader } from "@/components/AppHeader.tsx";
-import { PersonSheet } from "@/islands/PersonSheet.tsx";
+import { PersonForm } from "@/islands/PersonForm.tsx";
 import { ageAtDate, MONTH_NAMES_SHORT } from "@/lib/dates.ts";
 import { retainAvailable, toggleSelection } from "@/lib/filter_selection.ts";
 import type { CalendarViewData, ViewEvent, ViewPerson } from "@/lib/view_data.ts";
@@ -396,8 +396,10 @@ export function Calendar({
   const [selectedPerson, setSelectedPerson] = useState<ViewPerson | null>(null);
   const [personClosing, setPersonClosing] = useState(false);
   const [personOpen, setPersonOpen] = useState(false);
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const [sheetPerson, setSheetPerson] = useState<ViewPerson | null>(null);
+  // The detail slide-over doubles as the add/edit form: `editing` swaps its body
+  // in place for the selected person, `adding` opens it for a brand-new person.
+  const [editing, setEditing] = useState(false);
+  const [adding, setAdding] = useState(false);
   const closePersonButton = useRef<HTMLButtonElement | null>(null);
   const personTrigger = useRef<HTMLElement | null>(null);
   const pendingScrollToPerson = useRef<ViewPerson | null>(null);
@@ -609,35 +611,30 @@ export function Calendar({
     return () => clearTimeout(timer);
   }, [toast]);
 
+  // The sheet shows for a selected person (detail/edit) or while adding. Drive
+  // the entry animation and scroll lock off this single "is it on screen" flag
+  // so switching detail <-> edit or person <-> person never re-animates.
+  const sheetShown = Boolean(selectedPerson) || adding;
   useEffect(() => {
-    if (!selectedPerson) return;
-    requestAnimationFrame(() => {
+    if (!sheetShown) return;
+    const raf = requestAnimationFrame(() => {
       setPersonOpen(true);
       closePersonButton.current?.focus();
     });
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
 
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") closePerson();
+      if (event.key === "Escape") closeSheet();
     }
-
     globalThis.addEventListener("keydown", onKeyDown);
     return () => {
+      cancelAnimationFrame(raf);
+      document.body.style.overflow = previousOverflow;
       globalThis.removeEventListener("keydown", onKeyDown);
       personTrigger.current?.focus();
     };
-  }, [selectedPerson?.id]);
-
-  // One scroll lock for both the detail fly-out and the add/edit sheet. Holding
-  // it at this level avoids the two sheets' cleanups fighting during a handoff.
-  const anySheetOpen = Boolean(selectedPerson) || sheetOpen;
-  useEffect(() => {
-    if (!anySheetOpen) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [anySheetOpen]);
+  }, [sheetShown]);
 
   useEffect(() => {
     return () => {
@@ -779,37 +776,40 @@ export function Calendar({
   }
 
   function openPerson(person: ViewPerson) {
-    if (closePersonTimer.current !== null) clearTimeout(closePersonTimer.current);
+    if (closePersonTimer.current !== null) {
+      clearTimeout(closePersonTimer.current);
+      closePersonTimer.current = null;
+    }
+    // Only capture the focus origin on a fresh open; navigating between people
+    // keeps the original trigger so focus lands back there when the sheet closes.
+    if (!sheetShown) {
+      personTrigger.current = document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    }
+    setPersonClosing(false);
+    setEditing(false);
+    setAdding(false);
+    setSelectedPerson(person);
+  }
+
+  function openAddPerson() {
+    if (closePersonTimer.current !== null) {
+      clearTimeout(closePersonTimer.current);
+      closePersonTimer.current = null;
+    }
     personTrigger.current = document.activeElement instanceof HTMLElement
       ? document.activeElement
       : null;
     setPersonClosing(false);
-    setPersonOpen(false);
-    setSelectedPerson(person);
+    setEditing(false);
+    setSelectedPerson(null);
+    setAdding(true);
   }
 
-  function closePerson() {
-    if (!selectedPerson || personClosing) return;
-    setPersonOpen(false);
-    setPersonClosing(true);
-    closePersonTimer.current = setTimeout(() => {
-      setSelectedPerson(null);
-      setPersonClosing(false);
-      closePersonTimer.current = null;
-    }, 190);
-  }
-
-  // Open the add/edit slide-over. Editing first dismisses the detail fly-out so
-  // only one sheet shows at a time.
-  function openAddPerson() {
-    setSheetPerson(null);
-    setSheetOpen(true);
-  }
-
-  function openEditPerson(person: ViewPerson) {
-    closePerson();
-    setSheetPerson(person);
-    setSheetOpen(true);
+  // Swap the open sheet's body to the edit form in place — no re-animation.
+  function openEditPerson() {
+    setEditing(true);
   }
 
   function onPersonSaved(saved: ViewPerson) {
@@ -818,15 +818,28 @@ export function Calendar({
         ? current.map((p) => (p.id === saved.id ? saved : p))
         : [...current, saved]
     );
-    setSheetOpen(false);
+    setEditing(false);
+    setAdding(false);
+    setSelectedPerson(saved); // sheet stays open; body swaps back to the detail view
     setToast(`Saved ${saved.name}.`);
-    openPerson(saved);
+  }
+
+  function cancelForm() {
+    if (adding) closeSheet();
+    else setEditing(false); // back to the detail view in place
   }
 
   function closeSheet() {
-    setSheetOpen(false);
-    // Returning from an edit, restore the person's detail view.
-    if (sheetPerson) openPerson(sheetPerson);
+    if (!sheetShown || personClosing) return;
+    setPersonOpen(false);
+    setPersonClosing(true);
+    closePersonTimer.current = setTimeout(() => {
+      setSelectedPerson(null);
+      setAdding(false);
+      setEditing(false);
+      setPersonClosing(false);
+      closePersonTimer.current = null;
+    }, 190);
   }
 
   function showPersonInTimeline(person: ViewPerson) {
@@ -839,7 +852,7 @@ export function Calendar({
       setRenderedMonthCount(monthsAhead - firstMonthOffset + 1);
     }
     pendingScrollToPerson.current = person;
-    closePerson();
+    closeSheet();
   }
 
   useEffect(() => {
@@ -1628,12 +1641,12 @@ export function Calendar({
         </section>
       </main>
 
-      {selectedPerson && selectedDetail && (
+      {sheetShown && (
         <div
           class={`backdrop fixed inset-0 z-40 flex items-end bg-black/30 sm:items-stretch sm:justify-end ${
             personClosing ? "is-closing" : ""
           }`}
-          onClick={closePerson}
+          onClick={closeSheet}
         >
           <aside
             role="dialog"
@@ -1647,11 +1660,13 @@ export function Calendar({
             <div class="mx-auto mb-4 h-1 w-10 rounded-full bg-line-2 sm:hidden" />
             <div class="flex items-start justify-between gap-4">
               <div>
-                <p class="kicker">Person</p>
+                <p class="kicker">
+                  {adding ? "Add person" : editing ? "Edit person" : "Person"}
+                </p>
                 <h2 id="person-detail-title" class="mt-1 text-xl font-semibold tracking-tight">
-                  {selectedPerson.name}
+                  {adding ? "New person" : selectedPerson?.name}
                 </h2>
-                {selectedDetail.group && (
+                {!adding && !editing && selectedDetail?.group && (
                   <p class="mt-1.5 text-sm text-ink-2">
                     {selectedDetail.group.label}
                   </p>
@@ -1661,8 +1676,8 @@ export function Calendar({
                 ref={closePersonButton}
                 type="button"
                 class="grid size-8 shrink-0 place-items-center rounded-full border border-line-2 bg-surface text-ink-2 hover:bg-inset hover:text-ink"
-                onClick={closePerson}
-                aria-label="Close person details"
+                onClick={closeSheet}
+                aria-label="Close"
               >
                 <svg
                   class="size-3.5"
@@ -1678,138 +1693,142 @@ export function Calendar({
               </button>
             </div>
 
-            <dl class="mt-6 grid grid-cols-2 gap-2 text-sm">
-              <div class="rounded-lg bg-inset p-3">
-                <dt class="kicker">Born</dt>
-                <dd class="mt-1 font-medium tabular-nums">
-                  <PersonDate value={selectedDetail.born} />
-                </dd>
-              </div>
-              <div class="rounded-lg bg-inset p-3">
-                <dt class="kicker">
-                  {selectedPerson.died ? "Would be this year" : "Age this year"}
-                </dt>
-                <dd class="mt-1 font-medium tabular-nums">
-                  {selectedDetail.age ?? "Unknown"}
-                </dd>
-              </div>
-              {selectedPerson.died && (
+            {(editing || adding) && saveUrl
+              ? (
+                <PersonForm
+                  person={adding ? null : selectedPerson}
+                  groups={groups}
+                  people={people}
+                  saveUrl={saveUrl}
+                  onSaved={onPersonSaved}
+                  onCancel={cancelForm}
+                />
+              )
+              : selectedPerson && selectedDetail
+              ? (
                 <>
-                  <div class="rounded-lg bg-inset p-3">
-                    <dt class="kicker">Died</dt>
-                    <dd class="mt-1 font-medium tabular-nums">
-                      <PersonDate value={selectedPerson.died} />
-                    </dd>
-                  </div>
-                  <div class="rounded-lg bg-inset p-3">
-                    <dt class="kicker">Age at death</dt>
-                    <dd class="mt-1 font-medium tabular-nums">
-                      {selectedDetail.ageAtDeath ?? "Unknown"}
-                    </dd>
-                  </div>
-                </>
-              )}
-              <div class="col-span-2 rounded-lg bg-inset p-3">
-                <dt class="kicker">Next birthday</dt>
-                <dd class="mt-1 font-medium tabular-nums">
-                  {selectedDetail.next
-                    ? (
+                  <dl class="mt-6 grid grid-cols-2 gap-2 text-sm">
+                    <div class="rounded-lg bg-inset p-3">
+                      <dt class="kicker">Born</dt>
+                      <dd class="mt-1 font-medium tabular-nums">
+                        <PersonDate value={selectedDetail.born} />
+                      </dd>
+                    </div>
+                    <div class="rounded-lg bg-inset p-3">
+                      <dt class="kicker">
+                        {selectedPerson.died ? "Would be this year" : "Age this year"}
+                      </dt>
+                      <dd class="mt-1 font-medium tabular-nums">
+                        {selectedDetail.age ?? "Unknown"}
+                      </dd>
+                    </div>
+                    {selectedPerson.died && (
                       <>
-                        <PersonDate value={selectedDetail.next} /> ·{" "}
-                        {relativeLabel(selectedDetail.next)}
+                        <div class="rounded-lg bg-inset p-3">
+                          <dt class="kicker">Died</dt>
+                          <dd class="mt-1 font-medium tabular-nums">
+                            <PersonDate value={selectedPerson.died} />
+                          </dd>
+                        </div>
+                        <div class="rounded-lg bg-inset p-3">
+                          <dt class="kicker">Age at death</dt>
+                          <dd class="mt-1 font-medium tabular-nums">
+                            {selectedDetail.ageAtDeath ?? "Unknown"}
+                          </dd>
+                        </div>
                       </>
-                    )
-                    : "Unknown"}
-                </dd>
-              </div>
-              {selectedDetail.nextMemorial && (
-                <div class="col-span-2 rounded-lg bg-inset p-3">
-                  <dt class="kicker">Next remembrance</dt>
-                  <dd class="mt-1 font-medium tabular-nums">
-                    <PersonDate value={selectedDetail.nextMemorial} /> ·{" "}
-                    {relativeLabel(selectedDetail.nextMemorial)}
-                  </dd>
-                </div>
-              )}
-            </dl>
+                    )}
+                    <div class="col-span-2 rounded-lg bg-inset p-3">
+                      <dt class="kicker">Next birthday</dt>
+                      <dd class="mt-1 font-medium tabular-nums">
+                        {selectedDetail.next
+                          ? (
+                            <>
+                              <PersonDate value={selectedDetail.next} /> ·{" "}
+                              {relativeLabel(selectedDetail.next)}
+                            </>
+                          )
+                          : "Unknown"}
+                      </dd>
+                    </div>
+                    {selectedDetail.nextMemorial && (
+                      <div class="col-span-2 rounded-lg bg-inset p-3">
+                        <dt class="kicker">Next remembrance</dt>
+                        <dd class="mt-1 font-medium tabular-nums">
+                          <PersonDate value={selectedDetail.nextMemorial} /> ·{" "}
+                          {relativeLabel(selectedDetail.nextMemorial)}
+                        </dd>
+                      </div>
+                    )}
+                  </dl>
 
-            <div class="mt-2 rounded-lg bg-inset p-3">
-              <p class="kicker">Notes</p>
-              <p class="mt-1.5 whitespace-pre-wrap text-sm leading-6 text-ink-2">
-                {selectedPerson.notes ? linkedNotes(selectedPerson.notes) : "No notes yet."}
-              </p>
-            </div>
+                  <div class="mt-2 rounded-lg bg-inset p-3">
+                    <p class="kicker">Notes</p>
+                    <p class="mt-1.5 whitespace-pre-wrap text-sm leading-6 text-ink-2">
+                      {selectedPerson.notes ? linkedNotes(selectedPerson.notes) : "No notes yet."}
+                    </p>
+                  </div>
 
-            {selectedDetail.mentionedBy.length > 0 && (
-              <div class="mt-4">
-                <p class="kicker">
-                  Mentioned by {selectedDetail.mentionedBy.length}
-                </p>
-                <ul class="mt-2 grid gap-0.5">
-                  {selectedDetail.mentionedBy.map(({ person, age }) => (
-                    <li key={person.id}>
-                      <button
-                        type="button"
-                        onClick={() => openPerson(person)}
-                        class="flex w-full items-center justify-between gap-3 rounded-md px-1.5 py-1 text-left text-sm hover:bg-inset"
-                        title={person.notes}
-                      >
-                        <span class="font-medium">{person.name}</span>
-                        <span class="tabular-nums text-ink-3">
-                          {age === null ? "—" : `${age} ${age === 1 ? "year" : "years"}`}
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+                  {selectedDetail.mentionedBy.length > 0 && (
+                    <div class="mt-4">
+                      <p class="kicker">
+                        Mentioned by {selectedDetail.mentionedBy.length}
+                      </p>
+                      <ul class="mt-2 grid gap-0.5">
+                        {selectedDetail.mentionedBy.map(({ person, age }) => (
+                          <li key={person.id}>
+                            <button
+                              type="button"
+                              onClick={() => openPerson(person)}
+                              class="flex w-full items-center justify-between gap-3 rounded-md px-1.5 py-1 text-left text-sm hover:bg-inset"
+                              title={person.notes}
+                            >
+                              <span class="font-medium">{person.name}</span>
+                              <span class="tabular-nums text-ink-3">
+                                {age === null ? "—" : `${age} ${age === 1 ? "year" : "years"}`}
+                              </span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
 
-            {(saveUrl || editUrl || selectedDetail.next) && (
-              <div class="mt-6 grid gap-2 sm:mt-auto">
-                {saveUrl && (
-                  <button
-                    type="button"
-                    class="btn btn-ghost w-full"
-                    onClick={() => openEditPerson(selectedPerson)}
-                  >
-                    Edit person
-                  </button>
-                )}
-                {!saveUrl && editUrl && (
-                  <a
-                    class="btn btn-ghost w-full"
-                    href={`${editUrl}?person=${encodeURIComponent(selectedPerson.id)}`}
-                  >
-                    Edit person
-                  </a>
-                )}
-                {selectedDetail.next && (
-                  <button
-                    type="button"
-                    class="btn btn-primary w-full"
-                    onClick={() => showPersonInTimeline(selectedPerson)}
-                  >
-                    Show next birthday in timeline
-                  </button>
-                )}
-              </div>
-            )}
+                  {(saveUrl || editUrl || selectedDetail.next) && (
+                    <div class="mt-6 grid gap-2 sm:mt-auto">
+                      {saveUrl && (
+                        <button
+                          type="button"
+                          class="btn btn-ghost w-full"
+                          onClick={openEditPerson}
+                        >
+                          Edit person
+                        </button>
+                      )}
+                      {!saveUrl && editUrl && (
+                        <a
+                          class="btn btn-ghost w-full"
+                          href={`${editUrl}?person=${encodeURIComponent(selectedPerson.id)}`}
+                        >
+                          Edit person
+                        </a>
+                      )}
+                      {selectedDetail.next && (
+                        <button
+                          type="button"
+                          class="btn btn-primary w-full"
+                          onClick={() => showPersonInTimeline(selectedPerson)}
+                        >
+                          Show next birthday in timeline
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </>
+              )
+              : null}
           </aside>
         </div>
-      )}
-
-      {saveUrl && (
-        <PersonSheet
-          open={sheetOpen}
-          person={sheetPerson}
-          groups={groups}
-          people={people}
-          saveUrl={saveUrl}
-          onClose={closeSheet}
-          onSaved={onPersonSaved}
-          lockScroll={false}
-        />
       )}
 
       <div

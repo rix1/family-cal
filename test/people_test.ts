@@ -11,28 +11,49 @@ import { TEST_GROUPS, TEST_PEOPLE, TEST_VIEWERS } from "./fixtures.ts";
 
 const groups = new Set(["no", "dk"]);
 
-Deno.test("normalizePerson trims, drops unknown groups, assigns an id", () => {
+Deno.test("normalizePerson trims, keeps the affiliation, assigns an id", () => {
   const p = normalizePerson(
-    { name: "  Bob ", born: "1990-01-02", groups: ["no", "bogus"], notes: " hey " },
+    { name: "  Bob ", born: "1990-01-02", affiliation: "no", notes: " hey " },
     groups,
   );
   assertEquals(p.name, "Bob");
   assertEquals(p.born, "1990-01-02");
-  assertEquals(p.groups, ["no"]);
+  assertEquals(p.affiliation, "no");
   assertEquals(p.notes, "hey");
   assert(p.id.startsWith("bob-"));
 });
 
+Deno.test("normalizePerson requires a known affiliation", () => {
+  let threw = false;
+  try {
+    normalizePerson({ name: "X", born: "1990-01-02" }, groups);
+  } catch (e) {
+    threw = e instanceof ValidationError;
+  }
+  assert(threw, "expected ValidationError for a missing affiliation");
+
+  threw = false;
+  try {
+    normalizePerson({ name: "X", born: "1990-01-02", affiliation: "bogus" }, groups);
+  } catch (e) {
+    threw = e instanceof ValidationError;
+  }
+  assert(threw, "expected ValidationError for an unknown affiliation");
+});
+
 Deno.test("normalizePerson accepts MM-DD and empty dates", () => {
-  assertEquals(normalizePerson({ name: "A", born: "03-30" }, groups).born, "03-30");
-  assertEquals(normalizePerson({ name: "B", born: "" }, groups).born, null);
-  assertEquals(normalizePerson({ name: "C" }, groups).born, null);
+  assertEquals(
+    normalizePerson({ name: "A", born: "03-30", affiliation: "no" }, groups).born,
+    "03-30",
+  );
+  assertEquals(normalizePerson({ name: "B", born: "", affiliation: "no" }, groups).born, null);
+  assertEquals(normalizePerson({ name: "C", affiliation: "no" }, groups).born, null);
 });
 
 Deno.test("normalizePerson rejects bad dates and empty names", () => {
   let threw = false;
   try {
-    normalizePerson({ name: "X", born: "not-a-date" }, groups);
+    normalizePerson({ name: "X", born: "not-a-date", affiliation: "no" }, groups);
   } catch (e) {
     threw = e instanceof ValidationError;
   }
@@ -40,7 +61,7 @@ Deno.test("normalizePerson rejects bad dates and empty names", () => {
 
   threw = false;
   try {
-    normalizePerson({ name: "  ", born: "1990-01-01" }, groups);
+    normalizePerson({ name: "  ", born: "1990-01-01", affiliation: "no" }, groups);
   } catch (e) {
     threw = e instanceof ValidationError;
   }
@@ -50,7 +71,7 @@ Deno.test("normalizePerson rejects bad dates and empty names", () => {
 Deno.test("normalizePerson rejects MM-DD as a death date", () => {
   let threw = false;
   try {
-    normalizePerson({ name: "X", died: "01-02" }, groups);
+    normalizePerson({ name: "X", died: "01-02", affiliation: "no" }, groups);
   } catch (e) {
     threw = e instanceof ValidationError;
   }
@@ -65,8 +86,8 @@ Deno.test("applyPeople performs a full replace with audit", async () => {
   const result = await applyPeople(
     store,
     [
-      { id: "solveig", name: "Solveig", born: "1992-05-13", groups: ["no"] },
-      { name: "New Person", born: "2001-02-03", groups: ["dk"] },
+      { id: "solveig", name: "Solveig", born: "1992-05-13", affiliation: "no" },
+      { name: "New Person", born: "2001-02-03", affiliation: "dk" },
     ],
     "Tester",
   );
@@ -85,7 +106,7 @@ Deno.test("applyPeople rejects duplicate ids", async () => {
   try {
     await applyPeople(
       store,
-      [{ id: "dup", name: "A" }, { id: "dup", name: "B" }],
+      [{ id: "dup", name: "A", affiliation: "no" }, { id: "dup", name: "B", affiliation: "no" }],
       "x",
     );
   } catch (e) {
@@ -100,12 +121,12 @@ Deno.test("addPerson creates one person, assigns an id, and audits a create", as
 
   const created = await addPerson(
     store,
-    { name: "Fresh Face", born: "2003-04-05", groups: ["no", "bogus"], notes: "@solveig" },
+    { name: "Fresh Face", born: "2003-04-05", affiliation: "no", notes: "@solveig" },
     "Editor",
   );
 
   assert(created.id.startsWith("fresh-face-"));
-  assertEquals(created.groups, ["no"]); // unknown group dropped
+  assertEquals(created.affiliation, "no");
   assertEquals((await store.listPeople()).length, before + 1);
   assert(
     (await store.listAudit()).some((a) =>
@@ -118,7 +139,7 @@ Deno.test("addPerson rejects a duplicate id and an empty name", async () => {
   const store = new SeedStore(TEST_PEOPLE, TEST_GROUPS, TEST_VIEWERS);
   let threw = false;
   try {
-    await addPerson(store, { id: "solveig", name: "Clash" }, "x");
+    await addPerson(store, { id: "solveig", name: "Clash", affiliation: "no" }, "x");
   } catch (e) {
     threw = e instanceof ValidationError;
   }
@@ -126,7 +147,7 @@ Deno.test("addPerson rejects a duplicate id and an empty name", async () => {
 
   threw = false;
   try {
-    await addPerson(store, { name: "  " }, "x");
+    await addPerson(store, { name: "  ", affiliation: "no" }, "x");
   } catch (e) {
     threw = e instanceof ValidationError;
   }
@@ -143,13 +164,13 @@ Deno.test("updatePerson changes one person and audits the editor", async () => {
       name: "Solveig Updated",
       born: "1992-05-13",
       died: null,
-      groups: ["no", "dk"],
+      affiliation: "dk",
       notes: "Mother of @emil",
     },
     "Editor",
   );
   assertEquals(updated.name, "Solveig Updated");
   assertEquals((await store.listPeople()).length, before);
-  assertEquals((await store.getPerson("solveig"))?.groups, ["no", "dk"]);
+  assertEquals((await store.getPerson("solveig"))?.affiliation, "dk");
   assert((await store.listAudit()).some((entry) => entry.targetId === "solveig"));
 });

@@ -93,7 +93,7 @@ export interface Segment {
 export function subscriberSegments(viewers: Viewer[]): Segment[] {
   const segments = new Map<string, Segment>();
   for (const viewer of activeSubscribers(viewers)) {
-    const groups = canonicalGroups(viewer.newsletter!.groups);
+    const groups = canonicalGroups(viewer.groups);
     const key = segmentKey(groups);
     const segment = segments.get(key) ?? { key, groups, subscribers: [] };
     segment.subscribers.push(viewer);
@@ -105,7 +105,7 @@ export function subscriberSegments(viewers: Viewer[]): Segment[] {
 /** Current recipients of a draft; dynamic until the draft is marked sent. */
 export function draftRecipients(viewers: Viewer[], draft: NewsletterDraft): Viewer[] {
   return activeSubscribers(viewers).filter(
-    (viewer) => segmentKey(viewer.newsletter!.groups) === draft.segment,
+    (viewer) => segmentKey(viewer.groups) === draft.segment,
   );
 }
 
@@ -132,9 +132,8 @@ export function birthdaysForMonth(
   month: MonthRef,
   groups: string[],
 ): MonthBirthday[] {
-  const visible = groups.length
-    ? people.filter((person) => person.groups.some((group) => groups.includes(group)))
-    : people;
+  const followed = new Set(groups);
+  const visible = people.filter((person) => followed.has(person.affiliation));
   const out: MonthBirthday[] = [];
   const seen = new Set<string>();
   for (const person of visible) {
@@ -173,9 +172,8 @@ export function monthRemembrances(
   month: MonthRef,
   groups: string[],
 ): MonthRemembrance[] {
-  const visible = groups.length
-    ? people.filter((person) => person.groups.some((group) => groups.includes(group)))
-    : people;
+  const followed = new Set(groups);
+  const visible = people.filter((person) => followed.has(person.affiliation));
   const out: MonthRemembrance[] = [];
   for (const person of visible) {
     const parts = splitDate(person.died);
@@ -209,9 +207,8 @@ export function monthOccasions(
   month: MonthRef,
   groups: string[],
 ): MonthOccasion[] {
-  const visible = groups.length
-    ? events.filter((event) => event.groups.some((group) => groups.includes(group)))
-    : events;
+  const followed = new Set(groups);
+  const visible = events.filter((event) => event.groups.some((group) => followed.has(group)));
   const out: MonthOccasion[] = [];
   for (const event of visible) {
     const parts = splitDate(event.date);
@@ -570,33 +567,18 @@ export async function markDraftSent(
 // --- Subscription preferences ---
 
 /**
- * Subscribe or update the viewer's newsletter preference. Rejects emails that
- * another active viewer already subscribed with.
+ * Subscribe the viewer to the monthly email at their profile address. The digest
+ * audience follows the viewer's groups, so there is nothing to choose here — it's
+ * a plain opt-in. No-op-friendly: re-subscribing just refreshes `updatedAt`.
  */
-export async function setNewsletterPreference(
-  store: Store,
-  viewer: Viewer,
-  input: { email: unknown; groups: string[] },
-): Promise<Viewer> {
-  const email = normalizeEmail(input.email);
-  const knownGroups = new Set((await store.listGroups()).map((group) => group.key));
-  const groups = canonicalGroups(input.groups);
-  for (const group of groups) {
-    if (!knownGroups.has(group)) throw new ValidationError(`unknown group "${group}"`);
-  }
-
-  const others = activeSubscribers(await store.listViewers())
-    .filter((other) => other.token !== viewer.token);
-  if (others.some((other) => other.newsletter!.email === email)) {
-    throw new ValidationError("another family member already subscribed with this email");
-  }
+export async function setNewsletterPreference(store: Store, viewer: Viewer): Promise<Viewer> {
+  const email = normalizeEmail(viewer.email);
 
   const now = new Date().toISOString();
   const next: Viewer = {
     ...viewer,
     newsletter: {
       email,
-      groups,
       subscribedAt: viewer.newsletter?.subscribedAt ?? now,
       updatedAt: now,
     },
@@ -606,7 +588,7 @@ export async function setNewsletterPreference(
     at: now,
     actor: viewer.name,
     action: viewer.newsletter ? "newsletter_update" : "newsletter_subscribe",
-    detail: `Newsletter groups: ${groups.join(", ") || "all"}`,
+    detail: `Monthly email to ${email}`,
   });
   return next;
 }

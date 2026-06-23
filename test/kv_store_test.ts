@@ -28,7 +28,7 @@ Deno.test("KvStore upsert/get/delete round-trips a person", async () => {
       name: "Test",
       born: "2000-01-02",
       died: null,
-      groups: ["no"],
+      affiliation: "no",
       notes: "hi",
     });
     assertEquals((await store.getPerson("test-1"))?.name, "Test");
@@ -38,7 +38,7 @@ Deno.test("KvStore upsert/get/delete round-trips a person", async () => {
       name: "Test Renamed",
       born: "2000-01-02",
       died: null,
-      groups: ["no"],
+      affiliation: "no",
       notes: "hi",
     });
     assertEquals((await store.getPerson("test-1"))?.name, "Test Renamed");

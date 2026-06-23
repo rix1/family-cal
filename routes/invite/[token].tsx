@@ -122,7 +122,7 @@ export default define.page<typeof handlers>(({ data }) => (
           <fieldset>
             <legend class="text-sm font-medium">Your groups</legend>
             <p class="mt-1 text-xs text-ink-3">
-              Choose all that apply. No selection shows the full family calendar.
+              Pick the groups you want to follow. You can change this anytime from your profile.
             </p>
             <div class="mt-3 grid gap-2 sm:grid-cols-2">
               {data.groups.map((group) => (

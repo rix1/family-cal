@@ -1,4 +1,5 @@
 import { AppHeader, MenuIcon } from "@/components/AppHeader.tsx";
+import { EventForm } from "@/islands/EventForm.tsx";
 import { PersonForm } from "@/islands/PersonForm.tsx";
 import { ageAtDate, MONTH_NAMES_SHORT } from "@/lib/dates.ts";
 import { retainAvailable, toggleSelection } from "@/lib/filter_selection.ts";
@@ -275,9 +276,13 @@ interface CalendarProps extends CalendarViewData {
   viewerName: string;
   editUrl?: string;
   saveUrl?: string;
+  /** Editor endpoint for adding a single event (`/api/events/<token>`). */
+  eventsSaveUrl?: string;
   logoutUrl?: string;
   /** Whether this viewer has opted into the monthly email. */
   subscribed?: boolean;
+  /** Groups this viewer follows; groups outside this set show disabled in the filter. */
+  followedGroups: string[];
 }
 
 function FilterDropdown({
@@ -285,12 +290,15 @@ function FilterDropdown({
   options,
   active,
   onToggle,
+  footer,
 }: {
   label: string;
-  options: Array<{ key: string; label: string }>;
+  options: Array<{ key: string; label: string; disabled?: boolean }>;
   active: Set<string>;
   onToggle: (key: string) => void;
+  footer?: ComponentChildren;
 }) {
+  const selectable = options.filter((option) => !option.disabled).length;
   const details = useRef<HTMLDetailsElement | null>(null);
 
   useEffect(() => {
@@ -317,7 +325,7 @@ function FilterDropdown({
       <summary class="btn btn-ghost cursor-pointer list-none [&::-webkit-details-marker]:hidden">
         <span>{label}</span>
         <span class="text-xs font-medium tabular-nums text-ink-3">
-          {active.size}/{options.length}
+          {active.size}/{selectable}
         </span>
         <svg
           class="size-3 text-ink-3"
@@ -336,17 +344,21 @@ function FilterDropdown({
         {options.map((option) => (
           <label
             key={option.key}
-            class="flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium hover:bg-inset"
+            class={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium ${
+              option.disabled ? "cursor-not-allowed text-ink-3" : "cursor-pointer hover:bg-inset"
+            }`}
           >
             <input
               type="checkbox"
               checked={active.has(option.key)}
+              disabled={option.disabled}
               onChange={() => onToggle(option.key)}
               class="size-4 accent-accent"
             />
             <span>{option.label}</span>
           </label>
         ))}
+        {footer && <div class="mt-1 border-t border-line px-2.5 pb-1 pt-2">{footer}</div>}
       </div>
     </details>
   );
@@ -357,13 +369,16 @@ export function Calendar({
   groups,
   people: initialPeople,
   holidays,
-  events: occasions,
+  events: initialOccasions,
   editUrl,
   saveUrl,
+  eventsSaveUrl,
   logoutUrl,
   subscribed = false,
+  followedGroups,
 }: CalendarProps) {
   const [people, setPeople] = useState(initialPeople);
+  const [occasions, setOccasions] = useState(initialOccasions);
   const [query, setQuery] = useState("");
   const allTypes = useMemo(
     () =>
@@ -377,9 +392,11 @@ export function Calendar({
       ),
     [people, occasions],
   );
+  // Only the groups you follow have data; default the filter to them.
   const [activeGroups, setActiveGroups] = useState<Set<string>>(
-    () => new Set(Object.keys(groups)),
+    () => new Set(followedGroups),
   );
+  const followed = useMemo(() => new Set(followedGroups), [followedGroups]);
   const [activeTypes, setActiveTypes] = useState<Set<string>>(
     () => new Set(allTypes),
   );
@@ -393,6 +410,7 @@ export function Calendar({
   // in place for the selected person, `adding` opens it for a brand-new person.
   const [editing, setEditing] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [addingEvent, setAddingEvent] = useState(false);
   const closePersonButton = useRef<HTMLButtonElement | null>(null);
   const personTrigger = useRef<HTMLElement | null>(null);
   const pendingScrollToPerson = useRef<ViewPerson | null>(null);
@@ -557,7 +575,7 @@ export function Calendar({
         return !q || haystack.includes(q);
       }
       if (!activeTypes.has(event.type)) return false;
-      if (!activeGroups.has(event.person.group)) return false;
+      if (!activeGroups.has(event.person.affiliation)) return false;
       const haystack = `${event.name} ${event.person.notes || ""}`.toLowerCase();
       return !q || haystack.includes(q);
     });
@@ -607,7 +625,7 @@ export function Calendar({
   // The sheet shows for a selected person (detail/edit) or while adding. Drive
   // the entry animation and scroll lock off this single "is it on screen" flag
   // so switching detail <-> edit or person <-> person never re-animates.
-  const sheetShown = Boolean(selectedPerson) || adding;
+  const sheetShown = Boolean(selectedPerson) || adding || addingEvent;
   useEffect(() => {
     if (!sheetShown) return;
     const raf = requestAnimationFrame(() => {
@@ -671,11 +689,11 @@ export function Calendar({
     .reverse()
     .slice(0, 5) as Extract<CalendarEvent, { type: "birthday" }>[];
   // Incomplete birth dates: no date at all, or a month-day with the year still unknown.
-  const missing = people.filter((p) => !hasYear(p) && activeGroups.has(p.group));
+  const missing = people.filter((p) => !hasYear(p) && activeGroups.has(p.affiliation));
   // "Family roots": people whose notes link to no one else yet. While the tree is
   // being filled in this is a to-do list; once it is, the remainder are the top nodes.
   const familyRoots = people.filter((p) => {
-    if (!activeGroups.has(p.group)) return false;
+    if (!activeGroups.has(p.affiliation)) return false;
     const regex = /@([a-z0-9-]+)/gi;
     let match;
     while ((match = regex.exec(p.notes || "")) !== null) {
@@ -685,7 +703,7 @@ export function Calendar({
     return true;
   });
   const birthdayPeopleThisYear = people.filter((person) => {
-    if (!person.date || person.died || !activeGroups.has(person.group)) return false;
+    if (!person.date || person.died || !activeGroups.has(person.affiliation)) return false;
     const date = `${currentYear}-${monthDayOf(person)}`;
     return !hasYear(person) || date >= person.date;
   });
@@ -708,7 +726,7 @@ export function Calendar({
       else map.set(date, [label]);
     };
     for (const person of people) {
-      if (!activeGroups.has(person.group)) continue;
+      if (!activeGroups.has(person.affiliation)) continue;
       if (person.date && !person.died) {
         const md = monthDayOf(person);
         const date = `${currentYear}-${md}`;
@@ -783,6 +801,7 @@ export function Calendar({
     setPersonClosing(false);
     setEditing(false);
     setAdding(false);
+    setAddingEvent(false);
     setSelectedPerson(person);
   }
 
@@ -796,8 +815,24 @@ export function Calendar({
       : null;
     setPersonClosing(false);
     setEditing(false);
+    setAddingEvent(false);
     setSelectedPerson(null);
     setAdding(true);
+  }
+
+  function openAddEvent() {
+    if (closePersonTimer.current !== null) {
+      clearTimeout(closePersonTimer.current);
+      closePersonTimer.current = null;
+    }
+    personTrigger.current = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+    setPersonClosing(false);
+    setEditing(false);
+    setAdding(false);
+    setSelectedPerson(null);
+    setAddingEvent(true);
   }
 
   // Swap the open sheet's body to the edit form in place — no re-animation.
@@ -817,8 +852,14 @@ export function Calendar({
     setToast(`Saved ${saved.name}.`);
   }
 
+  function onEventSaved(saved: ViewEvent) {
+    setOccasions((current) => [...current, saved]);
+    setToast(`Added ${saved.title}.`);
+    closeSheet();
+  }
+
   function cancelForm() {
-    if (adding) closeSheet();
+    if (adding || addingEvent) closeSheet();
     else setEditing(false); // back to the detail view in place
   }
 
@@ -829,6 +870,7 @@ export function Calendar({
     closePersonTimer.current = setTimeout(() => {
       setSelectedPerson(null);
       setAdding(false);
+      setAddingEvent(false);
       setEditing(false);
       setPersonClosing(false);
       closePersonTimer.current = null;
@@ -883,7 +925,7 @@ export function Calendar({
     const exported = people.filter(
       (p) =>
         p.date &&
-        activeGroups.has(p.group) &&
+        activeGroups.has(p.affiliation) &&
         activeTypes.has(p.type || "birthday") &&
         (!q || `${p.name} ${p.notes || ""}`.toLowerCase().includes(q)),
     );
@@ -1045,7 +1087,7 @@ export function Calendar({
       );
     }
     if (event.type === "memorial") {
-      const group = groups[event.person.group];
+      const group = groups[event.person.affiliation];
       return (
         <div
           id={`event-${event.person.id}-${event.date}-memorial`}
@@ -1077,7 +1119,7 @@ export function Calendar({
         </div>
       );
     }
-    const group = groups[event.person.group];
+    const group = groups[event.person.affiliation];
     const age = ageText(event);
     const notes = event.person.notes;
     return (
@@ -1153,7 +1195,7 @@ export function Calendar({
   function personDetail(person: ViewPerson) {
     const next = nextBirthdayDate(person);
     const nextMemorial = nextMemorialDate(person);
-    const group = groups[person.group];
+    const group = groups[person.affiliation];
     const age = hasYear(person) ? currentYear - Number(person.date.slice(0, 4)) : null;
     const born = person.date || "Unknown";
     const ageAtDeath = ageAtDate(person.date || null, person.died || null);
@@ -1281,6 +1323,14 @@ export function Calendar({
                   <path d="M3 19v-1a3.5 3.5 0 0 1 3.5-3.5h5A3.5 3.5 0 0 1 15 18v1M18 8v6M21 11h-6" />
                 </MenuIcon>
                 Add person
+              </button>
+            )}
+            {eventsSaveUrl && (
+              <button type="button" onClick={openAddEvent}>
+                <MenuIcon>
+                  <path d="M4 5h16v15H4zM4 9h16M8 3v4M16 3v4M12 12v5M9.5 14.5h5" />
+                </MenuIcon>
+                Add event
               </button>
             )}
             <button type="button" onClick={downloadIcs}>
@@ -1504,16 +1554,16 @@ export function Calendar({
               {subscribed
                 ? (
                   <a
-                    href="/newsletter/"
+                    href="/profile/"
                     class="group flex items-center gap-3 rounded-lg border border-line-2 px-3.5 py-3 text-sm transition-colors hover:bg-inset"
                   >
                     <span class="grid size-9 shrink-0 place-items-center rounded-lg bg-accent-soft text-accent-2">
                       <CheckIcon />
                     </span>
                     <span class="min-w-0 flex-1">
-                      <span class="block font-medium">Subscribed to the monthly email</span>
+                      <span class="block font-medium">Your profile</span>
                       <span class="mt-0.5 block text-xs text-ink-3">
-                        Change groups or unsubscribe
+                        Monthly email is on — manage groups and subscriptions
                       </span>
                     </span>
                     <span
@@ -1526,16 +1576,16 @@ export function Calendar({
                 )
                 : (
                   <a
-                    href="/newsletter/"
+                    href="/profile/"
                     class="group flex items-center gap-3 rounded-lg border border-accent/30 bg-accent-soft px-3.5 py-3 text-sm transition-colors hover:border-accent/60"
                   >
                     <span class="grid size-9 shrink-0 place-items-center rounded-lg bg-accent text-on-accent">
                       <MailIcon />
                     </span>
                     <span class="min-w-0 flex-1">
-                      <span class="block font-medium text-accent-2">Get the monthly email</span>
+                      <span class="block font-medium text-accent-2">Set up your profile</span>
                       <span class="mt-0.5 block text-xs text-ink-3">
-                        Next month's birthdays in your inbox
+                        Get the monthly email and add the calendar to your own app
                       </span>
                     </span>
                     <span
@@ -1577,10 +1627,22 @@ export function Calendar({
               label="Groups"
               options={Object.entries(groups).map(([key, group]) => ({
                 key,
-                label: `${group.label}`,
+                label: group.label,
+                disabled: !followed.has(key),
               }))}
               active={activeGroups}
               onToggle={(key) => setActiveGroups((current) => toggleSelection(current, key))}
+              footer={
+                <p class="text-xs leading-relaxed text-ink-3">
+                  Change which groups you follow in{" "}
+                  <a
+                    href="/profile/"
+                    class="font-medium text-accent-2 underline underline-offset-2"
+                  >
+                    your profile
+                  </a>.
+                </p>
+              }
             />
             <FilterDropdown
               label="Events"
@@ -1660,12 +1722,18 @@ export function Calendar({
             <div class="flex items-start justify-between gap-4">
               <div>
                 <p class="kicker">
-                  {adding ? "Add person" : editing ? "Edit person" : "Person"}
+                  {addingEvent
+                    ? "Add event"
+                    : adding
+                    ? "Add person"
+                    : editing
+                    ? "Edit person"
+                    : "Person"}
                 </p>
                 <h2 id="person-detail-title" class="mt-1 text-xl font-semibold tracking-tight">
-                  {adding ? "New person" : selectedPerson?.name}
+                  {addingEvent ? "New event" : adding ? "New person" : selectedPerson?.name}
                 </h2>
-                {!adding && !editing && selectedDetail?.group && (
+                {!adding && !addingEvent && !editing && selectedDetail?.group && (
                   <span class={`badge mt-1.5 ${groupBadgeClass(selectedDetail.group.color)}`}>
                     {selectedDetail.group.label}
                   </span>
@@ -1692,7 +1760,17 @@ export function Calendar({
               </button>
             </div>
 
-            {(editing || adding) && saveUrl
+            {addingEvent && eventsSaveUrl
+              ? (
+                <EventForm
+                  groups={groups}
+                  people={people}
+                  saveUrl={eventsSaveUrl}
+                  onSaved={onEventSaved}
+                  onCancel={cancelForm}
+                />
+              )
+              : (editing || adding) && saveUrl
               ? (
                 <PersonForm
                   person={adding ? null : selectedPerson}

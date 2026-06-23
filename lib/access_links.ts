@@ -1,4 +1,5 @@
 import { type Viewer, viewerIsActive } from "./model.ts";
+import { ValidationError } from "./people.ts";
 import type { Store } from "./store.ts";
 
 export interface AccessLinkOptions {
@@ -44,6 +45,31 @@ export async function ensureFeedToken(store: Store, viewer: Viewer): Promise<str
   const feedToken = randomToken();
   await store.upsertViewer({ ...viewer, feedToken });
   return feedToken;
+}
+
+/**
+ * Self-serve update of the groups a viewer follows. Drives the calendar, the
+ * iCal feed and the email audience at once. Empty list = follow nothing.
+ */
+export async function setViewerGroups(
+  store: Store,
+  viewer: Viewer,
+  groups: string[],
+): Promise<Viewer> {
+  const known = new Set((await store.listGroups()).map((group) => group.key));
+  const next = [...new Set(groups.map((group) => group.trim()).filter(Boolean))].sort();
+  for (const group of next) {
+    if (!known.has(group)) throw new ValidationError(`unknown group "${group}"`);
+  }
+  const updated: Viewer = { ...viewer, groups: next };
+  await store.upsertViewer(updated);
+  await store.appendAudit({
+    at: new Date().toISOString(),
+    actor: viewer.name,
+    action: "viewer_groups",
+    detail: `Following: ${next.join(", ") || "none"}`,
+  });
+  return updated;
 }
 
 /** The active viewer that owns `feedToken`, or null. */

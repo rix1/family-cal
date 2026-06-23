@@ -31,8 +31,10 @@ export default define.page<typeof handlers>(function AccessRequired() {
               Log in
             </a>
             <p class="mt-6 border-t border-line pt-5 text-sm leading-relaxed text-ink-3">
-              On a new device? Log in with your email. No account yet? Access is by personal invite
-              — ask the family member who shared the calendar.
+              On a new device? Log in with your email. New here? Read{" "}
+              <a href="/about" class="font-medium text-accent-2 underline underline-offset-2">
+                what this is
+              </a>. Access is by personal invite — ask the family member who shared the calendar.
             </p>
           </div>
         </div>

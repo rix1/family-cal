@@ -12,8 +12,7 @@ export interface ViewPerson {
   name: string;
   date: string;
   type: "birthday";
-  group: string;
-  groups: string[];
+  affiliation: string;
   notes: string;
   died: string;
 }
@@ -52,8 +51,7 @@ function peopleToView(people: Person[]): ViewPerson[] {
     name: p.name,
     date: p.born || "",
     type: "birthday",
-    group: p.groups[0] || "",
-    groups: p.groups,
+    affiliation: p.affiliation,
     notes: p.notes || "",
     died: p.died || "",
   }));
@@ -89,11 +87,15 @@ export async function calendarViewData(
     store.listPeople(),
     store.listEvents(),
   ]);
-  const visiblePeople = viewerGroups?.length
-    ? people.filter((person) => person.groups.some((group) => viewerGroups.includes(group)))
+  // Groups are an explicit follow-list now. Undefined = no subsetting (full
+  // view); an empty array = follows nothing, so you see nobody. A person belongs
+  // to one group; an event can surface to several.
+  const followed = viewerGroups ? new Set(viewerGroups) : null;
+  const visiblePeople = followed
+    ? people.filter((person) => followed.has(person.affiliation))
     : people;
-  const visibleEvents = viewerGroups?.length
-    ? events.filter((event) => event.groups.some((group) => viewerGroups.includes(group)))
+  const visibleEvents = followed
+    ? events.filter((event) => event.groups.some((group) => followed.has(group)))
     : events;
   return {
     groups: groupsToMap(groups),

@@ -2,6 +2,7 @@ import { AppHeader } from "@/components/AppHeader.tsx";
 import { getStore } from "@/lib/db.ts";
 import { sessionViewer } from "@/lib/viewer_auth.ts";
 import { define } from "@/utils.ts";
+import type { ComponentChildren } from "preact";
 import { page } from "fresh";
 
 export const handlers = define.handlers({
@@ -14,15 +15,38 @@ export const handlers = define.handlers({
   },
 });
 
-function SubscribeLink({ signedIn }: { signedIn: boolean }) {
+function ProfileLink({ signedIn }: { signedIn: boolean }) {
   if (signedIn) {
     return (
-      <a href="/newsletter/" class="font-medium text-accent-2 underline underline-offset-2">
-        the Subscribe page
+      <a href="/profile/" class="font-medium text-accent-2 underline underline-offset-2">
+        your profile
       </a>
     );
   }
-  return <span class="font-medium text-ink">the Subscribe page</span>;
+  return <span class="font-medium text-ink">your profile</span>;
+}
+
+function Faq({ question, children }: { question: string; children: ComponentChildren }) {
+  return (
+    <details class="group border-t border-line py-4 first:border-t-0 first:pt-0">
+      <summary class="flex cursor-pointer items-center justify-between gap-3 font-medium [&::-webkit-details-marker]:hidden">
+        <span>{question}</span>
+        <svg
+          class="size-4 shrink-0 text-ink-3 transition-transform group-open:rotate-180"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M4 6l4 4 4-4" />
+        </svg>
+      </summary>
+      <div class="mt-2 leading-relaxed text-ink-2">{children}</div>
+    </details>
+  );
 }
 
 export default define.page<typeof handlers>(function About({ data }) {
@@ -48,54 +72,99 @@ export default define.page<typeof handlers>(function About({ data }) {
         </p>
 
         <section class="card mt-8 p-6">
-          <h2 class="text-lg font-semibold">Getting in</h2>
+          <h2 class="text-lg font-semibold">How it works</h2>
           <p class="mt-3 leading-relaxed text-ink-2">
-            Access is by a personal invite link from someone already in the family. That link is
-            your key — once you've opened it, this device stays signed in. On a new phone or
-            computer, open the home page, choose{" "}
-            <span class="font-medium text-ink">Log in</span>, and enter your email; we'll send a
-            one-time link to sign you in.
+            There's no company behind this and nothing to install — it's a small, private calendar
+            Halvor put together for the family. One person keeps everyone's birthdays and dates in
+            one place; you get in through the personal link you were sent, and from there you choose
+            how closely you want to follow along.
           </p>
-        </section>
 
-        <section class="card mt-4 p-6">
-          <h2 class="text-lg font-semibold">Three ways to keep up</h2>
-          <ul class="mt-3 space-y-4 leading-relaxed text-ink-2">
-            <li>
-              <span class="font-medium text-ink">In your browser.</span>{" "}
-              Open the calendar to see the month's birthdays, remembrances, and holidays, with
-              search and group filters. Tap anyone to read their details.
+          <h3 class="mt-6 text-sm font-semibold uppercase tracking-wide text-ink-3">
+            Three ways to keep up
+          </h3>
+          <ul class="mt-3 space-y-3 leading-relaxed text-ink-2">
+            <li class="flex gap-3">
+              <span
+                class="grid size-7 shrink-0 place-items-center rounded-md bg-accent-soft text-sm font-semibold text-accent-2"
+                aria-hidden="true"
+              >
+                1
+              </span>
+              <p>
+                <span class="font-medium text-ink">In your browser.</span>{" "}
+                Open the calendar to see the month's birthdays, remembrances, and holidays, with
+                search and filters. Tap anyone to read their details.
+              </p>
             </li>
-            <li>
-              <span class="font-medium text-ink">By monthly email.</span>{" "}
-              Opt in to a short note once a month listing the coming birthdays. Set it up on{" "}
-              <SubscribeLink signedIn={signedIn} />.
+            <li class="flex gap-3">
+              <span
+                class="grid size-7 shrink-0 place-items-center rounded-md bg-accent-soft text-sm font-semibold text-accent-2"
+                aria-hidden="true"
+              >
+                2
+              </span>
+              <p>
+                <span class="font-medium text-ink">A little email each month.</span>{" "}
+                Switch on a short note that arrives once a month with the coming birthdays — no more
+                forgetting. Turn it on from <ProfileLink signedIn={signedIn} />.
+              </p>
             </li>
-            <li>
-              <span class="font-medium text-ink">In your own calendar app.</span>{" "}
-              Subscribe once and the family's dates appear alongside your own in Google Calendar,
-              Apple Calendar, or Outlook — updating on their own as people are added. You'll find
-              your personal subscribe link on <SubscribeLink signedIn={signedIn} />.
+            <li class="flex gap-3">
+              <span
+                class="grid size-7 shrink-0 place-items-center rounded-md bg-accent-soft text-sm font-semibold text-accent-2"
+                aria-hidden="true"
+              >
+                3
+              </span>
+              <p>
+                <span class="font-medium text-ink">Inside your own calendar.</span>{" "}
+                Add the family's dates to the calendar already on your phone or computer (Google,
+                Apple, or Outlook). Set it up once and new birthdays simply show up. The link to do
+                that lives on <ProfileLink signedIn={signedIn} />.
+              </p>
             </li>
           </ul>
         </section>
 
-        <section class="card mt-4 p-6">
-          <h2 class="text-lg font-semibold">If your link can edit</h2>
-          <p class="mt-3 leading-relaxed text-ink-2">
-            Some links can make changes. Editors add people and their dates, sort the family into
-            groups, jot small notes (typing <span class="font-medium text-ink">@</span>{" "}
-            links one person to another), and decide who has access.
-          </p>
-        </section>
-
-        <section class="card mt-4 p-6">
-          <h2 class="text-lg font-semibold">A note on privacy</h2>
-          <p class="mt-3 leading-relaxed text-ink-2">
-            Your link is your key: anyone who has it can see the family calendar. Keep it to
-            yourself, and if it ever slips out, ask a family editor for a fresh one — the old link
-            stops working the moment a new one is issued.
-          </p>
+        <section class="mt-10 px-1">
+          <h2 class="text-lg font-semibold">Questions</h2>
+          <div class="mt-2">
+            <Faq question="Do I need to download an app?">
+              No — it's a website. Open your link in any browser and you're in. You can add it to
+              your home screen so it feels like an app, but there's nothing to install and no
+              account to create.
+            </Faq>
+            <Faq question="How do I get in the first time?">
+              Someone already in the family sends you a personal link. Open it once and that device
+              stays signed in — you won't have to log in again on it.
+            </Faq>
+            <Faq question="Can I use it on more than one device?">
+              Yes. Each phone or computer signs in on its own. To add a new one, open the home page,
+              choose{" "}
+              <span class="font-medium text-ink">Log in</span>, and enter your email — we'll send a
+              one-time link to sign that device in. Signing in somewhere new ends the previous
+              session, so if you switch back later you may just need a fresh link.
+            </Faq>
+            <Faq question="Can I add or change people?">
+              Only some links can make changes. If yours can, you can add people and their dates,
+              sort the family into groups, and link relatives by typing{" "}
+              <span class="font-medium text-ink">@</span>{" "}
+              in a note. If yours can't and something looks wrong or missing, just ask whoever set
+              things up.
+            </Faq>
+            <Faq question="Who can see the calendar?">
+              Only people with a link. Your link is your key, so keep it to yourself — anyone who
+              has it can see the family calendar. If it ever slips out, ask a family editor for a
+              fresh one; the old link stops working right away.
+            </Faq>
+            <Faq question="Is my data safe?">
+              Yes. Everything is stored securely and can't be reached without a personal link —
+              nothing is public, sold, or shared, and there are no ads or trackers. The only things
+              kept are what an editor adds (names, dates, and short notes) and the email you use to
+              sign in.
+            </Faq>
+          </div>
         </section>
       </main>
     </>

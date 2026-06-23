@@ -1,6 +1,7 @@
 import { EVENT_KINDS, type EventKind, type FamilyEvent } from "./model.ts";
 import { slug } from "./dates.ts";
 import { ValidationError } from "./people.ts";
+import type { Store } from "./store.ts";
 
 const DATE_FULL = /^\d{4}-\d{2}-\d{2}$/;
 const DATE_MD = /^\d{2}-\d{2}$/;
@@ -45,4 +46,23 @@ export function normalizeEvent(input: FamilyEventInput, knownGroups: Set<string>
   const id = input.id?.trim() || `${kind}-${slug(title)}-${crypto.randomUUID().slice(0, 8)}`;
 
   return { id, kind, title, date, groups, notes: (input.notes ?? "").trim() };
+}
+
+/** Validate and create one event, assigning an id and auditing the editor. */
+export async function addEvent(
+  store: Store,
+  input: FamilyEventInput,
+  actor: string,
+): Promise<FamilyEvent> {
+  const knownGroups = new Set((await store.listGroups()).map((group) => group.key));
+  const event = normalizeEvent(input, knownGroups);
+  await store.upsertEvent(event);
+  await store.appendAudit({
+    at: new Date().toISOString(),
+    actor,
+    action: "create_event",
+    targetId: event.id,
+    detail: `Added ${event.kind} "${event.title}" on ${event.date}`,
+  });
+  return event;
 }

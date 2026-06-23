@@ -17,8 +17,13 @@ export interface Person {
   born: PartialDate | null;
   /** Death date: `YYYY-MM-DD` or null. Drives "in memory" + remembrance. */
   died: PartialDate | null;
-  /** Many-to-many visibility tags (NOT access control). */
-  groups: string[];
+  /**
+   * The single group this person belongs to (which branch of the family they
+   * are). Required. Viewers see a person when they follow this group. Distinct
+   * from `FamilyEvent.groups`, which stays a multi-tag (an occasion can surface
+   * to several branches).
+   */
+  affiliation: string;
   /** Free text for informal color ("praktikant for Sigurd"). */
   notes: string;
 }
@@ -55,12 +60,11 @@ export interface FamilyEvent {
 
 /**
  * A viewer's opt-in to the monthly birthday email. Absence on the viewer means
- * unsubscribed. `groups` selects newsletter content independently of the
- * viewer's calendar groups; empty = all groups.
+ * unsubscribed. The digest's content follows the viewer's followed `groups` — it
+ * is no longer chosen independently — so this only records the address and timing.
  */
 export interface NewsletterPreference {
   email: string;
-  groups: string[];
   subscribedAt: string;
   updatedAt: string;
 }

@@ -1,5 +1,5 @@
-import { assert, assertEquals, assertThrows } from "jsr:@std/assert";
-import { normalizeEvent } from "@/lib/family_events.ts";
+import { assert, assertEquals, assertRejects, assertThrows } from "jsr:@std/assert";
+import { addEvent, normalizeEvent } from "@/lib/family_events.ts";
 import { occasionEvents } from "@/lib/events.ts";
 import { ValidationError } from "@/lib/people.ts";
 import type { FamilyEvent, Person } from "@/lib/model.ts";
@@ -7,8 +7,8 @@ import { SeedStore } from "@/lib/store.ts";
 import { calendarViewData } from "@/lib/view_data.ts";
 
 const people: Person[] = [
-  { id: "solveig", name: "Solveig", born: "1992-05-13", died: null, groups: ["no"], notes: "" },
-  { id: "halvor", name: "Halvor", born: "1990-06-15", died: null, groups: ["no"], notes: "" },
+  { id: "solveig", name: "Solveig", born: "1992-05-13", died: null, affiliation: "no", notes: "" },
+  { id: "halvor", name: "Halvor", born: "1990-06-15", died: null, affiliation: "no", notes: "" },
 ];
 
 const knownGroups = new Set(["no", "dk"]);
@@ -104,4 +104,28 @@ Deno.test("calendarViewData subsets events by the viewer's groups", async () => 
 
   const allView = await calendarViewData(store);
   assertEquals(allView.events.length, 1);
+});
+
+Deno.test("addEvent validates, stores and audits a new event", async () => {
+  const store = new SeedStore(
+    [],
+    [{ key: "no", label: "Norge", color: "blue" }],
+    [],
+    [],
+    [],
+  );
+  const event = await addEvent(
+    store,
+    { kind: "wedding", title: "Bryllup", date: "06-04", groups: ["no"], notes: "@solveig" },
+    "Editor",
+  );
+  assert(event.id.startsWith("wedding-bryllup-"));
+  assertEquals((await store.listEvents()).length, 1);
+  assert(
+    (await store.listAudit()).some((a) => a.action === "create_event" && a.actor === "Editor"),
+  );
+
+  await assertRejects(() =>
+    addEvent(store, { kind: "wedding", title: "x", date: "nope", groups: ["no"] }, "Editor")
+  );
 });

@@ -7,7 +7,7 @@ interface Row {
   name: string;
   born: string;
   died: string;
-  groups: string[];
+  affiliation: string;
   notes: string;
 }
 
@@ -38,7 +38,7 @@ function toRow(p: Person, fallbackGroup = ""): Row {
     name: p.name,
     born: p.born || "",
     died: p.died || "",
-    groups: p.groups.length ? p.groups : fallbackGroup ? [fallbackGroup] : [],
+    affiliation: p.affiliation || fallbackGroup,
     notes: p.notes || "",
   };
 }
@@ -49,7 +49,7 @@ function csvEscape(value: unknown): string {
 }
 
 function buildPeopleCsv(rows: Row[]): string {
-  const headers = ["id", "name", "born", "died", "groups", "notes"];
+  const headers = ["id", "name", "born", "died", "affiliation", "notes"];
   const lines = [headers.join(",")];
   for (const row of rows.filter((r) => r.name || r.born || r.died || r.notes)) {
     lines.push(
@@ -58,7 +58,7 @@ function buildPeopleCsv(rows: Row[]): string {
         row.name,
         row.born || "",
         row.died || "",
-        row.groups.join("|"),
+        row.affiliation || "",
         row.notes || "",
       ]
         .map(csvEscape)
@@ -118,16 +118,15 @@ export function Editor({
       if (raw) {
         const draft = JSON.parse(raw) as Row[];
         if (Array.isArray(draft) && draft.length) {
-          setRows(draft.map((row) => ({
-            ...row,
-            born: row.born ?? (row as Row & { date?: string }).date ?? "",
-            died: row.died ?? "",
-            groups: Array.isArray(row.groups)
-              ? row.groups
-              : (row as Row & { group?: string }).group
-              ? [(row as Row & { group?: string }).group!]
-              : [],
-          })));
+          setRows(draft.map((row) => {
+            const legacy = row as Row & { date?: string; group?: string; groups?: string[] };
+            return {
+              ...row,
+              born: row.born ?? legacy.date ?? "",
+              died: row.died ?? "",
+              affiliation: row.affiliation ?? legacy.group ?? legacy.groups?.[0] ?? fallbackGroup,
+            };
+          }));
           setHasDraft(true);
         }
       }
@@ -173,7 +172,7 @@ export function Editor({
       ) {
         return false;
       }
-      if (groupFilter !== "all" && !row.groups.includes(groupFilter)) return false;
+      if (groupFilter !== "all" && row.affiliation !== groupFilter) return false;
       if (dateFilter === "dated" && !row.born) return false;
       if (dateFilter === "missing" && row.born) return false;
       return true;
@@ -193,15 +192,6 @@ export function Editor({
     const next = rows.map((row, i) => (i === index ? { ...row, ...patch } : row));
     setRows(next);
     persistDraft(next);
-  }
-
-  function toggleGroup(index: number, group: string) {
-    const current = rows[index].groups;
-    updateRow(index, {
-      groups: current.includes(group)
-        ? current.filter((key) => key !== group)
-        : [...current, group],
-    });
   }
 
   function updateMentionMenu(index: number, input: HTMLTextAreaElement) {
@@ -238,7 +228,7 @@ export function Editor({
         name: "",
         born: "",
         died: "",
-        groups: fallbackGroup ? [fallbackGroup] : [],
+        affiliation: fallbackGroup,
         notes: "",
       } satisfies Row,
     ];
@@ -249,7 +239,9 @@ export function Editor({
   function removeRow(index: number) {
     const next = rows.filter((_, i) => i !== index);
     setRows(
-      next.length ? next : [{ name: "", born: "", died: "", groups: [fallbackGroup], notes: "" }],
+      next.length
+        ? next
+        : [{ name: "", born: "", died: "", affiliation: fallbackGroup, notes: "" }],
     );
     persistDraft(next);
   }
@@ -260,7 +252,7 @@ export function Editor({
       name: row.name,
       born: row.born || "",
       died: row.died || null,
-      groups: row.groups,
+      affiliation: row.affiliation,
       notes: row.notes,
     }));
   }
@@ -441,7 +433,7 @@ export function Editor({
           <thead>
             <tr>
               <th class="w-[18%]">Name</th>
-              <th class="w-[17%]">Groups</th>
+              <th class="w-[17%]">Group</th>
               <th class="w-[15%]">Born</th>
               <th class="w-[15%]">Died</th>
               <th>Notes</th>
@@ -477,19 +469,14 @@ export function Editor({
                     )}
                   </td>
                   <td>
-                    <div class="flex flex-wrap gap-1">
-                      {groups.map((g) => (
-                        <button
-                          key={g.key}
-                          type="button"
-                          aria-pressed={row.groups.includes(g.key)}
-                          onClick={() => toggleGroup(index, g.key)}
-                          class="chip"
-                        >
-                          {g.label}
-                        </button>
-                      ))}
-                    </div>
+                    <select
+                      value={row.affiliation}
+                      onChange={(e) => updateRow(index, { affiliation: e.currentTarget.value })}
+                      class={`input w-auto ${row.affiliation ? "" : "input-invalid"}`}
+                    >
+                      <option value="">—</option>
+                      {groups.map((g) => <option key={g.key} value={g.key}>{g.label}</option>)}
+                    </select>
                   </td>
                   <td>
                     <input

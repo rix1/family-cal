@@ -4,11 +4,31 @@ import {
   ensureFeedToken,
   expirePreviousViewerLinks,
   randomToken,
+  setViewerGroups,
   viewerByFeedToken,
 } from "../lib/access_links.ts";
-import type { Viewer } from "../lib/model.ts";
+import type { GroupInfo, Viewer } from "../lib/model.ts";
 import { SeedStore } from "../lib/store.ts";
-import { assert, assertEquals } from "./asserts.ts";
+import { assert, assertEquals, assertRejects } from "./asserts.ts";
+
+const GROUPS: GroupInfo[] = [
+  { key: "no", label: "Family", color: "blue" },
+  { key: "dk", label: "Danish family", color: "rose" },
+];
+
+Deno.test("setViewerGroups normalizes, validates and audits the follow-list", async () => {
+  const viewer = createViewer({ name: "Solveig", groups: ["no"], canEdit: false, token: "solveig" });
+  const store = new SeedStore([], GROUPS, [viewer]);
+
+  const updated = await setViewerGroups(store, viewer, [" dk ", "no", "dk", ""]);
+  assertEquals(updated.groups, ["dk", "no"]); // deduped, trimmed, sorted
+  assertEquals((await store.getViewer("solveig"))?.groups, ["dk", "no"]);
+  assert((await store.listAudit()).some((entry) => entry.action === "viewer_groups"));
+
+  // Empty is allowed (follow nothing); unknown groups are rejected.
+  assertEquals((await setViewerGroups(store, viewer, [])).groups, []);
+  await assertRejects(() => setViewerGroups(store, viewer, ["bogus"]));
+});
 
 Deno.test("randomToken creates URL-safe high-entropy capabilities", () => {
   const first = randomToken();

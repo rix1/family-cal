@@ -5,8 +5,9 @@ import { birthdayEvents, holidayEvents, memorialEvents, occasionEvents } from ".
 export interface FeedOptions {
   calName?: string;
   /**
-   * Visibility tags to include. Empty/undefined = everyone. This is the seam
-   * for per-viewer subsetting; the feed endpoint will pass a viewer's groups.
+   * Followed groups to include. Undefined = no subsetting (full feed); an empty
+   * array = follows nothing (empty feed). The feed endpoint passes the viewer's
+   * groups, so an empty follow-list yields an empty calendar.
    */
   groups?: string[];
   /** Holiday window, in years relative to `now`. */
@@ -24,11 +25,14 @@ export async function buildFeed(store: Store, opts: FeedOptions = {}): Promise<s
   const startYear = year - (opts.pastYears ?? 1);
   const endYear = year + (opts.futureYears ?? 3);
 
+  // Followed groups are an explicit list: an undefined `groups` means "no
+  // subsetting" (full feed, e.g. internal callers), but an empty array means the
+  // viewer follows nothing and the feed is empty.
   let people = await store.listPeople();
   let occasions = await store.listEvents();
-  if (opts.groups?.length) {
+  if (opts.groups) {
     const want = new Set(opts.groups);
-    people = people.filter((p) => p.groups.some((g) => want.has(g)));
+    people = people.filter((p) => want.has(p.affiliation));
     occasions = occasions.filter((event) => event.groups.some((g) => want.has(g)));
   }
 

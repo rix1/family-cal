@@ -47,7 +47,7 @@ export const handlers = define.handlers({
         token: subscriber.token,
         name: subscriber.name,
         email: subscriber.newsletter!.email,
-        segment: segmentKey(subscriber.newsletter!.groups),
+        segment: segmentKey(subscriber.groups),
       })),
       segments: subscriberSegments(viewers).map((segment) => ({
         key: segment.key,

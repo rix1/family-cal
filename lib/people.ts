@@ -12,7 +12,7 @@ export interface PersonInput {
   name?: string;
   born?: string | null;
   died?: string | null;
-  groups?: string[];
+  affiliation?: string;
   notes?: string;
 }
 
@@ -37,7 +37,11 @@ export function normalizePerson(input: PersonInput, knownGroups: Set<string>): P
   const name = (input.name ?? "").trim();
   if (!name) throw new ValidationError("name is required");
 
-  const groups = Array.isArray(input.groups) ? input.groups.filter((g) => knownGroups.has(g)) : [];
+  const affiliation = (input.affiliation ?? "").trim();
+  if (!affiliation) throw new ValidationError(`${name} needs a group affiliation`);
+  if (!knownGroups.has(affiliation)) {
+    throw new ValidationError(`unknown group "${affiliation}" for ${name}`);
+  }
   const id = input.id?.trim() || `${slug(name)}-${crypto.randomUUID().slice(0, 8)}`;
 
   return {
@@ -45,7 +49,7 @@ export function normalizePerson(input: PersonInput, knownGroups: Set<string>): P
     name,
     born: normBirth(input.born),
     died: normDeath(input.died),
-    groups,
+    affiliation,
     notes: (input.notes ?? "").trim(),
   };
 }

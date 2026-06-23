@@ -64,7 +64,7 @@ export function loadSeedData(root: string): {
     name: row.name,
     born: row.born || null,
     died: row.died || null,
-    groups: row.groups ? row.groups.split("|").filter(Boolean) : [],
+    affiliation: row.affiliation || row.groups || "",
     notes: row.notes || "",
   }));
   const viewers: Viewer[] = readSeedCsv(normalizedRoot, "viewers.csv").map((row) => ({

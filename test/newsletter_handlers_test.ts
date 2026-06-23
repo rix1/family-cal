@@ -6,7 +6,7 @@ import { populateTestStore } from "./fixtures.ts";
 
 Deno.env.set("KV_PATH", ":memory:");
 
-const newsletterRoute = await import("../routes/newsletter/index.tsx");
+const profileRoute = await import("../routes/profile/index.tsx");
 const adminNewslettersRoute = await import("../routes/admin/newsletters/index.tsx");
 const draftRoute = await import("../routes/admin/newsletters/[id].tsx");
 
@@ -40,68 +40,73 @@ function form(entries: Record<string, string | string[]>): FormData {
 
 const VIEWER = { cookie: "family_viewer=view-all" };
 const ADMIN = { cookie: "family_admin=editor; family_viewer=editor" };
+// view-all follows both seeded groups ("no", "dk") → this segment key.
+const ALL_SEGMENT = "dk+no";
 
-routeTest("the newsletter page requires a viewer session", async () => {
-  await assertRejects(() => newsletterRoute.handlers.GET(ctx("http://localhost/newsletter/")));
+routeTest("the profile page requires a viewer session", async () => {
+  await assertRejects(() => profileRoute.handlers.GET(ctx("http://localhost/profile/")));
   await assertRejects(() =>
-    newsletterRoute.handlers.POST(
-      ctx("http://localhost/newsletter/", { method: "POST", body: form({ email: "a@b.c" }) }),
+    profileRoute.handlers.POST(
+      ctx("http://localhost/profile/", { method: "POST", body: form({ action: "subscribe" }) }),
     )
   );
 });
 
-routeTest("viewers subscribe, update and unsubscribe; duplicates are rejected", async () => {
+routeTest("a viewer edits the groups they follow", async () => {
   const store = await getStore();
-  const subscribed = await newsletterRoute.handlers.POST(
-    ctx("http://localhost/newsletter/", {
+  const res = await profileRoute.handlers.POST(
+    ctx("http://localhost/profile/", {
       method: "POST",
       headers: VIEWER,
-      body: form({ email: "  Rix@Example.com ", groups: ["dk"] }),
+      body: form({ action: "groups", groups: ["dk"] }),
+    }),
+  );
+  assert(res instanceof Response);
+  assertEquals(res.headers.get("location"), "/profile/?saved=groups");
+  assertEquals((await store.getViewer("view-all"))?.groups, ["dk"]);
+
+  // Unknown groups are rejected.
+  await assertRejects(() =>
+    profileRoute.handlers.POST(
+      ctx("http://localhost/profile/", {
+        method: "POST",
+        headers: VIEWER,
+        body: form({ action: "groups", groups: ["bogus"] }),
+      }),
+    )
+  );
+});
+
+routeTest("a viewer subscribes to and unsubscribes from the monthly email", async () => {
+  const store = await getStore();
+  const subscribed = await profileRoute.handlers.POST(
+    ctx("http://localhost/profile/", {
+      method: "POST",
+      headers: VIEWER,
+      body: form({ action: "subscribe" }),
     }),
   );
   assert(subscribed instanceof Response);
   assertEquals(subscribed.status, 303);
-  assertEquals(subscribed.headers.get("location"), "/newsletter/?saved=1");
+  assertEquals(subscribed.headers.get("location"), "/profile/?saved=subscribed");
   let viewer = await store.getViewer("view-all");
-  assertEquals(viewer?.newsletter?.email, "rix@example.com");
-  assertEquals(viewer?.newsletter?.groups, ["dk"]);
+  assertEquals(viewer?.newsletter?.email, "everyone@example.com");
 
-  const page = await newsletterRoute.handlers.GET(
-    ctx("http://localhost/newsletter/?saved=1", { headers: VIEWER }),
+  const page = await profileRoute.handlers.GET(
+    ctx("http://localhost/profile/?saved=subscribed", { headers: VIEWER }),
   );
   assert(!(page instanceof Response));
-  assertEquals(page.data.newsletter?.email, "rix@example.com");
-  assertEquals(page.data.saved, true);
+  assertEquals(page.data.subscribed, true);
 
-  // Another active viewer cannot reuse the address; invalid emails are rejected.
-  await assertRejects(() =>
-    newsletterRoute.handlers.POST(
-      ctx("http://localhost/newsletter/", {
-        method: "POST",
-        headers: { cookie: "family_viewer=view-dk" },
-        body: form({ email: "RIX@example.com" }),
-      }),
-    )
-  );
-  await assertRejects(() =>
-    newsletterRoute.handlers.POST(
-      ctx("http://localhost/newsletter/", {
-        method: "POST",
-        headers: VIEWER,
-        body: form({ email: "not an email" }),
-      }),
-    )
-  );
-
-  const unsubscribed = await newsletterRoute.handlers.POST(
-    ctx("http://localhost/newsletter/", {
+  const unsubscribed = await profileRoute.handlers.POST(
+    ctx("http://localhost/profile/", {
       method: "POST",
       headers: VIEWER,
       body: form({ action: "unsubscribe" }),
     }),
   );
   assert(unsubscribed instanceof Response);
-  assertEquals(unsubscribed.headers.get("location"), "/newsletter/?unsubscribed=1");
+  assertEquals(unsubscribed.headers.get("location"), "/profile/?saved=unsubscribed");
   viewer = await store.getViewer("view-all");
   assertEquals(viewer?.newsletter, undefined);
 
@@ -110,11 +115,20 @@ routeTest("viewers subscribe, update and unsubscribe; duplicates are rejected", 
   assert(actions.includes("newsletter_unsubscribe"));
 });
 
+async function subscribeViewer() {
+  await profileRoute.handlers.POST(
+    ctx("http://localhost/profile/", {
+      method: "POST",
+      headers: VIEWER,
+      body: form({ action: "subscribe" }),
+    }),
+  );
+}
+
 routeTest("admin newsletters require an editor capability", async () => {
   await assertRejects(() =>
     adminNewslettersRoute.handlers.GET(ctx("http://localhost/admin/newsletters/"))
   );
-  // A view-only session is not enough.
   await assertRejects(() =>
     adminNewslettersRoute.handlers.GET(
       ctx("http://localhost/admin/newsletters/", {
@@ -146,24 +160,16 @@ routeTest("generation, editing, sending and deleting a draft work end-to-end", a
   const today = osloToday();
   const target = addMonths({ year: today.year, month: today.month }, 1);
   const month = monthKey(target);
-  // Guarantee a birthday in the target month for the all-groups segment.
   await store.upsertPerson({
     id: "nl-target",
     name: "Nyhetsbrevperson",
     born: `${target.year - 30}-${pad2(target.month)}-15`,
     died: null,
-    groups: ["no"],
+    affiliation: "no",
     notes: "",
   });
-  await newsletterRoute.handlers.POST(
-    ctx("http://localhost/newsletter/", {
-      method: "POST",
-      headers: VIEWER,
-      body: form({ email: "rix@example.com" }),
-    }),
-  );
+  await subscribeViewer();
 
-  // Out-of-range months are rejected; the valid one creates the segment draft.
   await assertRejects(() =>
     adminNewslettersRoute.handlers.POST(
       ctx("http://localhost/admin/newsletters/", {
@@ -183,7 +189,6 @@ routeTest("generation, editing, sending and deleting a draft work end-to-end", a
   assert(generated instanceof Response);
   assertEquals(generated.headers.get("location"), "/admin/newsletters/?generated=1");
 
-  // Generating the same month again has no idempotency key: it adds another draft.
   await adminNewslettersRoute.handlers.POST(
     ctx("http://localhost/admin/newsletters/", {
       method: "POST",
@@ -196,8 +201,8 @@ routeTest("generation, editing, sending and deleting a draft work end-to-end", a
   );
   assert(!(list instanceof Response));
   assertEquals(list.data.drafts.length, 2);
-  assertEquals(list.data.drafts[0].segment, "all");
-  assertEquals(list.data.subscribers.map((s) => s.email), ["rix@example.com"]);
+  assertEquals(list.data.drafts[0].segment, ALL_SEGMENT);
+  assertEquals(list.data.subscribers.map((s) => s.email), ["everyone@example.com"]);
 
   const id = list.data.drafts[0].id;
   const url = `http://localhost/admin/newsletters/${id}`;
@@ -209,7 +214,7 @@ routeTest("generation, editing, sending and deleting a draft work end-to-end", a
   const detail = await draftRoute.handlers.GET(ctx(url, { headers: ADMIN }, { id }));
   assert(!(detail instanceof Response));
   assertEquals(detail.data.draft.month, month);
-  assertStringIncludes(detail.data.bcc, "rix@example.com");
+  assertStringIncludes(detail.data.bcc, "everyone@example.com");
   assertStringIncludes(detail.data.html, "Nyhetsbrevperson");
   assertStringIncludes(detail.data.html, "<h2");
   assertStringIncludes(detail.data.draft.subject, "Familiekalenderen: bursdager i");
@@ -233,7 +238,6 @@ routeTest("generation, editing, sending and deleting a draft work end-to-end", a
   assertEquals(sentDraft?.recipientCount, 1);
   assertEquals(sentDraft?.sentBy, "Family editor");
 
-  // Sent drafts are immutable but can still be deleted.
   await assertRejects(() =>
     draftRoute.handlers.POST(
       ctx(url, {
@@ -255,13 +259,12 @@ routeTest(
   "the admin page flags subscriber segments missing a draft for the current month",
   async () => {
     const store = await getStore();
-    // Reading the page never creates drafts.
     const before = await adminNewslettersRoute.handlers.GET(
       ctx("http://localhost/admin/newsletters/", { headers: ADMIN }),
     );
     assert(!(before instanceof Response));
     assertEquals(await store.listNewsletterDrafts(), []);
-    assertEquals(before.data.missing, []); // no subscribers yet
+    assertEquals(before.data.missing, []);
 
     const today = osloToday();
     await store.upsertPerson({
@@ -269,22 +272,16 @@ routeTest(
       name: "Bursdagsbarn",
       born: `1990-${pad2(today.month)}-${pad2(today.day)}`,
       died: null,
-      groups: ["no"],
+      affiliation: "no",
       notes: "",
     });
-    await newsletterRoute.handlers.POST(
-      ctx("http://localhost/newsletter/", {
-        method: "POST",
-        headers: VIEWER,
-        body: form({ email: "rix@example.com" }),
-      }),
-    );
+    await subscribeViewer();
 
     const withSubscriber = await adminNewslettersRoute.handlers.GET(
       ctx("http://localhost/admin/newsletters/", { headers: ADMIN }),
     );
     assert(!(withSubscriber instanceof Response));
-    assertEquals(withSubscriber.data.missing, ["all"]);
+    assertEquals(withSubscriber.data.missing, [ALL_SEGMENT]);
 
     await adminNewslettersRoute.handlers.POST(
       ctx("http://localhost/admin/newsletters/", {
@@ -309,16 +306,10 @@ routeTest("a draft can be deleted directly from the list page", async () => {
     name: "Listebarn",
     born: `1990-${pad2(today.month)}-${pad2(today.day)}`,
     died: null,
-    groups: ["no"],
+    affiliation: "no",
     notes: "",
   });
-  await newsletterRoute.handlers.POST(
-    ctx("http://localhost/newsletter/", {
-      method: "POST",
-      headers: VIEWER,
-      body: form({ email: "rix@example.com" }),
-    }),
-  );
+  await subscribeViewer();
   const month = monthKey({ year: today.year, month: today.month });
   await adminNewslettersRoute.handlers.POST(
     ctx("http://localhost/admin/newsletters/", {
@@ -361,18 +352,12 @@ routeTest("a draft can be deleted directly from the list page", async () => {
 
 routeTest("an admin can remove a subscriber from the newsletter", async () => {
   const store = await getStore();
-  await newsletterRoute.handlers.POST(
-    ctx("http://localhost/newsletter/", {
-      method: "POST",
-      headers: VIEWER,
-      body: form({ email: "rix@example.com" }),
-    }),
-  );
+  await subscribeViewer();
   const before = await adminNewslettersRoute.handlers.GET(
     ctx("http://localhost/admin/newsletters/", { headers: ADMIN }),
   );
   assert(!(before instanceof Response));
-  assertEquals(before.data.subscribers.map((s) => s.email), ["rix@example.com"]);
+  assertEquals(before.data.subscribers.map((s) => s.email), ["everyone@example.com"]);
   const token = before.data.subscribers[0].token;
 
   await assertRejects(() =>

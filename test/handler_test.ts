@@ -19,6 +19,7 @@ const adminPeopleRoute = await import("../routes/admin/people/index.tsx");
 const adminViewersRoute = await import("../routes/admin/viewers/index.tsx");
 const dataRoute = await import("../routes/api/data/[token].ts");
 const peopleRoute = await import("../routes/api/people/[token].ts");
+const eventsRoute = await import("../routes/api/events/[token].ts");
 const auditRoute = await import("../routes/api/audit/[token].ts");
 const calRoute = await import("../routes/cal/[token].ics.ts");
 const main = await import("../main.ts");
@@ -101,7 +102,7 @@ routeTest("GET /api/data/<token> scopes data and rejects unknown tokens", async 
   assertEquals(res.status, 200);
   const data = await res.json();
   assert(Array.isArray(data.people) && data.people.length > 0);
-  assert(data.people.every((person: { group: string }) => person.group === "dk"));
+  assert(data.people.every((person: { affiliation: string }) => person.affiliation === "dk"));
   assert(data.groups && Object.keys(data.groups).length === 2);
   assert(Array.isArray(data.holidays) && data.holidays.length > 0);
 
@@ -139,7 +140,7 @@ routeTest(
                 id: "solveig",
                 name: "Solveig",
                 born: "1992-05-13",
-                groups: ["no"],
+                affiliation: "no",
                 notes: "",
               },
             ],
@@ -171,7 +172,7 @@ routeTest("POST /api/people rejects invalid dates with 400", async () => {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          people: [{ name: "Bad", born: "13-40-99" }],
+          people: [{ name: "Bad", born: "13-40-99", affiliation: "no" }],
         }),
       },
       { token: "editor" },
@@ -195,7 +196,7 @@ routeTest("PATCH /api/people updates one person for editor tokens", async () => 
             name: "Solveig Updated",
             born: "1992-05-13",
             died: null,
-            groups: ["no"],
+            affiliation: "no",
             notes: "Updated inline",
           },
         }),
@@ -219,6 +220,42 @@ routeTest("/about uses the current viewer session in shared navigation", async (
   assertEquals(result.data.adminUrl, "/admin/");
 });
 
+routeTest("PUT /api/events adds an event for editor tokens", async () => {
+  const res = await eventsRoute.handler.PUT(
+    ctx(
+      "http://localhost/api/events/editor",
+      {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          event: { kind: "wedding", title: "Bryllup", date: "06-04", groups: ["no"] },
+        }),
+      },
+      { token: "editor" },
+    ),
+  );
+  assertEquals(res.status, 200);
+  const { event } = await res.json();
+  assertEquals(event.title, "Bryllup");
+  assert((await (await getStore()).listEvents()).some((e) => e.id === event.id));
+});
+
+routeTest("PUT /api/events rejects view-only tokens", async () => {
+  const res = await eventsRoute.handler.PUT(
+    ctx(
+      "http://localhost/api/events/view-all",
+      {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ event: {} }),
+      },
+      { token: "view-all" },
+    ),
+  );
+  assertEquals(res.status, 404);
+  await res.text();
+});
+
 routeTest("private calendar and admin pages enforce viewer capabilities", async () => {
   const login = await viewRoute.handlers.GET(
     ctx("http://localhost/view/view-dk", {}, { token: "view-dk" }),
@@ -233,7 +270,7 @@ routeTest("private calendar and admin pages enforce viewer capabilities", async 
     ctx("http://localhost/calendar/", { headers: { cookie: viewerCookies } }),
   );
   assert(!(calendar instanceof Response));
-  assert(calendar.data.calendar.people.every((person) => person.group === "dk"));
+  assert(calendar.data.calendar.people.every((person) => person.affiliation === "dk"));
   assertEquals(calendar.data.viewerName, "Danish family");
   assertEquals(calendar.data.editUrl, undefined);
 

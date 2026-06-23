@@ -8,14 +8,13 @@ function person(p: Partial<Person> & { name: string }): Person {
     name: p.name,
     born: p.born ?? null,
     died: p.died ?? null,
-    groups: p.groups ?? [],
+    affiliation: p.affiliation ?? "no",
     notes: p.notes ?? "",
   };
 }
 
 const newsletter: NewsletterPreference = {
   email: "a@b.no",
-  groups: [],
   subscribedAt: "2026-01-01",
   updatedAt: "2026-01-01",
 };

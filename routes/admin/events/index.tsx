@@ -1,7 +1,7 @@
 import { AdminShell } from "@/components/AdminShell.tsx";
 import { adminDenied, adminViewer } from "@/lib/admin_auth.ts";
 import { getStore } from "@/lib/db.ts";
-import { eventKindLabels, normalizeEvent } from "@/lib/family_events.ts";
+import { addEvent, eventKindLabels } from "@/lib/family_events.ts";
 import { EVENT_KINDS } from "@/lib/model.ts";
 import { ValidationError } from "@/lib/people.ts";
 import { MentionTextarea } from "@/islands/MentionTextarea.tsx";
@@ -54,28 +54,18 @@ export const handlers = define.handlers({
       });
     }
 
-    const knownGroups = new Set((await store.listGroups()).map((group) => group.key));
-    let event;
     try {
-      event = normalizeEvent({
+      await addEvent(store, {
         kind: String(form.get("kind") ?? ""),
         title: String(form.get("title") ?? ""),
         date: String(form.get("date") ?? "").trim(),
         groups: form.getAll("groups").map(String),
         notes: String(form.get("notes") ?? ""),
-      }, knownGroups);
+      }, viewer.name);
     } catch (error) {
       if (error instanceof ValidationError) throw new HttpError(400, error.message);
       throw error;
     }
-    await store.upsertEvent(event);
-    await store.appendAudit({
-      at: new Date().toISOString(),
-      actor: viewer.name,
-      action: "create_event",
-      targetId: event.id,
-      detail: `Added ${event.kind} "${event.title}" on ${event.date}`,
-    });
     return new Response(null, {
       status: 303,
       headers: { location: "/admin/events/?saved=1" },

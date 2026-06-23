@@ -33,22 +33,25 @@ const GROUPS: GroupInfo[] = [
   { key: "dahl-siden", label: "Danish side", color: "rose" },
 ];
 
+// Following every group is now explicit (no "empty = all" magic).
+const ALL = ["berg-siden", "dahl-siden"];
+
 const PEOPLE: Person[] = [
   {
     id: "kari",
     name: "Kari",
     born: "1984-06-03",
     died: null,
-    groups: ["berg-siden"],
+    affiliation: "berg-siden",
     notes: "supersecret note",
   },
-  { id: "ola", name: "Ola", born: "06-07", died: null, groups: ["dahl-siden"], notes: "" },
+  { id: "ola", name: "Ola", born: "06-07", died: null, affiliation: "dahl-siden", notes: "" },
   {
     id: "bestemor",
     name: "Bestemor Anna",
     born: "1931-06-12",
     died: "2020-01-15",
-    groups: ["berg-siden"],
+    affiliation: "berg-siden",
     notes: "",
   },
   {
@@ -56,7 +59,7 @@ const PEOPLE: Person[] = [
     name: "Tante Liv",
     born: "06-03",
     died: "2015-02-02",
-    groups: ["berg-siden"],
+    affiliation: "berg-siden",
     notes: "",
   },
   {
@@ -64,24 +67,25 @@ const PEOPLE: Person[] = [
     name: "Astrid",
     born: "1992-06-20",
     died: null,
-    groups: ["berg-siden", "dahl-siden"],
+    affiliation: "dahl-siden",
     notes: "",
   },
-  { id: "juli", name: "Per", born: "1990-07-01", died: null, groups: ["berg-siden"], notes: "" },
-  { id: "ukjent", name: "Ukjent", born: null, died: null, groups: ["berg-siden"], notes: "" },
+  { id: "juli", name: "Per", born: "1990-07-01", died: null, affiliation: "berg-siden", notes: "" },
+  { id: "ukjent", name: "Ukjent", born: null, died: null, affiliation: "berg-siden", notes: "" },
 ];
 
 const JUNE = { year: 2026, month: 6 };
 
+// A subscriber follows `groups` (their viewer groups) and has opted into the email.
 function subscriber(token: string, name: string, email: string, groups: string[]): Viewer {
   return {
     token,
     name,
-    groups: [],
+    email,
+    groups,
     canEdit: false,
     newsletter: {
       email,
-      groups,
       subscribedAt: "2026-01-01T00:00:00.000Z",
       updatedAt: "2026-01-01T00:00:00.000Z",
     },
@@ -89,10 +93,8 @@ function subscriber(token: string, name: string, email: string, groups: string[]
 }
 
 Deno.test("oslo today crosses midnight at the right UTC offset", () => {
-  // Summer (CEST, UTC+2): 22:00 UTC is already the next day in Oslo.
   assertEquals(osloToday(new Date("2026-06-23T21:59:59Z")), { year: 2026, month: 6, day: 23 });
   assertEquals(osloToday(new Date("2026-06-23T22:00:00Z")), { year: 2026, month: 6, day: 24 });
-  // Winter (CET, UTC+1): the boundary shifts to 23:00 UTC.
   assertEquals(osloToday(new Date("2026-12-24T22:59:59Z")), { year: 2026, month: 12, day: 24 });
   assertEquals(osloToday(new Date("2026-12-24T23:00:00Z")), { year: 2026, month: 12, day: 25 });
 });
@@ -119,7 +121,7 @@ Deno.test("segment keys are canonical: sorted, deduplicated, empty = all", () =>
 });
 
 Deno.test("birthdays for a month: filtering, order, ages, unknown years, deceased", () => {
-  const all = birthdaysForMonth(PEOPLE, JUNE, []);
+  const all = birthdaysForMonth(PEOPLE, JUNE, ALL);
   assertEquals(all.map((b) => b.personId), ["kari", "tante", "ola", "bestemor", "begge"]);
   const kari = all[0];
   assertEquals(kari.age, 42);
@@ -128,9 +130,10 @@ Deno.test("birthdays for a month: filtering, order, ages, unknown years, decease
   assertEquals(all.find((b) => b.personId === "bestemor")?.age, 95);
   assertEquals(all.find((b) => b.personId === "bestemor")?.deceased, true);
 
-  // Any selected group matches; people in several groups appear once.
+  // Following only the Danish side shows just its members; an empty follow shows nobody.
   const dansk = birthdaysForMonth(PEOPLE, JUNE, ["dahl-siden"]);
   assertEquals(dansk.map((b) => b.personId), ["ola", "begge"]);
+  assertEquals(birthdaysForMonth(PEOPLE, JUNE, []), []);
 });
 
 const REMEMBERED: Person[] = [
@@ -139,7 +142,7 @@ const REMEMBERED: Person[] = [
     name: "Farfar",
     born: null,
     died: "2023-06-20",
-    groups: ["berg-siden"],
+    affiliation: "berg-siden",
     notes: "",
   },
   {
@@ -147,7 +150,7 @@ const REMEMBERED: Person[] = [
     name: "Nylig Gått",
     born: null,
     died: "2026-06-05",
-    groups: ["berg-siden"],
+    affiliation: "berg-siden",
     notes: "",
   },
   {
@@ -155,7 +158,7 @@ const REMEMBERED: Person[] = [
     name: "Vinterbarn",
     born: null,
     died: "2018-01-02",
-    groups: ["berg-siden"],
+    affiliation: "berg-siden",
     notes: "",
   },
 ];
@@ -180,8 +183,7 @@ const EVENTS: FamilyEvent[] = [
 ];
 
 Deno.test("monthRemembrances: anniversaries from the first year onward, by group", () => {
-  // 2026 - 2023 = 3 years; the same-year death and other months are excluded.
-  const june = monthRemembrances(REMEMBERED, JUNE, []);
+  const june = monthRemembrances(REMEMBERED, JUNE, ALL);
   assertEquals(june.map((r) => r.personId), ["farfar"]);
   assertEquals(june[0].yearsSince, 3);
 
@@ -189,7 +191,7 @@ Deno.test("monthRemembrances: anniversaries from the first year onward, by group
 });
 
 Deno.test("monthOccasions: family events recurring in the month, year known or not", () => {
-  const all = monthOccasions(EVENTS, JUNE, []);
+  const all = monthOccasions(EVENTS, JUNE, ALL);
   assertEquals(all.map((o) => o.id), ["w1", "b1"]);
   assertEquals(all[0].yearsSince, 8);
   assertEquals(all[1].year, null);
@@ -208,12 +210,11 @@ Deno.test("the body notes remembrances and occasions in one sentence, never a li
       "8 år siden Solveig & Halvor (bryllup) (4. jun 2018) denne måneden.",
   );
 
-  // No remembrances or occasions: no trailing sentence at all.
   assertEquals(buildBody(JUNE, []).trim().endsWith("2026"), true);
 });
 
 Deno.test("the Norwegian body lists birthdays with the right wording", () => {
-  const body = buildBody(JUNE, birthdaysForMonth(PEOPLE, JUNE, []));
+  const body = buildBody(JUNE, birthdaysForMonth(PEOPLE, JUNE, ALL));
   assert(body.startsWith(INTRO_PLACEHOLDER), "intro placeholder must lead the body");
   assertStringIncludes(body, "## Bursdager i juni 2026");
   assertStringIncludes(body, "- **3. juni** – Kari fyller 42 år");
@@ -233,7 +234,7 @@ Deno.test("the default subject is Norwegian month + year", () => {
 });
 
 Deno.test("the LLM prompt is anonymous: dates and counts only", () => {
-  const birthdays = birthdaysForMonth(PEOPLE, JUNE, []);
+  const birthdays = birthdaysForMonth(PEOPLE, JUNE, ALL);
   const prompt = buildPrompt(JUNE, birthdays);
   assertStringIncludes(prompt, "juni 2026");
   assertStringIncludes(prompt, `Antall bursdager: ${birthdays.length}`);
@@ -264,14 +265,14 @@ Deno.test("the LLM prompt is anonymous: dates and counts only", () => {
   }
 });
 
-Deno.test("segments derive from active subscribers only", () => {
+Deno.test("segments derive from active subscribers and their followed groups", () => {
   const expired: Viewer = {
-    ...subscriber("x1", "Gone", "gone@example.com", []),
+    ...subscriber("x1", "Gone", "gone@example.com", ["berg-siden"]),
     expiredAt: "2026-01-02T00:00:00.000Z",
   };
-  const plain: Viewer = { token: "p1", name: "No mail", groups: [], canEdit: false };
+  const plain: Viewer = { token: "p1", name: "No mail", groups: ["berg-siden"], canEdit: false };
   const viewers = [
-    subscriber("a1", "Anna", "anna@example.com", []),
+    subscriber("a1", "Anna", "anna@example.com", ["berg-siden"]),
     subscriber("b1", "Bo", "bo@example.com", ["dahl-siden"]),
     subscriber("c1", "Cleo", "cleo@example.com", ["berg-siden", "dahl-siden"]),
     subscriber("d1", "Dag", "dag@example.com", ["dahl-siden", "berg-siden"]),
@@ -279,28 +280,27 @@ Deno.test("segments derive from active subscribers only", () => {
     plain,
   ];
   const segments = subscriberSegments(viewers);
-  assertEquals(segments.map((s) => s.key), ["all", "berg-siden+dahl-siden", "dahl-siden"]);
+  assertEquals(segments.map((s) => s.key), ["berg-siden", "berg-siden+dahl-siden", "dahl-siden"]);
   assertEquals(segments[1].subscribers.length, 2);
 });
 
 Deno.test("draft generation skips segments without birthdays and has no idempotency key", async () => {
   const store = new SeedStore(PEOPLE, GROUPS, [
-    subscriber("a1", "Anna", "anna@example.com", []),
+    subscriber("a1", "Anna", "anna@example.com", ["berg-siden", "dahl-siden"]),
     subscriber("b1", "Bo", "bo@example.com", ["dahl-siden"]),
     subscriber("e1", "Eli", "eli@example.com", ["berg-siden"]),
   ]);
-  // July: only Per (berg-siden) has a birthday, so the dahl-siden segment is skipped.
+  // July: only Per (berg-siden) has a birthday, so the dahl-siden-only segment is skipped.
   const july = { year: 2026, month: 7 };
   const created = await generateDraftsForMonth(store, july, "Admin");
   assertEquals(created.map((d) => `${d.month} ${d.segment}`).sort(), [
-    "2026-07 all",
     "2026-07 berg-siden",
+    "2026-07 berg-siden+dahl-siden",
   ]);
   assertEquals(created[0].status, "draft");
   assertStringIncludes(created[0].subject, "juli 2026");
   assert(created.every((d) => /^[0-9a-f-]{36}$/.test(d.id)));
 
-  // Generating the same month again adds more drafts rather than skipping.
   const again = await generateDraftsForMonth(store, july, "Admin");
   assertEquals(again.length, 2);
   assertEquals((await store.listNewsletterDrafts()).length, 4);
@@ -314,8 +314,6 @@ Deno.test("draft generation also covers segments with only a remembrance or an o
     [],
     EVENTS,
   );
-  // June: berg-siden has birthdays AND a remembrance/occasion; no other segment exists here,
-  // so generate against a month where only the remembrance/occasion carries the draft.
   const noBirthdaysMonth = { year: 2026, month: 9 };
   const created = await generateDraftsForMonth(store, noBirthdaysMonth, "Admin");
   assertEquals(created, []);
@@ -335,14 +333,13 @@ Deno.test("draft generation also covers segments with only a remembrance or an o
 
 Deno.test("drafts (and sent records) can be deleted", async () => {
   const store = new SeedStore(PEOPLE, GROUPS, [
-    subscriber("a1", "Anna", "anna@example.com", []),
+    subscriber("a1", "Anna", "anna@example.com", ["berg-siden"]),
   ]);
   const [draft] = await generateDraftsForMonth(store, JUNE, "Admin");
   await deleteDraft(store, draft.id, "Admin");
   assertEquals(await store.listNewsletterDrafts(), []);
   await assertRejects(() => deleteDraft(store, draft.id, "Admin"));
 
-  // Sent records can be removed too.
   const [recreated] = await generateDraftsForMonth(store, JUNE, "Admin");
   await markDraftSent(store, recreated.id, "Admin");
   await deleteDraft(store, recreated.id, "Admin");
@@ -353,13 +350,16 @@ Deno.test("drafts (and sent records) can be deleted", async () => {
 
 Deno.test("missingSegments names segments with birthdays but no draft yet", async () => {
   const store = new SeedStore(PEOPLE, GROUPS, [
-    subscriber("a1", "Anna", "anna@example.com", []),
+    subscriber("a1", "Anna", "anna@example.com", ["berg-siden", "dahl-siden"]),
     subscriber("b1", "Bo", "bo@example.com", ["dahl-siden"]),
     subscriber("e1", "Eli", "eli@example.com", ["berg-siden"]),
   ]);
-  // July: only Per (berg-siden) has a birthday, so the dahl-siden segment is excluded.
+  // July: only Per (berg-siden) has a birthday, so the dahl-siden-only segment is excluded.
   const july = { year: 2026, month: 7 };
-  assertEquals((await missingSegments(store, july)).map((s) => s.key), ["all", "berg-siden"]);
+  assertEquals((await missingSegments(store, july)).map((s) => s.key), [
+    "berg-siden",
+    "berg-siden+dahl-siden",
+  ]);
 
   await generateDraftsForMonth(store, july, "Admin");
   assertEquals(await missingSegments(store, july), []);
@@ -367,7 +367,7 @@ Deno.test("missingSegments names segments with birthdays but no draft yet", asyn
 
 Deno.test("manual edits persist; regeneration discards them after confirmation", async () => {
   const store = new SeedStore(PEOPLE, GROUPS, [
-    subscriber("a1", "Anna", "anna@example.com", []),
+    subscriber("a1", "Anna", "anna@example.com", ["berg-siden"]),
   ]);
   const [draft] = await generateDraftsForMonth(store, JUNE, "Admin");
 
@@ -389,7 +389,7 @@ Deno.test("manual edits persist; regeneration discards them after confirmation",
 
 Deno.test("recipients stay dynamic until sent; sent drafts are immutable", async () => {
   const store = new SeedStore(PEOPLE, GROUPS, [
-    subscriber("a1", "Anna", "anna@example.com", []),
+    subscriber("a1", "Anna", "anna@example.com", ["berg-siden"]),
   ]);
   const [draft] = await generateDraftsForMonth(store, JUNE, "Admin");
   assertEquals(
@@ -398,7 +398,7 @@ Deno.test("recipients stay dynamic until sent; sent drafts are immutable", async
   );
 
   // A new subscriber in the same segment joins before send and is counted.
-  await store.upsertViewer(subscriber("z1", "Solveig", "solveig@example.com", []));
+  await store.upsertViewer(subscriber("z1", "Solveig", "solveig@example.com", ["berg-siden"]));
   const sent = await markDraftSent(store, draft.id, "Admin");
   assertEquals(sent.status, "sent");
   assertEquals(sent.recipientCount, 2);
@@ -412,42 +412,26 @@ Deno.test("recipients stay dynamic until sent; sent drafts are immutable", async
   await assertRejects(() => markDraftSent(store, draft.id, "Admin"));
 });
 
-Deno.test("subscribing validates, normalizes and audits; duplicates are rejected", async () => {
-  const anna: Viewer = { token: "a1", name: "Anna", groups: [], canEdit: false };
-  const bo: Viewer = { token: "b1", name: "Bo", groups: [], canEdit: false };
-  const expired: Viewer = {
-    ...subscriber("x1", "Gone", "anna@example.com", []),
-    expiredAt: "2026-01-02T00:00:00.000Z",
-  };
-  const store = new SeedStore(PEOPLE, GROUPS, [anna, bo, expired]);
-
-  await assertRejects(() =>
-    setNewsletterPreference(store, anna, { email: "not-an-email", groups: [] })
-  );
-  await assertRejects(() =>
-    setNewsletterPreference(store, anna, { email: "a@b.c", groups: ["unknown"] })
-  );
-
-  // An expired viewer's email does not block; normalization lowercases/trims.
-  const subscribed = await setNewsletterPreference(store, anna, {
-    email: "  Anna@Example.com ",
-    groups: ["dahl-siden"],
-  });
-  assertEquals(subscribed.newsletter?.email, "anna@example.com");
-  assertEquals(subscribed.newsletter?.groups, ["dahl-siden"]);
-
-  // Another active viewer cannot reuse the address.
-  await assertRejects(() =>
-    setNewsletterPreference(store, bo, { email: "ANNA@example.com", groups: [] })
-  );
-
-  // Updating keeps subscribedAt and bumps updatedAt.
-  const updated = await setNewsletterPreference(store, subscribed, {
+Deno.test("subscribing uses the profile email, toggles, and audits", async () => {
+  const anna: Viewer = {
+    token: "a1",
+    name: "Anna",
     email: "anna@example.com",
-    groups: [],
-  });
+    groups: ["berg-siden"],
+    canEdit: false,
+  };
+  const noEmail: Viewer = { token: "n1", name: "No Email", groups: ["berg-siden"], canEdit: false };
+  const store = new SeedStore(PEOPLE, GROUPS, [anna, noEmail]);
+
+  // Cannot subscribe without a profile email.
+  await assertRejects(() => setNewsletterPreference(store, noEmail));
+
+  const subscribed = await setNewsletterPreference(store, anna);
+  assertEquals(subscribed.newsletter?.email, "anna@example.com");
+
+  // Re-subscribing keeps subscribedAt (it's an update, not a fresh opt-in).
+  const updated = await setNewsletterPreference(store, subscribed);
   assertEquals(updated.newsletter?.subscribedAt, subscribed.newsletter?.subscribedAt);
-  assertEquals(updated.newsletter?.groups, []);
 
   const cleared = await clearNewsletterPreference(store, updated);
   assertEquals(cleared.newsletter, undefined);

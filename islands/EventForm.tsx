@@ -1,12 +1,14 @@
 import { activeMention, insertMention, type MentionMatch } from "@/lib/mentions.ts";
-import type { ViewGroup, ViewPerson } from "@/lib/view_data.ts";
+import { eventKindLabels } from "@/lib/family_events.ts";
+import { EVENT_KINDS } from "@/lib/model.ts";
+import type { ViewEvent, ViewGroup, ViewPerson } from "@/lib/view_data.ts";
 import { useEffect, useRef, useState } from "preact/hooks";
 
-interface PersonDraft {
-  name: string;
-  born: string;
-  died: string;
-  affiliation: string;
+interface EventDraft {
+  kind: string;
+  title: string;
+  date: string;
+  groups: string[];
   notes: string;
 }
 
@@ -16,64 +18,67 @@ interface MentionMenu {
 }
 
 interface Props {
-  /** The person being edited, or null to add a new one. */
-  person: ViewPerson | null;
   groups: Record<string, ViewGroup>;
   /** People list, for @-mention suggestions. */
   people: ViewPerson[];
-  /** Editor API endpoint (`/api/people/<token>`). */
+  /** Editor API endpoint (`/api/events/<token>`). */
   saveUrl: string;
-  onSaved: (person: ViewPerson) => void;
+  onSaved: (event: ViewEvent) => void;
   onCancel: () => void;
 }
 
-const birthDateValid = (value: string) =>
-  value === "" || /^\d{4}-\d{2}-\d{2}$/.test(value) || /^\d{2}-\d{2}$/.test(value);
-const deathDateValid = (value: string) => value === "" || /^\d{4}-\d{2}-\d{2}$/.test(value);
+const dateValid = (value: string) =>
+  /^\d{4}-\d{2}-\d{2}$/.test(value) || /^\d{2}-\d{2}$/.test(value);
 
-function toViewPerson(saved: {
+function toViewEvent(saved: {
   id: string;
-  name: string;
-  born?: string | null;
-  died?: string | null;
-  affiliation?: string;
+  kind: string;
+  title: string;
+  date: string;
+  groups?: string[];
   notes?: string;
-}): ViewPerson {
+}): ViewEvent {
   return {
     id: saved.id,
-    name: saved.name,
-    date: saved.born || "",
-    died: saved.died || "",
-    affiliation: saved.affiliation || "",
-    notes: saved.notes || "",
-    type: "birthday",
+    kind: saved.kind,
+    title: saved.title,
+    date: saved.date,
+    groups: saved.groups ?? [],
+    notes: saved.notes ?? "",
   };
 }
 
 /**
- * The add/edit person form with the shared `@person` note mentions. No sheet
- * shell of its own, so it can sit inside any container (the calendar reuses its
- * detail slide-over, swapping this in place — no extra slide animation).
- * `person === null` adds via PUT; otherwise it edits via PATCH.
+ * Add a family event (wedding, baptism, ...) from the calendar. Shell-less, so
+ * the calendar swaps it into its detail slide-over in place — the same pattern
+ * as `PersonForm`. Submits via PUT and hands the saved event back to `onSaved`.
  */
-export function PersonForm({ person, groups, people, saveUrl, onSaved, onCancel }: Props) {
-  const editing = Boolean(person);
-  const [draft, setDraft] = useState<PersonDraft>(() => ({
-    name: person?.name ?? "",
-    born: person?.date ?? "",
-    died: person?.died ?? "",
-    affiliation: person?.affiliation ?? Object.keys(groups)[0] ?? "",
-    notes: person?.notes ?? "",
+export function EventForm({ groups, people, saveUrl, onSaved, onCancel }: Props) {
+  const [draft, setDraft] = useState<EventDraft>(() => ({
+    kind: EVENT_KINDS[0],
+    title: "",
+    date: "",
+    groups: [],
+    notes: "",
   }));
   const [menu, setMenu] = useState<MentionMenu | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const nameInput = useRef<HTMLInputElement | null>(null);
+  const titleInput = useRef<HTMLInputElement | null>(null);
   const notesInput = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
-    nameInput.current?.focus();
+    titleInput.current?.focus();
   }, []);
+
+  function toggleGroup(group: string) {
+    setDraft((current) => ({
+      ...current,
+      groups: current.groups.includes(group)
+        ? current.groups.filter((key) => key !== group)
+        : [...current.groups, group],
+    }));
+  }
 
   function updateMenu(input: HTMLTextAreaElement) {
     const match = activeMention(input.value, input.selectionStart ?? input.value.length);
@@ -99,38 +104,33 @@ export function PersonForm({ person, groups, people, saveUrl, onSaved, onCancel 
   }
 
   async function save() {
-    if (!draft.name.trim()) return setError("Name is required.");
-    if (!birthDateValid(draft.born)) {
-      return setError("Born must be YYYY-MM-DD, MM-DD, or empty.");
+    if (!draft.title.trim()) return setError("Title is required.");
+    if (!dateValid(draft.date.trim())) {
+      return setError("Date must be YYYY-MM-DD or MM-DD.");
     }
-    if (!deathDateValid(draft.died)) {
-      return setError("Died must be YYYY-MM-DD or empty.");
-    }
-    if (!draft.affiliation) return setError("Pick a group for this person.");
+    if (!draft.groups.length) return setError("Pick at least one group.");
 
     setSaving(true);
     setError("");
-    const personInput = {
-      name: draft.name,
-      born: draft.born || null,
-      died: draft.died || null,
-      affiliation: draft.affiliation,
+    const eventInput = {
+      kind: draft.kind,
+      title: draft.title,
+      date: draft.date.trim(),
+      groups: draft.groups,
       notes: draft.notes,
     };
     try {
       const response = await fetch(saveUrl, {
-        method: editing ? "PATCH" : "PUT",
+        method: "PUT",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(
-          editing ? { id: person!.id, person: personInput } : { person: personInput },
-        ),
+        body: JSON.stringify({ event: eventInput }),
       });
       const body = await response.json();
       if (!response.ok) {
         setError(body.error || `Couldn't save (${response.status}).`);
         return;
       }
-      onSaved(toViewPerson(body.person));
+      onSaved(toViewEvent(body.event));
     } catch {
       setError("Couldn't reach the server.");
     } finally {
@@ -147,54 +147,50 @@ export function PersonForm({ person, groups, people, saveUrl, onSaved, onCancel 
       }}
     >
       <label class="grid gap-1.5 text-sm font-medium">
-        Name
-        <input
-          ref={nameInput}
-          value={draft.name}
-          onInput={(event) => setDraft({ ...draft, name: event.currentTarget.value })}
+        Kind
+        <select
+          value={draft.kind}
+          onChange={(event) => setDraft({ ...draft, kind: event.currentTarget.value })}
           class="input"
+        >
+          {EVENT_KINDS.map((kind) => (
+            <option key={kind} value={kind}>{eventKindLabels[kind]}</option>
+          ))}
+        </select>
+      </label>
+      <label class="grid gap-1.5 text-sm font-medium">
+        Title
+        <input
+          ref={titleInput}
+          value={draft.title}
+          onInput={(event) => setDraft({ ...draft, title: event.currentTarget.value })}
+          class="input"
+          placeholder="Bryllupsdag"
         />
       </label>
-      {editing && (
-        <label class="grid gap-1.5 text-sm font-medium">
-          ID
-          <input
-            value={person!.id}
-            readOnly
-            class="input bg-inset font-mono text-xs text-ink-2"
-          />
-        </label>
-      )}
-      <div class="grid grid-cols-2 gap-3">
-        <label class="grid gap-1.5 text-sm font-medium">
-          Born
-          <input
-            value={draft.born}
-            onInput={(event) => setDraft({ ...draft, born: event.currentTarget.value })}
-            placeholder="YYYY-MM-DD / MM-DD"
-            class="input min-w-0"
-          />
-        </label>
-        <label class="grid gap-1.5 text-sm font-medium">
-          Died
-          <input
-            value={draft.died}
-            onInput={(event) => setDraft({ ...draft, died: event.currentTarget.value })}
-            placeholder="YYYY-MM-DD"
-            class="input min-w-0"
-          />
-        </label>
-      </div>
+      <label class="grid gap-1.5 text-sm font-medium">
+        Date
+        <input
+          value={draft.date}
+          onInput={(event) => setDraft({ ...draft, date: event.currentTarget.value })}
+          placeholder="1992-06-27 / 06-27"
+          class="input tabular-nums"
+        />
+        <span class="text-xs font-normal text-ink-3">
+          Use MM-DD when the year is unknown. The event repeats every year.
+        </span>
+      </label>
       <fieldset>
-        <legend class="text-sm font-medium">Group</legend>
+        <legend class="text-sm font-medium">Groups</legend>
+        <p class="mt-1 text-xs text-ink-3">Who sees this event. Pick one or several.</p>
         <div class="mt-2 flex flex-wrap gap-2">
           {Object.entries(groups).map(([key, group]) => (
             <button
               key={key}
               type="button"
               class="chip"
-              aria-pressed={draft.affiliation === key}
-              onClick={() => setDraft((current) => ({ ...current, affiliation: key }))}
+              aria-pressed={draft.groups.includes(key)}
+              onClick={() => toggleGroup(key)}
             >
               {group.label}
             </button>
@@ -202,9 +198,9 @@ export function PersonForm({ person, groups, people, saveUrl, onSaved, onCancel 
         </div>
       </fieldset>
       <div class="relative grid gap-1.5 text-sm font-medium">
-        <label for="person-form-notes">Notes</label>
+        <label for="event-form-notes">Notes</label>
         <textarea
-          id="person-form-notes"
+          id="event-form-notes"
           ref={notesInput}
           value={draft.notes}
           onInput={(event) => {
@@ -231,7 +227,7 @@ export function PersonForm({ person, groups, people, saveUrl, onSaved, onCancel 
             }
           }}
           onBlur={() => setTimeout(() => setMenu(null), 120)}
-          rows={5}
+          rows={3}
           class="input resize-y leading-6"
           placeholder="Optional; type @ to link a person"
         />
@@ -264,7 +260,7 @@ export function PersonForm({ person, groups, people, saveUrl, onSaved, onCancel 
           Cancel
         </button>
         <button type="submit" class="btn btn-primary" disabled={saving}>
-          {saving ? "Saving…" : editing ? "Save changes" : "Add person"}
+          {saving ? "Saving…" : "Add event"}
         </button>
       </div>
     </form>

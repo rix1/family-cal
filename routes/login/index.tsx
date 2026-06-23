@@ -82,8 +82,11 @@ export default define.page<typeof handlers>(({ data }) => (
                   </button>
                 </form>
                 <p class="mt-6 border-t border-line pt-5 text-sm leading-relaxed text-ink-3">
-                  No account yet? Access is by personal invite — ask the family member who set up
-                  the calendar.
+                  New here? Read{" "}
+                  <a href="/about" class="font-medium text-accent-2 underline underline-offset-2">
+                    what this is
+                  </a>. Access is by personal invite — ask the family member who set up the
+                  calendar.
                 </p>
               </>
             )}

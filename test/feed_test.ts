@@ -16,10 +16,12 @@ Deno.test("buildFeed produces a well-formed calendar from the seed store", async
   assertStringIncludes(ics, "X-WR-CALNAME:Family Calendar");
   assert(!/[^\r]\n/.test(ics), "all newlines must be CRLF");
 
-  // One recurring birthday per dated person.
+  // One recurring birthday per dated person, plus one recurring death
+  // anniversary per remembered person.
   const datedPeople = TEST_PEOPLE.filter((p) => p.born).length;
+  const remembered = TEST_PEOPLE.filter((p) => p.died).length;
   const rrules = (ics.match(/RRULE:FREQ=YEARLY/g) ?? []).length;
-  assertEquals(rrules, datedPeople);
+  assertEquals(rrules, datedPeople + remembered);
 
   // Balanced VEVENT blocks.
   const begin = (ics.match(/BEGIN:VEVENT/g) ?? []).length;

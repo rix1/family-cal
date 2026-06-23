@@ -7,11 +7,11 @@ interface Props {
   eyebrow?: string;
   viewerName?: string;
   /** Marks the matching destination as the current page in the account menu. */
-  current?: "calendar" | "admin" | "newsletter" | "about";
+  current?: "calendar" | "admin" | "profile" | "about";
   calendarUrl?: string;
   /** Present only for editors; gates the Administration link (stable per viewer). */
   adminUrl?: string;
-  newsletterUrl?: string;
+  profileUrl?: string;
   aboutUrl?: string;
   logoutUrl?: string;
   wide?: boolean;
@@ -63,7 +63,7 @@ export function AppHeader({
   current,
   calendarUrl = "/calendar/",
   adminUrl,
-  newsletterUrl = "/newsletter/",
+  profileUrl = "/profile/",
   aboutUrl = "/about",
   logoutUrl,
   wide = false,
@@ -131,14 +131,12 @@ export function AppHeader({
                       Administration
                     </a>
                   )}
-                  <a
-                    href={newsletterUrl}
-                    aria-current={current === "newsletter" ? "page" : undefined}
-                  >
+                  <a href={profileUrl} aria-current={current === "profile" ? "page" : undefined}>
                     <MenuIcon>
-                      <path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6M10 20a2 2 0 0 0 4 0" />
+                      <circle cx="12" cy="8" r="3.5" />
+                      <path d="M5 20v-1a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v1" />
                     </MenuIcon>
-                    Subscribe
+                    Profile
                   </a>
                   <a href={aboutUrl} aria-current={current === "about" ? "page" : undefined}>
                     <MenuIcon>

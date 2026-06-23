@@ -7,7 +7,7 @@ const person = (over: Partial<Person>): Person => ({
   name: "X",
   born: null,
   died: null,
-  groups: ["no"],
+  affiliation: "no",
   notes: "",
   ...over,
 });

@@ -11,6 +11,7 @@ import {
   deleteDraft,
   draftRecipients,
   generateDraftsForMonth,
+  generateMissingDrafts,
   INTRO_PLACEHOLDER,
   markDraftSent,
   missingSegments,
@@ -21,12 +22,31 @@ import {
   parseMonthKey,
   regenerateDraft,
   segmentKey,
+  sendDraft,
   setNewsletterPreference,
   subscriberSegments,
   updateDraftContent,
 } from "../lib/newsletter.ts";
+import type { EmailMessage, EmailSender } from "../lib/email.ts";
+import type { IntroWriter } from "../lib/intro_writer.ts";
 import { SeedStore } from "../lib/store.ts";
 import { assert, assertEquals, assertRejects, assertStringIncludes } from "./asserts.ts";
+
+/** Captures every message instead of sending. */
+class FakeEmailSender implements EmailSender {
+  messages: EmailMessage[] = [];
+  // deno-lint-ignore require-await
+  async send(message: EmailMessage): Promise<void> {
+    this.messages.push(message);
+  }
+}
+
+const fixedIntro: IntroWriter = {
+  // deno-lint-ignore require-await
+  async write() {
+    return "Skreddersydd intro.";
+  },
+};
 
 const GROUPS: GroupInfo[] = [
   { key: "berg-siden", label: "Norwegian side", color: "blue" },
@@ -233,36 +253,15 @@ Deno.test("the default subject is Norwegian month + year", () => {
   );
 });
 
-Deno.test("the LLM prompt is anonymous: dates and counts only", () => {
+Deno.test("the local-model prompt includes names and ages, but never private notes", () => {
   const birthdays = birthdaysForMonth(PEOPLE, JUNE, ALL);
   const prompt = buildPrompt(JUNE, birthdays);
+  // Names/ages are intentionally included — the model runs locally.
+  assertStringIncludes(prompt, "Kari fyller 42");
   assertStringIncludes(prompt, "juni 2026");
-  assertStringIncludes(prompt, `Antall bursdager: ${birthdays.length}`);
-  assertStringIncludes(prompt, "3. juni (2 bursdager)");
-  assertStringIncludes(prompt, "7. juni");
-  assertStringIncludes(prompt, "2–3 setninger");
-  for (
-    const pii of [
-      "Kari",
-      "Ola",
-      "Bestemor",
-      "Anna",
-      "Astrid",
-      "Tante",
-      "1984",
-      "1931",
-      "42",
-      "95",
-      "supersecret",
-      "berg-siden",
-      "dahl-siden",
-      "Norwegian side",
-      "Danish side",
-      "@",
-    ]
-  ) {
-    assert(!prompt.includes(pii), `prompt must not leak "${pii}"`);
-  }
+  assertStringIncludes(prompt, "Svar på norsk");
+  // Free-text person notes must never be in the prompt, even locally.
+  assert(!prompt.includes("supersecret"), "private notes must not reach the model");
 });
 
 Deno.test("segments derive from active subscribers and their followed groups", () => {
@@ -441,6 +440,54 @@ Deno.test("subscribing uses the profile email, toggles, and audits", async () =>
   assertEquals(actions.includes("newsletter_subscribe"), true);
   assertEquals(actions.includes("newsletter_update"), true);
   assertEquals(actions.includes("newsletter_unsubscribe"), true);
+});
+
+Deno.test("the intro writer fills the prose; failures fall back to the placeholder", async () => {
+  const store = new SeedStore(PEOPLE, GROUPS, [
+    subscriber("a1", "Anna", "anna@example.com", ["berg-siden"]),
+  ]);
+  const [withAi] = await generateDraftsForMonth(store, JUNE, "Admin", fixedIntro);
+  assertStringIncludes(withAi.body, "Skreddersydd intro.");
+  assert(!withAi.body.includes(INTRO_PLACEHOLDER));
+  // The deterministic list is still appended intact.
+  assertStringIncludes(withAi.body, "## Bursdager i juni 2026");
+
+  const failing: IntroWriter = { write: () => Promise.reject(new Error("boom")) };
+  const store2 = new SeedStore(PEOPLE, GROUPS, [
+    subscriber("a1", "Anna", "anna@example.com", ["berg-siden"]),
+  ]);
+  const [fallback] = await generateDraftsForMonth(store2, JUNE, "Admin", failing);
+  assertStringIncludes(fallback.body, INTRO_PLACEHOLDER);
+});
+
+Deno.test("generateMissingDrafts is idempotent", async () => {
+  const store = new SeedStore(PEOPLE, GROUPS, [
+    subscriber("a1", "Anna", "anna@example.com", ["berg-siden"]),
+  ]);
+  const first = await generateMissingDrafts(store, JUNE, "Scheduler");
+  assert(first.length >= 1);
+  const again = await generateMissingDrafts(store, JUNE, "Scheduler");
+  assertEquals(again.length, 0);
+  assertEquals((await store.listNewsletterDrafts()).length, first.length);
+});
+
+Deno.test("sendDraft emails each recipient with an unsubscribe footer, then freezes", async () => {
+  const store = new SeedStore(PEOPLE, GROUPS, [
+    subscriber("a1", "Anna", "anna@example.com", ["berg-siden"]),
+    subscriber("z1", "Solveig", "solveig@example.com", ["berg-siden"]),
+  ]);
+  const [draft] = await generateDraftsForMonth(store, JUNE, "Admin");
+  const sender = new FakeEmailSender();
+
+  const sent = await sendDraft(store, draft.id, "Admin", sender);
+  assertEquals(sent.status, "sent");
+  assertEquals(sender.messages.map((m) => m.to).sort(), ["anna@example.com", "solveig@example.com"]);
+  assertStringIncludes(sender.messages[0].text, "Administrer eller meld deg av");
+  assert(sender.messages[0].headers?.["List-Unsubscribe"]);
+  assert(sender.messages[0].html?.includes("Bursdager"));
+
+  // Immutable once sent.
+  await assertRejects(() => sendDraft(store, draft.id, "Admin", sender));
 });
 
 Deno.test("link rotation carries the latest newsletter preference forward", async () => {

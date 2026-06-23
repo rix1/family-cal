@@ -5,7 +5,10 @@
  * drafts only freeze content once marked sent.
  */
 
+import { render } from "@deno/gfm";
 import { pad2, splitDate } from "./dates.ts";
+import type { EmailSender } from "./email.ts";
+import type { IntroWriter } from "./intro_writer.ts";
 import {
   type EventKind,
   type FamilyEvent,
@@ -331,9 +334,10 @@ export function buildBody(
   birthdays: MonthBirthday[],
   remembrances: MonthRemembrance[] = [],
   occasions: MonthOccasion[] = [],
+  intro: string = INTRO_PLACEHOLDER,
 ): string {
   const lines = [
-    INTRO_PLACEHOLDER,
+    intro,
     "",
     `## Bursdager i ${monthNameNb(month.month)} ${month.year}`,
     "",
@@ -346,47 +350,119 @@ export function buildBody(
 }
 
 /**
- * Copyable prompt for drafting the introduction with an LLM. Deliberately
- * anonymous: only the month, the number of birthdays, and bare dates — never
- * names, ages, birth years, emails, notes, or group labels.
+ * Prompt for the LOCAL model to draft the intro prose. It includes names and
+ * ages so the model can write something warm and specific — this is only safe
+ * because inference runs on our own machine (see `lib/intro_writer.ts`). The
+ * model writes prose only; the authoritative dated list is appended by
+ * `buildBody`, so it can never corrupt a date or a name.
  */
-export function buildPrompt(month: MonthRef, birthdays: MonthBirthday[]): string {
-  const byDay = new Map<number, number>();
-  for (const birthday of birthdays) {
-    byDay.set(birthday.day, (byDay.get(birthday.day) ?? 0) + 1);
-  }
-  const dates = [...byDay.entries()]
-    .sort((a, b) => a[0] - b[0])
-    .map(([day, count]) =>
-      `${day}. ${monthNameNb(month.month)}${count > 1 ? ` (${count} bursdager)` : ""}`
-    )
-    .join(", ");
+export function buildPrompt(
+  month: MonthRef,
+  birthdays: MonthBirthday[],
+  remembrances: MonthRemembrance[] = [],
+  occasions: MonthOccasion[] = [],
+): string {
+  const birthdayLines = birthdays.map((b) => {
+    if (b.deceased) {
+      return `- ${b.day}. ${monthNameNb(month.month)}: ${b.name}` +
+        (b.age !== null ? ` (ville ha fylt ${b.age}) – til minne` : " – til minne");
+    }
+    return `- ${b.day}. ${monthNameNb(month.month)}: ${b.name}` +
+      (b.age !== null ? ` fyller ${b.age}` : "");
+  });
+  const otherLines = [
+    ...remembrances.map((r) => `- ${r.yearsSince} år siden ${r.name} gikk bort`),
+    ...occasions.map((o) => `- ${o.title}${o.yearsSince ? ` (${o.yearsSince} år)` : ""}`),
+  ];
   return [
-    "Skriv en varm introduksjon på 2–3 setninger til et månedlig nyhetsbrev " +
-    "om bursdager i familien. Svar på norsk (bokmål).",
+    "Du skriver en kort, varm introduksjon (2–4 setninger) til familiens månedlige " +
+    "nyhetsbrev. Svar på norsk (bokmål) og kun med selve introduksjonen — ingen " +
+    "overskrift, ingen punktliste.",
     "",
     `Måned: ${monthNameNb(month.month)} ${month.year}`,
-    `Antall bursdager: ${birthdays.length}`,
-    `Datoer: ${dates}`,
+    "Bursdager denne måneden:",
+    ...(birthdayLines.length ? birthdayLines : ["- (ingen)"]),
+    ...(otherLines.length ? ["", "Annet å nevne:", ...otherLines] : []),
     "",
-    "Ikke finn på navn, fakta eller hendelser, og ikke omtal enkeltpersoner. " +
-    "Svar kun med selve introduksjonen.",
+    "Du kan nevne noen ved navn og løfte fram runde dager, men ikke gjenta hele " +
+    "lista — den kommer rett under introduksjonen. Ikke dikt opp fakta.",
   ].join("\n");
+}
+
+/** Intro prose from the writer, falling back to the placeholder on any failure. */
+async function writeIntro(
+  introWriter: IntroWriter | null | undefined,
+  month: MonthRef,
+  birthdays: MonthBirthday[],
+  remembrances: MonthRemembrance[],
+  occasions: MonthOccasion[],
+): Promise<string> {
+  if (!introWriter) return INTRO_PLACEHOLDER;
+  try {
+    const out = (await introWriter.write(buildPrompt(month, birthdays, remembrances, occasions)))
+      .trim();
+    return out || INTRO_PLACEHOLDER;
+  } catch {
+    return INTRO_PLACEHOLDER;
+  }
 }
 
 // --- Draft lifecycle ---
 
 /**
- * Create one draft per distinct subscriber segment with birthdays, death
- * anniversaries or family events in `month`, skipping only segments with
- * none of those. No dedup against existing drafts — generating the same
- * month again adds more drafts; delete unwanted ones instead. Draft ids are
- * opaque (URL-safe).
+ * Build and store one draft for `segment`, or null when the segment has nothing
+ * (no birthdays, remembrances or occasions) that month. The intro prose comes
+ * from `introWriter` (local model), falling back to the placeholder.
+ */
+async function createSegmentDraft(
+  store: Store,
+  month: MonthRef,
+  segment: Segment,
+  people: Person[],
+  events: FamilyEvent[],
+  actor: string,
+  introWriter?: IntroWriter | null,
+): Promise<NewsletterDraft | null> {
+  const birthdays = birthdaysForMonth(people, month, segment.groups);
+  const remembrances = monthRemembrances(people, month, segment.groups);
+  const occasions = monthOccasions(events, month, segment.groups);
+  if (!birthdays.length && !remembrances.length && !occasions.length) return null;
+
+  const intro = await writeIntro(introWriter, month, birthdays, remembrances, occasions);
+  const now = new Date().toISOString();
+  const draft: NewsletterDraft = {
+    id: crypto.randomUUID(),
+    month: monthKey(month),
+    segment: segment.key,
+    subject: defaultSubject(month),
+    body: buildBody(month, birthdays, remembrances, occasions, intro),
+    prompt: buildPrompt(month, birthdays, remembrances, occasions),
+    groups: segment.groups,
+    createdAt: now,
+    updatedAt: now,
+    status: "draft",
+  };
+  await store.upsertNewsletterDraft(draft);
+  await store.appendAudit({
+    at: now,
+    actor,
+    action: "newsletter_generate",
+    targetId: draft.id,
+    detail: `Draft for ${draft.month} (${segment.key}), ${birthdays.length} birthdays`,
+  });
+  return draft;
+}
+
+/**
+ * Create one draft per distinct subscriber segment with content in `month`. No
+ * dedup against existing drafts — generating the same month again adds more;
+ * use `generateMissingDrafts` for the idempotent (cron) path.
  */
 export async function generateDraftsForMonth(
   store: Store,
   month: MonthRef,
   actor: string,
+  introWriter?: IntroWriter | null,
 ): Promise<NewsletterDraft[]> {
   const [viewers, people, events] = await Promise.all([
     store.listViewers(),
@@ -395,32 +471,45 @@ export async function generateDraftsForMonth(
   ]);
   const created: NewsletterDraft[] = [];
   for (const segment of subscriberSegments(viewers)) {
-    const birthdays = birthdaysForMonth(people, month, segment.groups);
-    const remembrances = monthRemembrances(people, month, segment.groups);
-    const occasions = monthOccasions(events, month, segment.groups);
-    if (!birthdays.length && !remembrances.length && !occasions.length) continue;
-    const now = new Date().toISOString();
-    const draft: NewsletterDraft = {
-      id: crypto.randomUUID(),
-      month: monthKey(month),
-      segment: segment.key,
-      subject: defaultSubject(month),
-      body: buildBody(month, birthdays, remembrances, occasions),
-      prompt: buildPrompt(month, birthdays),
-      groups: segment.groups,
-      createdAt: now,
-      updatedAt: now,
-      status: "draft",
-    };
-    await store.upsertNewsletterDraft(draft);
-    await store.appendAudit({
-      at: now,
+    const draft = await createSegmentDraft(
+      store,
+      month,
+      segment,
+      people,
+      events,
       actor,
-      action: "newsletter_generate",
-      targetId: draft.id,
-      detail: `Draft for ${draft.month} (${segment.key}), ${birthdays.length} birthdays`,
-    });
-    created.push(draft);
+      introWriter,
+    );
+    if (draft) created.push(draft);
+  }
+  return created;
+}
+
+/**
+ * Idempotent generation for automation: create drafts only for segments that
+ * have content but no draft for `month` yet. Safe to run repeatedly.
+ */
+export async function generateMissingDrafts(
+  store: Store,
+  month: MonthRef,
+  actor: string,
+  introWriter?: IntroWriter | null,
+): Promise<NewsletterDraft[]> {
+  const segments = await missingSegments(store, month);
+  if (!segments.length) return [];
+  const [people, events] = await Promise.all([store.listPeople(), store.listEvents()]);
+  const created: NewsletterDraft[] = [];
+  for (const segment of segments) {
+    const draft = await createSegmentDraft(
+      store,
+      month,
+      segment,
+      people,
+      events,
+      actor,
+      introWriter,
+    );
+    if (draft) created.push(draft);
   }
   return created;
 }
@@ -483,13 +572,15 @@ export async function updateDraftContent(
 }
 
 /**
- * Replace subject, body and prompt from current birthday data, discarding any
- * manual edits. Only valid on unsent drafts.
+ * Replace subject, body and prompt from current data, discarding manual edits,
+ * and re-draft the intro with `introWriter` (local model). Only valid on unsent
+ * drafts. This backs the admin "Generate" button.
  */
 export async function regenerateDraft(
   store: Store,
   id: string,
   actor: string,
+  introWriter?: IntroWriter | null,
 ): Promise<NewsletterDraft> {
   const draft = await editableDraft(store, id);
   const month = parseMonthKey(draft.month);
@@ -498,12 +589,13 @@ export async function regenerateDraft(
   const birthdays = birthdaysForMonth(people, month, draft.groups);
   const remembrances = monthRemembrances(people, month, draft.groups);
   const occasions = monthOccasions(events, month, draft.groups);
+  const intro = await writeIntro(introWriter, month, birthdays, remembrances, occasions);
   const now = new Date().toISOString();
   const next: NewsletterDraft = {
     ...draft,
     subject: defaultSubject(month),
-    body: buildBody(month, birthdays, remembrances, occasions),
-    prompt: buildPrompt(month, birthdays),
+    body: buildBody(month, birthdays, remembrances, occasions, intro),
+    prompt: buildPrompt(month, birthdays, remembrances, occasions),
     updatedAt: now,
   };
   await store.upsertNewsletterDraft(next);
@@ -562,6 +654,51 @@ export async function markDraftSent(
     detail: `Sent ${draft.month} (${draft.segment}) to ${recipients.length} recipients`,
   });
   return next;
+}
+
+/** Footer appended to every newsletter, with the self-serve unsubscribe link. */
+function unsubscribeFooter(profileUrl: string): { html: string; text: string } {
+  return {
+    html: `<hr/><p style="color:#6b7280;font-size:12px">` +
+      `Du får denne e-posten fordi du har meldt deg på familiekalenderen. ` +
+      `<a href="${profileUrl}">Administrer eller meld deg av</a>.</p>`,
+    text: `\n\n—\nAdministrer eller meld deg av: ${profileUrl}`,
+  };
+}
+
+/**
+ * Deliver an unsent draft to its current recipients via `sender` (one message
+ * each, with an unsubscribe footer + List-Unsubscribe header), then freeze it as
+ * sent. A failed recipient is logged and skipped; the rest still go out.
+ */
+export async function sendDraft(
+  store: Store,
+  id: string,
+  actor: string,
+  sender: EmailSender,
+): Promise<NewsletterDraft> {
+  const draft = await editableDraft(store, id);
+  const recipients = draftRecipients(await store.listViewers(), draft);
+  const baseUrl = (Deno.env.get("BASE_URL") ?? "").replace(/\/+$/, "");
+  const profileUrl = `${baseUrl}/profile`;
+  const footer = unsubscribeFooter(profileUrl);
+  const html = `${render(draft.body)}${footer.html}`;
+  const text = `${draft.body}${footer.text}`;
+
+  for (const recipient of recipients) {
+    try {
+      await sender.send({
+        to: recipient.newsletter!.email,
+        subject: draft.subject,
+        text,
+        html,
+        headers: { "List-Unsubscribe": `<${profileUrl}>` },
+      });
+    } catch (error) {
+      console.error(`Newsletter send failed for ${recipient.newsletter!.email}:`, error);
+    }
+  }
+  return markDraftSent(store, id, actor);
 }
 
 // --- Subscription preferences ---

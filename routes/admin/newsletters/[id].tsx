@@ -5,11 +5,13 @@ import { NewsletterPreview } from "@/islands/NewsletterPreview.tsx";
 import { Toast } from "@/islands/Toast.tsx";
 import { adminDenied, adminViewer } from "@/lib/admin_auth.ts";
 import { getStore } from "@/lib/db.ts";
+import { getEmailSender } from "@/lib/email.ts";
+import { getIntroWriter } from "@/lib/intro_writer.ts";
 import {
   deleteDraft,
   draftRecipients,
-  markDraftSent,
   regenerateDraft,
+  sendDraft,
   updateDraftContent,
 } from "@/lib/newsletter.ts";
 import { ValidationError } from "@/lib/people.ts";
@@ -72,11 +74,11 @@ export const handlers = define.handlers({
         return back("saved");
       }
       if (action === "regenerate") {
-        await regenerateDraft(store, id, viewer.name);
+        await regenerateDraft(store, id, viewer.name, getIntroWriter());
         return back("regenerated");
       }
       if (action === "send") {
-        await markDraftSent(store, id, viewer.name);
+        await sendDraft(store, id, viewer.name, getEmailSender());
         return back("sent");
       }
       if (action === "delete") {
@@ -143,7 +145,7 @@ export default define.page<typeof handlers>(({ data }) => {
               <>
                 <details class="relative">
                   <summary class="btn btn-ghost cursor-pointer list-none [&::-webkit-details-marker]:hidden">
-                    Regenerate
+                    Generate
                   </summary>
                   <form
                     method="post"
@@ -151,17 +153,17 @@ export default define.page<typeof handlers>(({ data }) => {
                   >
                     <input type="hidden" name="action" value="regenerate" />
                     <p class="text-sm text-ink-2">
-                      Rebuild subject, body and prompt from current birthday data. Your manual edits
-                      are discarded.
+                      Rewrite the intro with the local model and rebuild the list from current data.
+                      Your manual edits are discarded.
                     </p>
                     <button type="submit" class="btn btn-danger">
-                      Regenerate draft
+                      Generate draft
                     </button>
                   </form>
                 </details>
                 <details class="relative">
                   <summary class="btn btn-primary cursor-pointer list-none [&::-webkit-details-marker]:hidden">
-                    Mark as sent
+                    Send
                   </summary>
                   <form
                     method="post"
@@ -169,11 +171,11 @@ export default define.page<typeof handlers>(({ data }) => {
                   >
                     <input type="hidden" name="action" value="send" />
                     <p class="text-sm text-ink-2">
-                      Only after you emailed it (BCC) to the {data.recipients.length}{" "}
-                      current recipients. The draft then becomes immutable.
+                      Emails this to the {data.recipients.length}{" "}
+                      current recipients via Mailgun, then freezes the draft. This can't be undone.
                     </p>
                     <button type="submit" class="btn btn-primary">
-                      Confirm sent
+                      Send to {data.recipients.length}
                     </button>
                   </form>
                 </details>
@@ -250,18 +252,6 @@ export default define.page<typeof handlers>(({ data }) => {
           <div class="grid content-start gap-3">
             <section class="card p-5">
               <NewsletterPreview html={data.html} />
-            </section>
-
-            <section class="card p-5">
-              <div class="flex items-center justify-between gap-3">
-                <p class="kicker">Introduction prompt</p>
-                <CopyButton value={draft.prompt} label="Copy prompt" />
-              </div>
-              <p class="mt-2 text-xs text-ink-3">
-                Paste into the LLM of your choice. It contains only anonymous dates and counts — no
-                names or other personal data.
-              </p>
-              <pre class="mt-3 whitespace-pre-wrap rounded-lg bg-inset p-3 font-mono text-xs text-ink-2">{draft.prompt}</pre>
             </section>
 
             {!isSent && (

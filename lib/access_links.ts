@@ -29,9 +29,30 @@ export function createViewer(options: AccessLinkOptions): Viewer {
     name,
     groups: options.groups,
     canEdit: options.canEdit,
+    feedToken: randomToken(),
   };
   if (options.email) viewer.email = options.email;
   return viewer;
+}
+
+/**
+ * The viewer's feed token, generating and persisting one if missing. Use before
+ * showing or serving the iCal subscription URL.
+ */
+export async function ensureFeedToken(store: Store, viewer: Viewer): Promise<string> {
+  if (viewer.feedToken) return viewer.feedToken;
+  const feedToken = randomToken();
+  await store.upsertViewer({ ...viewer, feedToken });
+  return feedToken;
+}
+
+/** The active viewer that owns `feedToken`, or null. */
+export async function viewerByFeedToken(store: Store, feedToken: string): Promise<Viewer | null> {
+  if (!feedToken) return null;
+  const match = (await store.listViewers()).find(
+    (viewer) => viewer.feedToken === feedToken && viewerIsActive(viewer),
+  );
+  return match ?? null;
 }
 
 export function accessUrls(viewer: Viewer, baseUrl: string) {
@@ -39,7 +60,8 @@ export function accessUrls(viewer: Viewer, baseUrl: string) {
   return {
     calendar: `${base}/view/${viewer.token}`,
     editor: viewer.canEdit ? `${base}/admin/?token=${viewer.token}` : null,
-    ical: `${base}/cal/${viewer.token}.ics`,
+    // Feed token, not the session token, so the subscription survives rotation.
+    ical: `${base}/cal/${viewer.feedToken ?? viewer.token}.ics`,
   };
 }
 
@@ -65,6 +87,9 @@ export async function expirePreviousViewerLinks(
     const inheritedEmail = matching.find((existing) => existing.email)?.email;
     if (inheritedEmail) viewer.email = inheritedEmail;
   }
+  // Carry the feed token too, so an existing calendar subscription keeps working.
+  const inheritedFeedToken = matching.find((existing) => existing.feedToken)?.feedToken;
+  if (inheritedFeedToken) viewer.feedToken = inheritedFeedToken;
   for (const existing of matching) {
     await store.upsertViewer({ ...existing, expiredAt });
   }

@@ -1,4 +1,5 @@
 import { define } from "@/utils.ts";
+import { viewerByFeedToken } from "@/lib/access_links.ts";
 import { getStore } from "@/lib/db.ts";
 import { buildFeed } from "@/lib/feed.ts";
 import { viewerIsActive } from "@/lib/model.ts";
@@ -7,7 +8,9 @@ export const handler = define.handlers({
   async GET(ctx) {
     const store = await getStore();
     const token = ctx.params.token;
-    const viewer = await store.getViewer(token);
+    // Prefer the stable feed token; fall back to the session token for links
+    // issued before feed tokens existed.
+    const viewer = (await viewerByFeedToken(store, token)) ?? (await store.getViewer(token));
     if (!viewer) return new Response("Unknown calendar link", { status: 404 });
     if (!viewerIsActive(viewer)) {
       return new Response("Calendar link expired; ask for a new one", { status: 410 });

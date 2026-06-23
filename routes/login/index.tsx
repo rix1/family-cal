@@ -11,9 +11,9 @@ import { HttpError, page } from "fresh";
 // asking for a couple of links.
 const loginLimiter = new RateLimiter({ windowMs: 10 * 60_000, max: 20 });
 
-/** Canonical public origin for emailed links: APP_BASE_URL wins behind a proxy. */
+/** Canonical public origin for emailed links: BASE_URL wins behind a proxy. */
 function baseUrl(req: Request): string {
-  return Deno.env.get("APP_BASE_URL") ?? new URL(req.url).origin;
+  return Deno.env.get("BASE_URL") ?? new URL(req.url).origin;
 }
 
 export const handlers = define.handlers({

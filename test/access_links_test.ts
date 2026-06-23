@@ -1,9 +1,12 @@
 import {
   accessUrls,
   createViewer,
+  ensureFeedToken,
   expirePreviousViewerLinks,
   randomToken,
+  viewerByFeedToken,
 } from "../lib/access_links.ts";
+import type { Viewer } from "../lib/model.ts";
 import { SeedStore } from "../lib/store.ts";
 import { assert, assertEquals } from "./asserts.ts";
 
@@ -48,11 +51,57 @@ Deno.test("accessUrls returns viewer URLs and editor URL only for editors", () =
   assertEquals(accessUrls(readOnly, "https://family.example/"), {
     calendar: "https://family.example/view/test-token",
     editor: null,
-    ical: "https://family.example/cal/test-token.ics",
+    // iCal uses the stable feed token, not the rotating session token.
+    ical: `https://family.example/cal/${readOnly.feedToken}.ics`,
   });
 
   assertEquals(
     accessUrls({ ...readOnly, canEdit: true }, "https://family.example").editor,
     "https://family.example/admin/?token=test-token",
   );
+});
+
+Deno.test("createViewer assigns a distinct, stable feed token", () => {
+  const a = createViewer({ name: "A", groups: [], canEdit: false, token: "a" });
+  const b = createViewer({ name: "B", groups: [], canEdit: false, token: "b" });
+  assert(a.feedToken && /^[A-Za-z0-9_-]{32}$/.test(a.feedToken));
+  assert(a.feedToken !== a.token);
+  assert(a.feedToken !== b.feedToken);
+});
+
+Deno.test("ensureFeedToken backfills a legacy viewer once, then is stable", async () => {
+  const legacy: Viewer = { token: "legacy", name: "Old", groups: [], canEdit: false };
+  const store = new SeedStore([], [], [legacy]);
+
+  const first = await ensureFeedToken(store, legacy);
+  assert(/^[A-Za-z0-9_-]{32}$/.test(first));
+  const stored = await store.getViewer("legacy");
+  assertEquals(stored?.feedToken, first);
+
+  // A viewer that already has one is returned untouched.
+  assertEquals(await ensureFeedToken(store, stored!), first);
+});
+
+Deno.test("viewerByFeedToken resolves only the active owner", async () => {
+  const active = createViewer({ name: "A", groups: [], canEdit: false, token: "a" });
+  const expired: Viewer = {
+    ...createViewer({ name: "B", groups: [], canEdit: false, token: "b" }),
+    expiredAt: "2025-01-01T00:00:00Z",
+  };
+  const store = new SeedStore([], [], [active, expired]);
+
+  assertEquals((await viewerByFeedToken(store, active.feedToken!))?.token, "a");
+  assertEquals(await viewerByFeedToken(store, expired.feedToken!), null);
+  assertEquals(await viewerByFeedToken(store, "nope"), null);
+});
+
+Deno.test("re-issuing a link carries the feed token forward", async () => {
+  const old = createViewer({ name: "Solveig", groups: ["no"], canEdit: false, token: "old" });
+  const store = new SeedStore([], [], [old]);
+  const replacement = createViewer({ name: "Solveig", groups: ["no"], canEdit: false, token: "new" });
+
+  await expirePreviousViewerLinks(store, replacement);
+
+  // Same feed token => an existing calendar subscription keeps working.
+  assertEquals(replacement.feedToken, old.feedToken);
 });

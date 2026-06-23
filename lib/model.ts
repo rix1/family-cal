@@ -86,6 +86,13 @@ export interface Viewer {
   canEdit: boolean;
   /** Set when a newer capability is issued for the same named viewer. */
   expiredAt?: string;
+  /**
+   * Long-lived, read-only token for the iCal subscription feed. Kept separate
+   * from `token` so it survives session rotation (magic-link login) — a calendar
+   * the family subscribed once keeps updating. Absent on legacy viewers until
+   * first needed; `ensureFeedToken` backfills it.
+   */
+  feedToken?: string;
   /** Monthly email opt-in. Absent = unsubscribed. */
   newsletter?: NewsletterPreference;
 }

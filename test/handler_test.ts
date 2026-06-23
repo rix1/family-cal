@@ -58,6 +58,23 @@ routeTest("GET /cal/<token>.ics returns that viewer's calendar", async () => {
   assertStringIncludes(body, "END:VCALENDAR");
 });
 
+routeTest("GET /cal/<feedToken>.ics resolves via the stable feed token", async () => {
+  const store = await getStore();
+  await store.upsertViewer({
+    token: "sess-x",
+    feedToken: "feed-x",
+    name: "Feed User",
+    groups: [],
+    canEdit: false,
+  });
+  const res = await calRoute.handler.GET(
+    ctx("http://localhost/cal/feed-x.ics", {}, { token: "feed-x" }),
+  );
+  assertEquals(res.status, 200);
+  assertStringIncludes(res.headers.get("content-type") ?? "", "text/calendar");
+  await res.text();
+});
+
 routeTest("scoped token subsets people; unknown token is 404", async () => {
   const dk = await (
     await calRoute.handler.GET(

@@ -6,9 +6,13 @@ interface Props {
   title: string;
   eyebrow?: string;
   viewerName?: string;
+  /** Marks the matching destination as the current page in the account menu. */
+  current?: "calendar" | "admin" | "newsletter" | "about";
   calendarUrl?: string;
+  /** Present only for editors; gates the Administration link (stable per viewer). */
   adminUrl?: string;
-  aboutUrl?: string | null;
+  newsletterUrl?: string;
+  aboutUrl?: string;
   logoutUrl?: string;
   wide?: boolean;
   children?: ComponentChildren;
@@ -20,6 +24,15 @@ export function viewerInitials(name: string): string {
   if (!parts.length) return "?";
   if (parts.length === 1) return parts[0].slice(0, 1).toUpperCase();
   return `${parts[0][0]}${parts.at(-1)![0]}`.toUpperCase();
+}
+
+/* Leading glyph for a menu row; sized and colored by the `.menu svg` rule. */
+export function MenuIcon({ children }: { children: ComponentChildren }) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      {children}
+    </svg>
+  );
 }
 
 /* Eight-point celebration spark, the app's mark. */
@@ -47,8 +60,10 @@ export function AppHeader({
   title,
   eyebrow = "Family Calendar",
   viewerName,
-  calendarUrl,
+  current,
+  calendarUrl = "/calendar/",
   adminUrl,
+  newsletterUrl = "/newsletter/",
   aboutUrl = "/about",
   logoutUrl,
   wide = false,
@@ -100,16 +115,60 @@ export function AppHeader({
                   </svg>
                 </summary>
                 <div class="menu">
-                  {calendarUrl && <a href={calendarUrl}>Calendar</a>}
-                  {adminUrl && <a href={adminUrl}>Administration</a>}
-                  {aboutUrl && <a href={aboutUrl}>About</a>}
-                  {menuChildren}
+                  <a href={calendarUrl} aria-current={current === "calendar" ? "page" : undefined}>
+                    <MenuIcon>
+                      <path d="M4 5h16v15H4zM4 9h16M8 3v4M16 3v4" />
+                    </MenuIcon>
+                    Calendar
+                  </a>
+                  {adminUrl && (
+                    <a href={adminUrl} aria-current={current === "admin" ? "page" : undefined}>
+                      <MenuIcon>
+                        <path d="M4 8h16M4 16h16" />
+                        <circle cx="9" cy="8" r="2" />
+                        <circle cx="15" cy="16" r="2" />
+                      </MenuIcon>
+                      Administration
+                    </a>
+                  )}
+                  <a
+                    href={newsletterUrl}
+                    aria-current={current === "newsletter" ? "page" : undefined}
+                  >
+                    <MenuIcon>
+                      <path d="M4 6h16v12H4zM4 7l8 6 8-6" />
+                    </MenuIcon>
+                    Monthly email
+                  </a>
+                  <a href={aboutUrl} aria-current={current === "about" ? "page" : undefined}>
+                    <MenuIcon>
+                      <circle cx="12" cy="12" r="9" />
+                      <path d="M12 11v5M12 7.5v.01" />
+                    </MenuIcon>
+                    About
+                  </a>
+
+                  {menuChildren && (
+                    <>
+                      <hr />
+                      <p class="menu-label">On this page</p>
+                      {menuChildren}
+                    </>
+                  )}
+
+                  <hr />
                   <ThemeToggle />
+
                   {logoutUrl && (
                     <>
                       <hr />
                       <form method="post" action={logoutUrl}>
-                        <button type="submit">Log out</button>
+                        <button type="submit" class="menu-danger">
+                          <MenuIcon>
+                            <path d="M15 17l5-5-5-5M20 12H9M9 20H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h4" />
+                          </MenuIcon>
+                          Log out
+                        </button>
                       </form>
                     </>
                   )}

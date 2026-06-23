@@ -30,9 +30,8 @@ export default define.page<typeof handlers>(function About({ data }) {
       <AppHeader
         title="About"
         viewerName={data.viewerName}
-        calendarUrl={data.viewerName ? "/calendar/" : undefined}
+        current="about"
         adminUrl={data.adminUrl}
-        aboutUrl={null}
         logoutUrl={data.viewerName ? "/logout" : undefined}
       />
 

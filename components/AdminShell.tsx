@@ -33,7 +33,9 @@ export function AdminShell({ current, viewerName, calendarUrl, children }: Props
       <AppHeader
         title="Administration"
         viewerName={viewerName}
+        current="admin"
         calendarUrl={calendarUrl}
+        adminUrl="/admin/"
         logoutUrl="/logout"
         wide
       />

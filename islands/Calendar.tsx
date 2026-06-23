@@ -1,4 +1,4 @@
-import { AppHeader } from "@/components/AppHeader.tsx";
+import { AppHeader, MenuIcon } from "@/components/AppHeader.tsx";
 import { PersonForm } from "@/islands/PersonForm.tsx";
 import { ageAtDate, MONTH_NAMES_SHORT } from "@/lib/dates.ts";
 import { retainAvailable, toggleSelection } from "@/lib/filter_selection.ts";
@@ -1269,17 +1269,24 @@ export function Calendar({
       <AppHeader
         title={longDateFormatter.format(today)}
         viewerName={viewerName}
+        current="calendar"
         adminUrl={editUrl}
         logoutUrl={logoutUrl}
         menuChildren={
           <>
             {saveUrl && (
               <button type="button" onClick={openAddPerson}>
+                <MenuIcon>
+                  <circle cx="9" cy="8" r="3.5" />
+                  <path d="M3 19v-1a3.5 3.5 0 0 1 3.5-3.5h5A3.5 3.5 0 0 1 15 18v1M18 8v6M21 11h-6" />
+                </MenuIcon>
                 Add person
               </button>
             )}
-            <a href="/newsletter/">Monthly email</a>
             <button type="button" onClick={downloadIcs}>
+              <MenuIcon>
+                <path d="M12 4v11M8 11l4 4 4-4M5 20h14" />
+              </MenuIcon>
               Export .ics
             </button>
           </>

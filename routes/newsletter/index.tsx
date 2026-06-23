@@ -53,7 +53,7 @@ export default define.page<typeof handlers>(({ data }) => (
       <AppHeader
         title="Monthly email"
         viewerName={data.viewerName}
-        calendarUrl="/calendar/"
+        current="newsletter"
         adminUrl={data.adminUrl}
         logoutUrl="/logout"
       />

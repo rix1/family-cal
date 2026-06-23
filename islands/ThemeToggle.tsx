@@ -27,7 +27,6 @@ export function ThemeToggle() {
       aria-label={`Use ${dark ? "light" : "dark"} theme`}
       title={`Use ${dark ? "light" : "dark"} theme`}
     >
-      <span>{dark ? "Light" : "Dark"}</span>
       {dark
         ? (
           <svg aria-hidden="true" viewBox="0 0 24 24">
@@ -40,6 +39,7 @@ export function ThemeToggle() {
             <path d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5 8.5 8.5 0 1 0 20.5 14.2Z" />
           </svg>
         )}
+      <span>{dark ? "Light theme" : "Dark theme"}</span>
     </button>
   );
 }

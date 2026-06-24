@@ -688,6 +688,11 @@ export function Calendar({
     )
     .reverse()
     .slice(0, 5) as Extract<CalendarEvent, { type: "birthday" }>[];
+  // Whose birthday is today — a gentle prompt for reflection, not an action.
+  const todayMonthDay = todayKey.slice(5);
+  const birthdaysToday = people.filter(
+    (p) => p.date && activeGroups.has(p.affiliation) && monthDayOf(p) === todayMonthDay,
+  );
   // Incomplete birth dates: no date at all, or a month-day with the year still unknown.
   const missing = people.filter((p) => !hasYear(p) && activeGroups.has(p.affiliation));
   // "Family roots": people whose notes link to no one else yet. While the tree is
@@ -1498,6 +1503,28 @@ export function Calendar({
           </article>
           <article class="card flex flex-col gap-4 p-5">
             <p class="kicker">In focus</p>
+            {birthdaysToday.map((p) => {
+              const gone = Boolean(p.died);
+              const age = ageOn(p, currentYear);
+              return (
+                <div
+                  key={p.id}
+                  class="rounded-lg border border-accent/30 bg-accent-soft px-3.5 py-3"
+                >
+                  <p class="text-sm font-medium text-accent-2">
+                    {gone ? `Remembering ${p.name}` : `Today is ${p.name}'s birthday`}
+                    {!gone && age != null && (
+                      <span class="font-normal text-ink-3">{` · turns ${age}`}</span>
+                    )}
+                  </p>
+                  <p class="mt-1 text-xs leading-relaxed text-ink-2">
+                    {gone
+                      ? "Today would have been their birthday. Hold onto a favourite memory."
+                      : `What's a favourite moment you've shared with ${p.name}?`}
+                  </p>
+                </div>
+              );
+            })}
             {missing.length > 0 && (
               <div>
                 <p class="text-sm font-medium">
@@ -1550,6 +1577,26 @@ export function Calendar({
                   </p>
                 )}
             </div>
+            <a
+              href="/recall/"
+              class="group flex items-center gap-3 rounded-lg border border-line-2 px-3.5 py-3 text-sm transition-colors hover:bg-inset"
+            >
+              <span class="grid size-9 shrink-0 place-items-center rounded-lg bg-accent-soft text-accent-2">
+                <SparkIcon class="size-4" />
+              </span>
+              <span class="min-w-0 flex-1">
+                <span class="block font-medium">Recall the family</span>
+                <span class="mt-0.5 block text-xs text-ink-3">
+                  A few quick questions to keep birthdays fresh
+                </span>
+              </span>
+              <span
+                class="text-ink-3 transition-transform group-hover:translate-x-0.5"
+                aria-hidden="true"
+              >
+                →
+              </span>
+            </a>
             <div class="mt-auto">
               {subscribed
                 ? (

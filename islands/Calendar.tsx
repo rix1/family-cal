@@ -1352,6 +1352,30 @@ export function Calendar({
       </AppHeader>
 
       <main class="mx-auto max-w-5xl px-4 pb-20 pt-6">
+        {followedGroups.length === 0 && (
+          <div class="mb-4 flex items-center gap-3 rounded-xl border border-accent/40 bg-accent-soft px-4 py-3 text-sm text-accent-2">
+            <svg
+              class="size-5 shrink-0"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 8v5M12 16v.01" />
+            </svg>
+            <p class="leading-relaxed">
+              <span class="font-semibold">No groups selected.</span>{" "}
+              Your calendar is empty until you follow at least one group — set this on{" "}
+              <a href="/profile/" class="font-semibold underline underline-offset-2">
+                your profile
+              </a>.
+            </p>
+          </div>
+        )}
         <section class="mb-4 grid gap-3 sm:grid-cols-3">
           <article class="card p-5">
             <p class="kicker">This year</p>

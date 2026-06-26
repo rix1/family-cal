@@ -1,9 +1,9 @@
 /**
- * Writes the newsletter's intro prose by shelling out to a LOCAL model.
+ * Writes the newsletter's prose by shelling out to a LOCAL model.
  *
- * The prompt (see `buildPrompt`) includes family names and ages — it is only
- * safe because inference runs on this machine. `INTRO_CMD` MUST be a local
- * command (e.g. `ollama run llama3.1`); never point it at a remote/cloud CLI.
+ * The prompt (see `buildPrompt`) passes no names or dates — only the month and
+ * aggregate counts — so it can't leak family specifics. Even so, keep `INTRO_CMD`
+ * a LOCAL command (see `scripts/newsletter_intro.ts`); never a remote/cloud CLI.
  *
  * Mirrors the `EmailSender` seam: `getIntroWriter()` returns a command-backed
  * writer when `INTRO_CMD` is set, else `null` — and callers fall back to the
@@ -64,6 +64,22 @@ export class CommandIntroWriter implements IntroWriter {
 /** Splits `INTRO_CMD` on whitespace. The prompt is passed on stdin, never as an arg. */
 export function parseCommand(command: string): string[] {
   return command.trim().split(/\s+/).filter(Boolean);
+}
+
+/**
+ * Strips a thinking model's `<think>…</think>` chain-of-thought, returning only
+ * the final prose. NorMistral-thinking (our local intro model) always reasons
+ * before answering; see `scripts/model/README.md`.
+ *
+ * Returns `""` when reasoning was opened but never closed — i.e. generation was
+ * truncated mid-thought — so callers fall back to the placeholder rather than
+ * publish raw chain-of-thought. Text with no think tags is returned untouched.
+ */
+export function stripReasoning(text: string): string {
+  const close = text.lastIndexOf("</think>");
+  if (close !== -1) return text.slice(close + "</think>".length).trim();
+  if (text.includes("<think>")) return ""; // opened but not closed → incomplete
+  return text.trim();
 }
 
 /** Local command writer when `INTRO_CMD` is set, else null (caller uses the placeholder). */

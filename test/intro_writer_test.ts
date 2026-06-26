@@ -1,4 +1,9 @@
-import { CommandIntroWriter, getIntroWriter, parseCommand } from "../lib/intro_writer.ts";
+import {
+  CommandIntroWriter,
+  getIntroWriter,
+  parseCommand,
+  stripReasoning,
+} from "../lib/intro_writer.ts";
 import { assertEquals, assertRejects } from "./asserts.ts";
 
 Deno.test("parseCommand splits on whitespace", () => {
@@ -16,6 +21,19 @@ Deno.test("CommandIntroWriter pipes the prompt on stdin and returns stdout", asy
 Deno.test("CommandIntroWriter throws when the command exits non-zero", async () => {
   const writer = new CommandIntroWriter(["false"]);
   await assertRejects(() => writer.write("x"));
+});
+
+Deno.test("stripReasoning keeps only the prose after the reasoning", () => {
+  assertEquals(
+    stripReasoning("<think> Brukeren ber meg…\nflere linjer</think> Velkommen til nyhetsbrevet!"),
+    "Velkommen til nyhetsbrevet!",
+  );
+  // No think tags → returned untouched (trimmed).
+  assertEquals(stripReasoning("  Velkommen!  "), "Velkommen!");
+  // Opened but never closed (truncated mid-thought) → empty, so caller falls back.
+  assertEquals(stripReasoning("<think> reasoner i det uendelige…"), "");
+  // Defensive: only the final </think> matters.
+  assertEquals(stripReasoning("<think>a</think>b</think> Svar"), "Svar");
 });
 
 Deno.test("getIntroWriter is null without INTRO_CMD", () => {

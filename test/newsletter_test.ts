@@ -44,7 +44,7 @@ class FakeEmailSender implements EmailSender {
 const fixedIntro: IntroWriter = {
   // deno-lint-ignore require-await
   async write() {
-    return "Skreddersydd intro.";
+    return "Skreddersydd intro.\n\n{{BURSDAGSLISTE}}\n\nHa en fin måned!";
   },
 };
 
@@ -253,14 +253,14 @@ Deno.test("the default subject is Norwegian month + year", () => {
   );
 });
 
-Deno.test("the local-model prompt includes names and ages, but never private notes", () => {
-  const birthdays = birthdaysForMonth(PEOPLE, JUNE, ALL);
-  const prompt = buildPrompt(JUNE, birthdays);
-  // Names/ages are intentionally included — the model runs locally.
-  assertStringIncludes(prompt, "Kari fyller 42");
+Deno.test("the local-model prompt passes no event data — only the month, rules and an example", () => {
+  const prompt = buildPrompt(JUNE);
   assertStringIncludes(prompt, "juni 2026");
-  assertStringIncludes(prompt, "Svar på norsk");
-  // Free-text person notes must never be in the prompt, even locally.
+  assertStringIncludes(prompt, "bokmål");
+  assertStringIncludes(prompt, "{{BURSDAGSLISTE}}"); // where the real list gets spliced in
+  // The model is given no specifics at all, so it can't leak or scaffold confabulations.
+  assert(!prompt.includes("Kari"), "names must not reach the model");
+  assert(!prompt.includes("fyller 42"), "ages must not reach the model");
   assert(!prompt.includes("supersecret"), "private notes must not reach the model");
 });
 
@@ -447,10 +447,18 @@ Deno.test("the intro writer fills the prose; failures fall back to the placehold
     subscriber("a1", "Anna", "anna@example.com", ["berg-siden"]),
   ]);
   const [withAi] = await generateDraftsForMonth(store, JUNE, "Admin", fixedIntro);
+  // The model owns intro AND closing; the placeholder is gone.
   assertStringIncludes(withAi.body, "Skreddersydd intro.");
+  assertStringIncludes(withAi.body, "Ha en fin måned!");
   assert(!withAi.body.includes(INTRO_PLACEHOLDER));
-  // The deterministic list is still appended intact.
+  assert(!withAi.body.includes("{{BURSDAGSLISTE}}"), "the token must be substituted");
+  // The deterministic list is spliced in where the token was — between intro and closing.
   assertStringIncludes(withAi.body, "## Bursdager i juni 2026");
+  assert(
+    withAi.body.indexOf("Skreddersydd intro.") < withAi.body.indexOf("## Bursdager i juni 2026") &&
+      withAi.body.indexOf("## Bursdager i juni 2026") < withAi.body.indexOf("Ha en fin måned!"),
+    "order must be intro → list → closing",
+  );
 
   const failing: IntroWriter = { write: () => Promise.reject(new Error("boom")) };
   const store2 = new SeedStore(PEOPLE, GROUPS, [

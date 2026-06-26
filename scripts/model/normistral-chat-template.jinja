@@ -1,0 +1,15 @@
+{{- '<s>' }}
+{%- for message in messages %}
+    {%- if message['role'] == 'system' %}
+        {{- '<system_prompt> ' + message['content'] | trim + '</system_prompt>' }}
+    {%- elif message['role'] == 'user' %}
+        {{- '<instruction> ' + message['content'] | trim + '</instruction>' }}
+    {%- elif message['role'] == 'assistant' %}
+        {%- if loop.last %}
+            {{- '<think> ' + message['reasoning'] | trim + '</think>' }}
+        {%- endif %}
+        {{- ' ' + message['content'] | trim + '</s>' }}
+    {%- else %}
+        {{- raise_exception('Only user, system and assistant roles are supported!') }}
+    {%- endif %}
+{%- endfor %}

@@ -9,6 +9,7 @@ import { render } from "@deno/gfm";
 import { pad2, splitDate } from "./dates.ts";
 import type { EmailSender } from "./email.ts";
 import type { IntroWriter } from "./intro_writer.ts";
+import { stripReasoning } from "./intro_writer.ts";
 import {
   type EventKind,
   type FamilyEvent,
@@ -329,81 +330,134 @@ function buildRemembranceSentence(
   return `Det er også ${joinNb(items)} denne måneden.`;
 }
 
+/**
+ * Token the local model emits where the dated list should go; we substitute it
+ * for `buildDateListBlock` so the model owns the prose but never the facts.
+ */
+export const BIRTHDAY_LIST_TOKEN = "{{BURSDAGSLISTE}}";
+
+/** Fixed closing line every newsletter ends with (no invented sender). */
+export const NEWSLETTER_SIGN_OFF = "Ha en fin måned!";
+
+/**
+ * The authoritative, deterministic block of dated facts (birthday heading + lines,
+ * plus the remembrance/occasion sentence). Never written by the model.
+ */
+function buildDateListBlock(
+  month: MonthRef,
+  birthdays: MonthBirthday[],
+  remembrances: MonthRemembrance[],
+  occasions: MonthOccasion[],
+): string {
+  const lines = [`## Bursdager i ${monthNameNb(month.month)} ${month.year}`];
+  if (birthdays.length) {
+    lines.push("", ...birthdays.map((birthday) => birthdayLine(birthday, month)));
+  }
+  const sentence = buildRemembranceSentence(month, remembrances, occasions);
+  if (sentence) lines.push("", sentence);
+  return lines.join("\n");
+}
+
+/**
+ * Assemble the newsletter body. The local model writes the full prose (intro +
+ * closing) with a `BIRTHDAY_LIST_TOKEN` marking where the dated list goes; we swap
+ * the token for the deterministic `buildDateListBlock`. Fallbacks keep the facts
+ * intact whatever the model did:
+ *  - token present → substitute it (and drop any stray duplicates).
+ *  - model prose but no token → append the block after the prose.
+ *  - no model prose (no writer / failure) → placeholder intro + block.
+ */
 export function buildBody(
   month: MonthRef,
   birthdays: MonthBirthday[],
   remembrances: MonthRemembrance[] = [],
   occasions: MonthOccasion[] = [],
-  intro: string = INTRO_PLACEHOLDER,
+  body: string | null = null,
 ): string {
-  const lines = [
-    intro,
-    "",
-    `## Bursdager i ${monthNameNb(month.month)} ${month.year}`,
-    "",
-    ...birthdays.map((birthday) => birthdayLine(birthday, month)),
-  ];
-  const sentence = buildRemembranceSentence(month, remembrances, occasions);
-  if (sentence) lines.push("", sentence);
-  lines.push("");
-  return lines.join("\n");
+  const block = buildDateListBlock(month, birthdays, remembrances, occasions);
+  if (!body?.trim()) {
+    // No model prose — deterministic stub for a human to fill in (no sign-off).
+    return `${INTRO_PLACEHOLDER}\n\n${block}\n`;
+  }
+  const prose = body.includes(BIRTHDAY_LIST_TOKEN)
+    ? body.replace(BIRTHDAY_LIST_TOKEN, block).replaceAll(BIRTHDAY_LIST_TOKEN, "")
+    : `${body.trim()}\n\n${block}`;
+  // Guarantee the fixed sign-off as the final line — the model tends to invent its
+  // own closing, so we own it (and the prompt tells the model to skip one).
+  const trimmed = prose.trim();
+  const withSignOff = trimmed.endsWith(NEWSLETTER_SIGN_OFF)
+    ? trimmed
+    : `${trimmed}\n\n${NEWSLETTER_SIGN_OFF}`;
+  return `${withSignOff}\n`;
 }
 
 /**
- * Prompt for the LOCAL model to draft the intro prose. It includes names and
- * ages so the model can write something warm and specific — this is only safe
- * because inference runs on our own machine (see `lib/intro_writer.ts`). The
- * model writes prose only; the authoritative dated list is appended by
- * `buildBody`, so it can never corrupt a date or a name.
+ * Prompt for the LOCAL model to draft the WHOLE email body (intro + closing). It
+ * deliberately passes NO event data at all — not even counts — only the month, firm
+ * rules and a one-shot example. With nothing concrete to scaffold on, a small model
+ * is far less likely to confabulate fake names/dates (which it does about half the
+ * time when given any specifics). The model marks where the dated list goes with
+ * `BIRTHDAY_LIST_TOKEN`; `buildBody` swaps in the authoritative list.
  */
-export function buildPrompt(
-  month: MonthRef,
-  birthdays: MonthBirthday[],
-  remembrances: MonthRemembrance[] = [],
-  occasions: MonthOccasion[] = [],
-): string {
-  const birthdayLines = birthdays.map((b) => {
-    if (b.deceased) {
-      return `- ${b.day}. ${monthNameNb(month.month)}: ${b.name}` +
-        (b.age !== null ? ` (ville ha fylt ${b.age}) – til minne` : " – til minne");
-    }
-    return `- ${b.day}. ${monthNameNb(month.month)}: ${b.name}` +
-      (b.age !== null ? ` fyller ${b.age}` : "");
-  });
-  const otherLines = [
-    ...remembrances.map((r) => `- ${r.yearsSince} år siden ${r.name} gikk bort`),
-    ...occasions.map((o) => `- ${o.title}${o.yearsSince ? ` (${o.yearsSince} år)` : ""}`),
-  ];
+export function buildPrompt(month: MonthRef): string {
+  const when = `${monthNameNb(month.month)} ${month.year}`;
   return [
-    "Du skriver en kort, varm introduksjon (2–4 setninger) til familiens månedlige " +
-    "nyhetsbrev. Svar på norsk (bokmål) og kun med selve introduksjonen — ingen " +
-    "overskrift, ingen punktliste.",
+    `Du skriver hele teksten til et privat månedlig nyhetsbrev som sendes til 20–30 ` +
+    `familiemedlemmer noen få dager FØR ${when} begynner. Skriv i forventning om måneden ` +
+    `som kommer – ikke som om den allerede er i gang.`,
     "",
-    `Måned: ${monthNameNb(month.month)} ${month.year}`,
-    "Bursdager denne måneden:",
-    ...(birthdayLines.length ? birthdayLines : ["- (ingen)"]),
-    ...(otherLines.length ? ["", "Annet å nevne:", ...otherLines] : []),
+    `Tone: leken, lett og varm, på norsk (bokmål). Skriv på vegne av hele familien ` +
+    `(«vi»/«oss»), ikke som én enkelt person, og ikke finn på en avsender, et navn eller et sted.`,
     "",
-    "Du kan nevne noen ved navn og løfte fram runde dager, men ikke gjenta hele " +
-    "lista — den kommer rett under introduksjonen. Ikke dikt opp fakta.",
+    `Format: kun korte, sammenhengende avsnitt i vanlig tekst – ingen overskrifter, ` +
+    `kulepunkter, lister, signatur eller P.S. Omtrent to korte avsnitt før lista og ett ` +
+    `kort avsnitt etter.`,
+    "",
+    `VIKTIG: Du har ingen informasjon om hvem som har bursdag eller når. Ikke nevn navn, ` +
+    `datoer, alder, årstall eller antall, og ikke gjett eller dikt opp slikt – den daterte ` +
+    `lista under fyller inn alt det konkrete. Hold deg til en generell, varm ` +
+    `årstidsstemning som passer måneden.`,
+    "",
+    `Der lista skal stå, setter du inn dette symbolet på en egen linje:`,
+    BIRTHDAY_LIST_TOKEN,
+    "",
+    `Vi bytter ut symbolet med den ekte lista og legger til avslutningshilsenen selv.`,
+    "",
+    `Eksempel (for en annen måned – følg formen og tonen, ikke det konkrete innholdet):`,
+    "---",
+    `Hei, kjære familie!`,
+    "",
+    `Snart er det februar, og selv om vinteren fortsatt holder et godt grep, er det noe ` +
+    `fint med de lange, rolige kveldene. Vi håper dere får kost dere med varm drikke og ` +
+    `godt selskap i tiden som kommer.`,
+    "",
+    `Som alltid er det noen datoer verdt å merke seg i måneden som kommer – ta en titt nedenfor.`,
+    "",
+    BIRTHDAY_LIST_TOKEN,
+    "",
+    `Vi sender varme tanker til hver og en av dere, og gleder oss til alt den nye måneden ` +
+    `har å by på.`,
+    "---",
+    "",
+    `Nå skriver du en tilsvarende tekst for ${when}. Svar kun med selve nyhetsbrev-teksten ` +
+    `(innledning, ${BIRTHDAY_LIST_TOKEN}, kort avslutning). Ingen overskrift øverst.`,
   ].join("\n");
 }
 
-/** Intro prose from the writer, falling back to the placeholder on any failure. */
-async function writeIntro(
+/**
+ * Full email body from the writer (model's chain-of-thought stripped), or null on
+ * no writer / failure / empty output — callers fall back to the deterministic body.
+ */
+async function writeBody(
   introWriter: IntroWriter | null | undefined,
   month: MonthRef,
-  birthdays: MonthBirthday[],
-  remembrances: MonthRemembrance[],
-  occasions: MonthOccasion[],
-): Promise<string> {
-  if (!introWriter) return INTRO_PLACEHOLDER;
+): Promise<string | null> {
+  if (!introWriter) return null;
   try {
-    const out = (await introWriter.write(buildPrompt(month, birthdays, remembrances, occasions)))
-      .trim();
-    return out || INTRO_PLACEHOLDER;
+    const out = stripReasoning(await introWriter.write(buildPrompt(month)));
+    return out || null;
   } catch {
-    return INTRO_PLACEHOLDER;
+    return null;
   }
 }
 
@@ -428,15 +482,15 @@ async function createSegmentDraft(
   const occasions = monthOccasions(events, month, segment.groups);
   if (!birthdays.length && !remembrances.length && !occasions.length) return null;
 
-  const intro = await writeIntro(introWriter, month, birthdays, remembrances, occasions);
+  const modelBody = await writeBody(introWriter, month);
   const now = new Date().toISOString();
   const draft: NewsletterDraft = {
     id: crypto.randomUUID(),
     month: monthKey(month),
     segment: segment.key,
     subject: defaultSubject(month),
-    body: buildBody(month, birthdays, remembrances, occasions, intro),
-    prompt: buildPrompt(month, birthdays, remembrances, occasions),
+    body: buildBody(month, birthdays, remembrances, occasions, modelBody),
+    prompt: buildPrompt(month),
     groups: segment.groups,
     createdAt: now,
     updatedAt: now,
@@ -589,13 +643,13 @@ export async function regenerateDraft(
   const birthdays = birthdaysForMonth(people, month, draft.groups);
   const remembrances = monthRemembrances(people, month, draft.groups);
   const occasions = monthOccasions(events, month, draft.groups);
-  const intro = await writeIntro(introWriter, month, birthdays, remembrances, occasions);
+  const modelBody = await writeBody(introWriter, month);
   const now = new Date().toISOString();
   const next: NewsletterDraft = {
     ...draft,
     subject: defaultSubject(month),
-    body: buildBody(month, birthdays, remembrances, occasions, intro),
-    prompt: buildPrompt(month, birthdays, remembrances, occasions),
+    body: buildBody(month, birthdays, remembrances, occasions, modelBody),
+    prompt: buildPrompt(month),
     updatedAt: now,
   };
   await store.upsertNewsletterDraft(next);

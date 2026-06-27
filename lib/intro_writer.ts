@@ -1,21 +1,69 @@
 /**
- * Writes the newsletter's prose by shelling out to a LOCAL model.
+ * Writes the newsletter's prose with a LOCAL model.
  *
- * The prompt (see `buildPrompt`) passes no names or dates — only the month and
- * aggregate counts — so it can't leak family specifics. Even so, keep `INTRO_CMD`
- * a LOCAL command (see `scripts/newsletter_intro.ts`); never a remote/cloud CLI.
+ * The default writer (`OllamaIntroWriter`) calls Ollama over HTTP in-process — the
+ * server owns this capability, and one-off scripts import it (see
+ * `scripts/newsletter_intro.ts`), rather than the server shelling out to a script.
+ * `INTRO_CMD` remains an optional escape hatch to run a different local command.
  *
- * Mirrors the `EmailSender` seam: `getIntroWriter()` returns a command-backed
- * writer when `INTRO_CMD` is set, else `null` — and callers fall back to the
- * deterministic placeholder, so a missing or failing model never blocks a draft.
+ * The prompt (see `buildPrompt`) passes no names or dates, so it can't leak family
+ * specifics — but inference must stay LOCAL regardless. A missing or failing model
+ * never blocks a draft: callers fall back to the deterministic placeholder.
  */
 
 export interface IntroWriter {
-  /** Returns the intro text for `prompt` (piped to the command on stdin). */
+  /** Returns the intro text for `prompt`. */
   write(prompt: string): Promise<string>;
 }
 
-/** Runs a local command with the prompt on stdin and returns trimmed stdout. */
+const DEFAULT_OLLAMA_HOST = "http://127.0.0.1:11434";
+const DEFAULT_INTRO_MODEL = "normistral-clean";
+
+/**
+ * Calls the local Ollama model directly over HTTP (`/api/generate`) and strips its
+ * chain-of-thought. In-process — no subprocess — so the server and any importing
+ * script share one implementation. Host/model come from `OLLAMA_HOST` / `INTRO_MODEL`.
+ */
+export class OllamaIntroWriter implements IntroWriter {
+  #endpoint: string;
+  #model: string;
+  #timeoutMs: number;
+
+  constructor(opts: { host?: string; model?: string; timeoutMs?: number } = {}) {
+    const host = opts.host ?? Deno.env.get("OLLAMA_HOST") ?? DEFAULT_OLLAMA_HOST;
+    this.#endpoint = `${host.replace(/\/+$/, "")}/api/generate`;
+    this.#model = opts.model ?? Deno.env.get("INTRO_MODEL") ?? DEFAULT_INTRO_MODEL;
+    this.#timeoutMs = opts.timeoutMs ?? 120_000;
+  }
+
+  async write(prompt: string): Promise<string> {
+    const res = await fetch(this.#endpoint, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        model: this.#model,
+        prompt,
+        stream: false,
+        // Low temperature for instruction-following (a creative model otherwise
+        // invents names/facts); generous cap + the model's `</s>` stop give room to
+        // finish reasoning AND the answer, so we never truncate mid-thought.
+        options: { temperature: 0.2, num_predict: 2048 },
+      }),
+      signal: AbortSignal.timeout(this.#timeoutMs),
+    });
+    if (!res.ok) {
+      throw new Error(`Ollama ${res.status}: ${(await res.text()).slice(0, 200)}`);
+    }
+    const { response } = await res.json() as { response?: string };
+    return stripReasoning(response ?? "");
+  }
+}
+
+/**
+ * Escape hatch: runs an arbitrary local command with the prompt on stdin and
+ * returns trimmed stdout. Used only when `INTRO_CMD` is set, to swap in a different
+ * model/CLI without code changes; the built-in `OllamaIntroWriter` is the default.
+ */
 export class CommandIntroWriter implements IntroWriter {
   #exe: string;
   #args: string[];
@@ -82,9 +130,15 @@ export function stripReasoning(text: string): string {
   return text.trim();
 }
 
-/** Local command writer when `INTRO_CMD` is set, else null (caller uses the placeholder). */
+/**
+ * The newsletter's prose writer. Defaults to the built-in local model
+ * (`OllamaIntroWriter`) — no configuration needed. `INTRO_CMD` overrides it with a
+ * custom local command; `INTRO_DISABLED=1` turns prose off entirely, so drafts use
+ * the deterministic placeholder.
+ */
 export function getIntroWriter(): IntroWriter | null {
+  if (Deno.env.get("INTRO_DISABLED") === "1") return null;
   const command = Deno.env.get("INTRO_CMD");
-  if (!command?.trim()) return null;
-  return new CommandIntroWriter(parseCommand(command));
+  if (command?.trim()) return new CommandIntroWriter(parseCommand(command));
+  return new OllamaIntroWriter();
 }

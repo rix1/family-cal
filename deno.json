@@ -4,11 +4,11 @@
   "tasks": {
     "dev": "DEV_INSECURE_COOKIES=1 vite --host 0.0.0.0 --port 8000",
     "build": "vite build",
-    "start": "deno serve --allow-net --allow-env --allow-read --allow-write --allow-run _fresh/server.js",
+    "start": "deno serve --allow-net --allow-env --allow-read --allow-write _fresh/server.js",
     "seed": "deno run --allow-env --allow-read --allow-write scripts/seed.ts",
     "issue-link": "deno run --allow-env --allow-read --allow-write scripts/issue_link.ts",
     "set-permission": "deno run --allow-env --allow-read --allow-write scripts/set_permission.ts",
-    "prepare-newsletter": "deno run --allow-net --allow-env --allow-read --allow-write --allow-run scripts/prepare_newsletter.ts",
+    "prepare-newsletter": "deno run --allow-net --allow-env --allow-read --allow-write scripts/prepare_newsletter.ts",
     "test": "deno test --allow-net --allow-env --allow-read --allow-write --allow-run",
     "check": "deno check main.ts && deno test --allow-net --allow-env --allow-read --allow-write --allow-run"
   },

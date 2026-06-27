@@ -1,10 +1,11 @@
 import {
   CommandIntroWriter,
   getIntroWriter,
+  OllamaIntroWriter,
   parseCommand,
   stripReasoning,
 } from "../lib/intro_writer.ts";
-import { assertEquals, assertRejects } from "./asserts.ts";
+import { assert, assertEquals, assertRejects } from "./asserts.ts";
 
 Deno.test("parseCommand splits on whitespace", () => {
   assertEquals(parseCommand("ollama run llama3.1"), ["ollama", "run", "llama3.1"]);
@@ -36,12 +37,58 @@ Deno.test("stripReasoning keeps only the prose after the reasoning", () => {
   assertEquals(stripReasoning("<think>a</think>b</think> Svar"), "Svar");
 });
 
-Deno.test("getIntroWriter is null without INTRO_CMD", () => {
-  const previous = Deno.env.get("INTRO_CMD");
+Deno.test("getIntroWriter defaults to the built-in Ollama writer, with overrides", () => {
+  const prevCmd = Deno.env.get("INTRO_CMD");
+  const prevOff = Deno.env.get("INTRO_DISABLED");
   Deno.env.delete("INTRO_CMD");
+  Deno.env.delete("INTRO_DISABLED");
   try {
-    assertEquals(getIntroWriter(), null);
+    assert(getIntroWriter() instanceof OllamaIntroWriter, "default is the built-in model");
+
+    Deno.env.set("INTRO_CMD", "ollama run llama3.1");
+    assert(getIntroWriter() instanceof CommandIntroWriter, "INTRO_CMD overrides with a command");
+
+    Deno.env.delete("INTRO_CMD");
+    Deno.env.set("INTRO_DISABLED", "1");
+    assertEquals(getIntroWriter(), null, "INTRO_DISABLED turns prose off");
   } finally {
-    if (previous !== undefined) Deno.env.set("INTRO_CMD", previous);
+    Deno.env.delete("INTRO_CMD");
+    Deno.env.delete("INTRO_DISABLED");
+    if (prevCmd !== undefined) Deno.env.set("INTRO_CMD", prevCmd);
+    if (prevOff !== undefined) Deno.env.set("INTRO_DISABLED", prevOff);
+  }
+});
+
+Deno.test("OllamaIntroWriter posts to /api/generate and strips the reasoning", async () => {
+  const original = globalThis.fetch;
+  let captured: { url: string; body: { model: string; prompt: string } } | undefined;
+  globalThis.fetch = ((url: string | URL | Request, init?: RequestInit) => {
+    captured = { url: String(url), body: JSON.parse(String(init?.body)) };
+    return Promise.resolve(
+      new Response(JSON.stringify({ response: "<think>resonnement</think> Hei, familie!" }), {
+        status: 200,
+      }),
+    );
+  }) as typeof fetch;
+  try {
+    const out = await new OllamaIntroWriter({ host: "http://localhost:11434", model: "test-model" })
+      .write("min prompt");
+    assertEquals(out, "Hei, familie!");
+    assertEquals(captured?.url, "http://localhost:11434/api/generate");
+    assertEquals(captured?.body.model, "test-model");
+    assertEquals(captured?.body.prompt, "min prompt");
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+Deno.test("OllamaIntroWriter throws on a non-200 so the draft falls back", async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = (() =>
+    Promise.resolve(new Response("boom", { status: 500 }))) as typeof fetch;
+  try {
+    await assertRejects(() => new OllamaIntroWriter().write("x"));
+  } finally {
+    globalThis.fetch = original;
   }
 });

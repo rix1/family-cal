@@ -189,6 +189,15 @@ html[data-theme="dark"] {
     box-shadow: var(--sh-card);
   }
 
+  /* Native-popover confirm dialog (ConfirmPopover): top-layer, centered by the UA.
+     `display` is only set while open so the UA can hide it when closed. */
+  .confirm-popover:popover-open {
+    display: grid;
+  }
+  .confirm-popover::backdrop {
+    background: rgba(0, 0, 0, 0.3);
+  }
+
   .btn {
     display: inline-flex;
     min-height: 2.25rem;

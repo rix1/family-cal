@@ -1,4 +1,5 @@
 import { AdminShell } from "@/components/AdminShell.tsx";
+import { ConfirmPopover } from "@/components/ConfirmPopover.tsx";
 import { Toast } from "@/islands/Toast.tsx";
 import { adminDenied, adminViewer } from "@/lib/admin_auth.ts";
 import { getStore } from "@/lib/db.ts";
@@ -134,7 +135,7 @@ export default define.page<typeof handlers>(({ data }) => (
         </div>
         {data.segments.length
           ? (
-            <details class="relative">
+            <details data-popover class="relative">
               <summary class="btn btn-primary cursor-pointer list-none [&::-webkit-details-marker]:hidden">
                 Generate drafts
               </summary>
@@ -235,15 +236,13 @@ export default define.page<typeof handlers>(({ data }) => (
                     >
                       Open
                     </a>
-                    <form method="post">
-                      <input type="hidden" name="action" value="delete" />
-                      <input type="hidden" name="id" value={draft.id} />
-                      <button
-                        type="submit"
-                        aria-label="Delete newsletter"
-                        title="Delete newsletter"
-                        class="inline-flex size-8 items-center justify-center rounded-md text-ink-3 transition hover:bg-danger-soft hover:text-danger"
-                      >
+                    <ConfirmPopover
+                      id={`confirm-del-${draft.id}`}
+                      triggerClass="inline-flex size-8 items-center justify-center rounded-md text-ink-3 transition hover:bg-danger-soft hover:text-danger"
+                      triggerLabel="Delete newsletter"
+                      message="Delete this newsletter permanently? Generating the month again recreates it while the segment still has subscribers and birthdays."
+                      confirmLabel="Delete newsletter"
+                      trigger={
                         <svg
                           aria-hidden="true"
                           viewBox="0 0 24 24"
@@ -256,8 +255,11 @@ export default define.page<typeof handlers>(({ data }) => (
                         >
                           <path d="M4 7h16M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2m-9 0 1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13" />
                         </svg>
-                      </button>
-                    </form>
+                      }
+                    >
+                      <input type="hidden" name="action" value="delete" />
+                      <input type="hidden" name="id" value={draft.id} />
+                    </ConfirmPopover>
                   </div>
                 </td>
               </tr>
@@ -290,15 +292,13 @@ export default define.page<typeof handlers>(({ data }) => (
                   <td class="text-ink-2">{subscriber.email}</td>
                   <td class="text-ink-2">{subscriber.segment}</td>
                   <td class="text-right">
-                    <form method="post">
-                      <input type="hidden" name="action" value="unsubscribe" />
-                      <input type="hidden" name="token" value={subscriber.token} />
-                      <button
-                        type="submit"
-                        aria-label={`Remove ${subscriber.name} from the newsletter`}
-                        title={`Remove ${subscriber.name} from the newsletter`}
-                        class="inline-flex size-8 items-center justify-center rounded-md text-ink-3 transition hover:bg-danger-soft hover:text-danger"
-                      >
+                    <ConfirmPopover
+                      id={`confirm-unsub-${subscriber.token}`}
+                      triggerClass="inline-flex size-8 items-center justify-center rounded-md text-ink-3 transition hover:bg-danger-soft hover:text-danger"
+                      triggerLabel={`Remove ${subscriber.name} from the newsletter`}
+                      message={`Remove ${subscriber.name} from the newsletter? They stop receiving it until they subscribe again.`}
+                      confirmLabel="Remove subscriber"
+                      trigger={
                         <svg
                           aria-hidden="true"
                           viewBox="0 0 24 24"
@@ -311,8 +311,11 @@ export default define.page<typeof handlers>(({ data }) => (
                         >
                           <path d="M4 7h16M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2m-9 0 1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13" />
                         </svg>
-                      </button>
-                    </form>
+                      }
+                    >
+                      <input type="hidden" name="action" value="unsubscribe" />
+                      <input type="hidden" name="token" value={subscriber.token} />
+                    </ConfirmPopover>
                   </td>
                 </tr>
               ))}

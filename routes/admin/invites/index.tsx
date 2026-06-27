@@ -1,4 +1,5 @@
 import { AdminShell } from "@/components/AdminShell.tsx";
+import { ConfirmPopover } from "@/components/ConfirmPopover.tsx";
 import { CopyButton } from "@/islands/CopyButton.tsx";
 import { Toast } from "@/islands/Toast.tsx";
 import { adminDenied, adminViewer } from "@/lib/admin_auth.ts";
@@ -106,7 +107,7 @@ export default define.page<typeof handlers>(({ data }) => (
             their own private viewer link.
           </p>
         </div>
-        <details class="relative">
+        <details data-popover class="relative">
           <summary class="btn btn-primary cursor-pointer list-none [&::-webkit-details-marker]:hidden">
             New invite
           </summary>
@@ -214,13 +215,16 @@ export default define.page<typeof handlers>(({ data }) => (
                     <div class="flex items-center justify-end gap-2">
                       <CopyButton value={url} label="Copy" />
                       {active && (
-                        <form method="post">
+                        <ConfirmPopover
+                          id={`confirm-expire-${invite.token}`}
+                          triggerClass="btn btn-danger btn-sm"
+                          trigger="Expire"
+                          message="Expire this invite link? Anyone holding it can no longer use it to join."
+                          confirmLabel="Expire invite"
+                        >
                           <input type="hidden" name="action" value="expire" />
                           <input type="hidden" name="token" value={invite.token} />
-                          <button type="submit" class="btn btn-danger btn-sm">
-                            Expire
-                          </button>
-                        </form>
+                        </ConfirmPopover>
                       )}
                     </div>
                   </td>

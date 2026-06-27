@@ -299,29 +299,10 @@ function FilterDropdown({
   footer?: ComponentChildren;
 }) {
   const selectable = options.filter((option) => !option.disabled).length;
-  const details = useRef<HTMLDetailsElement | null>(null);
-
-  useEffect(() => {
-    function closeOnOutsideClick(event: PointerEvent) {
-      if (!details.current?.contains(event.target as Node)) {
-        details.current?.removeAttribute("open");
-      }
-    }
-
-    function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") details.current?.removeAttribute("open");
-    }
-
-    document.addEventListener("pointerdown", closeOnOutsideClick);
-    globalThis.addEventListener("keydown", closeOnEscape);
-    return () => {
-      document.removeEventListener("pointerdown", closeOnOutsideClick);
-      globalThis.removeEventListener("keydown", closeOnEscape);
-    };
-  }, []);
-
+  // Outside-click / Escape close is handled globally by PopoverBehavior (see the
+  // `data-popover` attribute below).
   return (
-    <details ref={details} class="relative">
+    <details data-popover class="relative">
       <summary class="btn btn-ghost cursor-pointer list-none [&::-webkit-details-marker]:hidden">
         <span>{label}</span>
         <span class="text-xs font-medium tabular-nums text-ink-3">

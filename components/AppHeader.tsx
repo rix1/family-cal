@@ -1,5 +1,5 @@
 import type { ComponentChildren } from "preact";
-import { AccountMenuBehavior } from "@/islands/AccountMenuBehavior.tsx";
+import { PopoverBehavior } from "@/islands/PopoverBehavior.tsx";
 import { ThemeToggle } from "@/islands/ThemeToggle.tsx";
 
 interface Props {
@@ -72,6 +72,8 @@ export function AppHeader({
 }: Props) {
   return (
     <header class="sticky top-0 z-40 border-b border-line bg-page/85 backdrop-blur-md">
+      {/* One global behavior for every `<details data-popover>` on the page. */}
+      <PopoverBehavior />
       <div
         class={`mx-auto flex h-14 items-center justify-between gap-3 px-4 ${
           wide ? "max-w-7xl" : "max-w-5xl"
@@ -88,8 +90,7 @@ export function AppHeader({
           {children}
           {viewerName
             ? (
-              <details class="relative">
-                <AccountMenuBehavior />
+              <details data-popover class="relative">
                 <summary
                   class="flex h-9 cursor-pointer list-none items-center gap-2 rounded-full border border-line-2 bg-surface pl-1 pr-2.5 hover:bg-inset [&::-webkit-details-marker]:hidden"
                   aria-label={`Open menu for ${viewerName}`}

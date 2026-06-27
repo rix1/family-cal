@@ -1,4 +1,5 @@
 import { AdminShell } from "@/components/AdminShell.tsx";
+import { ConfirmPopover } from "@/components/ConfirmPopover.tsx";
 import { adminDenied, adminViewer } from "@/lib/admin_auth.ts";
 import { getStore } from "@/lib/db.ts";
 import { addEvent, eventKindLabels } from "@/lib/family_events.ts";
@@ -91,7 +92,7 @@ export default define.page<typeof handlers>(({ data }) => {
               groups decide who sees it.
             </p>
           </div>
-          <details class="relative">
+          <details data-popover class="relative">
             <summary class="btn btn-primary cursor-pointer list-none [&::-webkit-details-marker]:hidden">
               Add event
             </summary>
@@ -191,13 +192,16 @@ export default define.page<typeof handlers>(({ data }) => {
                   </td>
                   <td class="text-ink-2">{event.notes}</td>
                   <td class="text-right">
-                    <form method="post">
+                    <ConfirmPopover
+                      id={`confirm-del-${event.id}`}
+                      triggerClass="btn btn-danger btn-sm"
+                      trigger="Delete"
+                      message="Delete this family event permanently? It will stop appearing on the calendar and in newsletters."
+                      confirmLabel="Delete event"
+                    >
                       <input type="hidden" name="action" value="delete" />
                       <input type="hidden" name="id" value={event.id} />
-                      <button type="submit" class="btn btn-danger btn-sm">
-                        Delete
-                      </button>
-                    </form>
+                    </ConfirmPopover>
                   </td>
                 </tr>
               ))}

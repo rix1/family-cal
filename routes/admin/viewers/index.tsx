@@ -1,4 +1,5 @@
 import { AdminShell } from "@/components/AdminShell.tsx";
+import { ConfirmPopover } from "@/components/ConfirmPopover.tsx";
 import { CopyButton } from "@/islands/CopyButton.tsx";
 import { Toast } from "@/islands/Toast.tsx";
 import { accessUrls, createViewer, expirePreviousViewerLinks } from "@/lib/access_links.ts";
@@ -108,7 +109,7 @@ export default define.page<typeof handlers>(({ data }) => (
           <h1 class="text-2xl font-semibold tracking-tight">Viewers</h1>
           <p class="mt-1 text-sm text-ink-2">Capability links and their permissions.</p>
         </div>
-        <details class="relative">
+        <details data-popover class="relative">
           <summary class="btn btn-primary cursor-pointer list-none [&::-webkit-details-marker]:hidden">
             New viewer
           </summary>
@@ -257,13 +258,16 @@ export default define.page<typeof handlers>(({ data }) => (
                 </td>
                 <td class="text-right">
                   {viewerIsActive(item) && item.token !== data.viewer.token && (
-                    <form method="post">
+                    <ConfirmPopover
+                      id={`confirm-expire-${item.token}`}
+                      triggerClass="btn btn-danger btn-sm"
+                      trigger="Expire"
+                      message={`Expire ${item.name}'s access link? Their current link stops working until you issue a new one.`}
+                      confirmLabel="Expire access"
+                    >
                       <input type="hidden" name="action" value="expire" />
                       <input type="hidden" name="token" value={item.token} />
-                      <button type="submit" class="btn btn-danger btn-sm">
-                        Expire
-                      </button>
-                    </form>
+                    </ConfirmPopover>
                   )}
                 </td>
               </tr>

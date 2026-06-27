@@ -87,26 +87,10 @@ export function Editor({
   const [groupFilter, setGroupFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("all");
   const noteInputs = useRef(new Map<number, HTMLTextAreaElement>());
+  // Outside-click / Escape close is handled globally by PopoverBehavior via the
+  // `data-popover` attribute on the <details>. We keep a ref only to close it
+  // programmatically after picking an action.
   const moreMenu = useRef<HTMLDetailsElement | null>(null);
-
-  useEffect(() => {
-    function closeOnOutsideClick(event: PointerEvent) {
-      if (!moreMenu.current?.contains(event.target as Node)) {
-        moreMenu.current?.removeAttribute("open");
-      }
-    }
-
-    function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") moreMenu.current?.removeAttribute("open");
-    }
-
-    document.addEventListener("pointerdown", closeOnOutsideClick);
-    globalThis.addEventListener("keydown", closeOnEscape);
-    return () => {
-      document.removeEventListener("pointerdown", closeOnOutsideClick);
-      globalThis.removeEventListener("keydown", closeOnEscape);
-    };
-  }, []);
 
   function closeMoreMenu() {
     moreMenu.current?.removeAttribute("open");
@@ -318,7 +302,7 @@ export function Editor({
           </p>
         </div>
         <div class="flex items-center gap-2">
-          <details ref={moreMenu} class="relative">
+          <details ref={moreMenu} data-popover class="relative">
             <summary class="btn btn-ghost cursor-pointer list-none [&::-webkit-details-marker]:hidden">
               More
               <svg

@@ -386,6 +386,16 @@ Deno.test("manual edits persist; regeneration discards them after confirmation",
   assertStringIncludes(regenerated.body, INTRO_PLACEHOLDER);
 });
 
+Deno.test("regenerateDraft reports progress milestones in order (drives the UI checklist)", async () => {
+  const store = new SeedStore(PEOPLE, GROUPS, [
+    subscriber("a1", "Anna", "anna@example.com", ["berg-siden"]),
+  ]);
+  const [draft] = await generateDraftsForMonth(store, JUNE, "Admin");
+  const steps: string[] = [];
+  await regenerateDraft(store, draft.id, "Admin", fixedIntro, (step) => steps.push(step));
+  assertEquals(steps, ["collected", "written", "saved"]);
+});
+
 Deno.test("recipients stay dynamic until sent; sent drafts are immutable", async () => {
   const store = new SeedStore(PEOPLE, GROUPS, [
     subscriber("a1", "Anna", "anna@example.com", ["berg-siden"]),

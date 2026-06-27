@@ -1,7 +1,10 @@
 import { render } from "@deno/gfm";
 import { AdminShell } from "@/components/AdminShell.tsx";
+import { ConfirmPopover } from "@/components/ConfirmPopover.tsx";
 import { CopyButton } from "@/islands/CopyButton.tsx";
 import { NewsletterPreview } from "@/islands/NewsletterPreview.tsx";
+import { PendingSubmit } from "@/islands/PendingSubmit.tsx";
+import { RegenerateProgress } from "@/islands/RegenerateProgress.tsx";
 import { Toast } from "@/islands/Toast.tsx";
 import { adminDenied, adminViewer } from "@/lib/admin_auth.ts";
 import { getStore } from "@/lib/db.ts";
@@ -74,6 +77,29 @@ export const handlers = define.handlers({
         return back("saved");
       }
       if (action === "regenerate") {
+        // Progressive enhancement: the RegenerateProgress island posts `stream=1`
+        // and reads per-step NDJSON; a plain form POST gets the usual redirect.
+        if (String(form.get("stream") ?? "") === "1") {
+          const body = new ReadableStream<Uint8Array>({
+            async start(controller) {
+              const enc = new TextEncoder();
+              const send = (event: unknown) =>
+                controller.enqueue(enc.encode(`${JSON.stringify(event)}\n`));
+              try {
+                await regenerateDraft(store, id, viewer.name, getIntroWriter(), (step) =>
+                  send({ step }));
+                send({ done: true });
+              } catch (error) {
+                send({ error: error instanceof Error ? error.message : String(error) });
+              } finally {
+                controller.close();
+              }
+            },
+          });
+          return new Response(body, {
+            headers: { "content-type": "application/x-ndjson", "cache-control": "no-cache" },
+          });
+        }
         await regenerateDraft(store, id, viewer.name, getIntroWriter());
         return back("regenerated");
       }
@@ -122,28 +148,24 @@ export default define.page<typeof handlers>(({ data }) => {
             </p>
           </div>
           <div class="flex items-center gap-2">
-            <details class="relative">
-              <summary class="btn btn-ghost cursor-pointer list-none [&::-webkit-details-marker]:hidden">
-                Delete
-              </summary>
-              <form
-                method="post"
-                class="card absolute right-0 z-30 mt-2 grid w-[min(18rem,calc(100vw-2rem))] gap-3 p-4 shadow-pop"
-              >
-                <input type="hidden" name="action" value="delete" />
-                <p class="text-sm text-ink-2">
+            <ConfirmPopover
+              id={`confirm-del-${draft.id}`}
+              triggerClass="btn btn-ghost"
+              trigger="Delete"
+              confirmLabel={isSent ? "Delete record" : "Delete draft"}
+              message={
+                <>
                   Remove this {isSent ? "sent newsletter record" : "draft"} permanently.
                   {!isSent &&
                     " Generating this month again recreates it while the segment still has subscribers and birthdays."}
-                </p>
-                <button type="submit" class="btn btn-danger">
-                  Delete {isSent ? "record" : "draft"}
-                </button>
-              </form>
-            </details>
+                </>
+              }
+            >
+              <input type="hidden" name="action" value="delete" />
+            </ConfirmPopover>
             {!isSent && (
               <>
-                <details class="relative">
+                <details data-popover class="relative">
                   <summary class="btn btn-ghost cursor-pointer list-none [&::-webkit-details-marker]:hidden">
                     Generate
                   </summary>
@@ -156,12 +178,10 @@ export default define.page<typeof handlers>(({ data }) => {
                       Rewrite the intro with the local model and rebuild the list from current data.
                       Your manual edits are discarded.
                     </p>
-                    <button type="submit" class="btn btn-danger">
-                      Generate draft
-                    </button>
+                    <RegenerateProgress class="btn btn-danger" label="Generate draft" />
                   </form>
                 </details>
-                <details class="relative">
+                <details data-popover class="relative">
                   <summary class="btn btn-primary cursor-pointer list-none [&::-webkit-details-marker]:hidden">
                     Send
                   </summary>
@@ -174,9 +194,12 @@ export default define.page<typeof handlers>(({ data }) => {
                       Emails this to the {data.recipients.length}{" "}
                       current recipients via Mailgun, then freezes the draft. This can't be undone.
                     </p>
-                    <button type="submit" class="btn btn-primary">
-                      Send to {data.recipients.length}
-                    </button>
+                    <PendingSubmit
+                      class="btn btn-primary"
+                      label={`Send to ${data.recipients.length}`}
+                      pendingLabel="Sending…"
+                      pendingHint="Emailing each recipient via Mailgun."
+                    />
                   </form>
                 </details>
               </>

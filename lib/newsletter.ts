@@ -453,10 +453,22 @@ async function writeBody(
   month: MonthRef,
 ): Promise<string | null> {
   if (!introWriter) return null;
+  const key = monthKey(month);
+  const started = Date.now();
+  console.info(`[newsletter] ${key}: generating prose with the local model…`);
   try {
     const out = stripReasoning(await introWriter.write(buildPrompt(month)));
-    return out || null;
-  } catch {
+    const secs = ((Date.now() - started) / 1000).toFixed(1);
+    if (out) {
+      console.info(`[newsletter] ${key}: prose ready in ${secs}s (${out.length} chars).`);
+      return out;
+    }
+    console.warn(`[newsletter] ${key}: model returned empty after ${secs}s → placeholder.`);
+    return null;
+  } catch (error) {
+    const secs = ((Date.now() - started) / 1000).toFixed(1);
+    const reason = error instanceof Error ? error.message : String(error);
+    console.error(`[newsletter] ${key}: model failed after ${secs}s → placeholder: ${reason}`);
     return null;
   }
 }
@@ -625,16 +637,22 @@ export async function updateDraftContent(
   return next;
 }
 
+/** Milestones reported by `regenerateDraft`, in order, to drive a progress UI. */
+export type RegenStep = "collected" | "written" | "saved";
+
 /**
  * Replace subject, body and prompt from current data, discarding manual edits,
  * and re-draft the intro with `introWriter` (local model). Only valid on unsent
- * drafts. This backs the admin "Generate" button.
+ * drafts. This backs the admin "Generate" button. `onProgress` fires as each
+ * milestone completes so the UI can show real per-step progress (the model call
+ * is the slow one).
  */
 export async function regenerateDraft(
   store: Store,
   id: string,
   actor: string,
   introWriter?: IntroWriter | null,
+  onProgress?: (step: RegenStep) => void,
 ): Promise<NewsletterDraft> {
   const draft = await editableDraft(store, id);
   const month = parseMonthKey(draft.month);
@@ -643,7 +661,9 @@ export async function regenerateDraft(
   const birthdays = birthdaysForMonth(people, month, draft.groups);
   const remembrances = monthRemembrances(people, month, draft.groups);
   const occasions = monthOccasions(events, month, draft.groups);
+  onProgress?.("collected");
   const modelBody = await writeBody(introWriter, month);
+  onProgress?.("written");
   const now = new Date().toISOString();
   const next: NewsletterDraft = {
     ...draft,
@@ -660,6 +680,7 @@ export async function regenerateDraft(
     targetId: id,
     detail: `Regenerated draft for ${draft.month} (${draft.segment})`,
   });
+  onProgress?.("saved");
   return next;
 }
 

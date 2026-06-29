@@ -189,8 +189,17 @@ html[data-theme="dark"] {
     box-shadow: var(--sh-card);
   }
 
-  /* Native-popover confirm dialog (ConfirmPopover): top-layer, centered by the UA.
-     `display` is only set while open so the UA can hide it when closed. */
+  /* Native-popover confirm dialog (ConfirmPopover): top-layer, centered.
+     We center explicitly rather than leaning on the UA's `margin: auto`, because
+     Tailwind v4's Preflight resets `* { margin: 0 }`, which clobbers it and pins
+     the popover to the top-left corner. `display` is only set while open so the
+     UA can still hide it when closed. */
+  .confirm-popover {
+    position: fixed;
+    inset: 0;
+    height: fit-content;
+    margin: auto;
+  }
   .confirm-popover:popover-open {
     display: grid;
   }

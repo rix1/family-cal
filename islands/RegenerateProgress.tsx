@@ -40,7 +40,11 @@ export function RegenerateProgress({ label, class: cls = "btn btn-danger" }: Pro
     try {
       const data = new FormData(form);
       data.set("stream", "1");
-      const res = await fetch(form.action || globalThis.location.pathname, {
+      // NB: don't read `form.action` — the hidden <input name="action"> clobbers
+      // the built-in property (HTMLFormElement is [OverrideBuiltins]), so it
+      // returns the input element, not the URL. Read the attribute directly.
+      const action = form.getAttribute("action") || globalThis.location.pathname;
+      const res = await fetch(action, {
         method: "POST",
         body: data,
         headers: { accept: "application/x-ndjson" },

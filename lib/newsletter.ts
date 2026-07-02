@@ -8,7 +8,7 @@
 import { render } from "@deno/gfm";
 import { pad2, splitDate } from "./dates.ts";
 import type { EmailSender } from "./email.ts";
-import type { IntroWriter } from "./intro_writer.ts";
+import type { IntroWriter, WriteEvent } from "./intro_writer.ts";
 import { stripReasoning } from "./intro_writer.ts";
 import {
   type EventKind,
@@ -451,13 +451,14 @@ export function buildPrompt(month: MonthRef): string {
 async function writeBody(
   introWriter: IntroWriter | null | undefined,
   month: MonthRef,
+  onModelEvent?: (event: WriteEvent) => void,
 ): Promise<string | null> {
   if (!introWriter) return null;
   const key = monthKey(month);
   const started = Date.now();
   console.info(`[newsletter] ${key}: generating prose with the local model…`);
   try {
-    const out = stripReasoning(await introWriter.write(buildPrompt(month)));
+    const out = stripReasoning(await introWriter.write(buildPrompt(month), onModelEvent));
     const secs = ((Date.now() - started) / 1000).toFixed(1);
     if (out) {
       console.info(`[newsletter] ${key}: prose ready in ${secs}s (${out.length} chars).`);
@@ -645,7 +646,8 @@ export type RegenStep = "collected" | "written" | "saved";
  * and re-draft the intro with `introWriter` (local model). Only valid on unsent
  * drafts. This backs the admin "Generate" button. `onProgress` fires as each
  * milestone completes so the UI can show real per-step progress (the model call
- * is the slow one).
+ * is the slow one); `onModelEvent` forwards the raw model request and streamed
+ * tokens so the UI can show a live log.
  */
 export async function regenerateDraft(
   store: Store,
@@ -653,6 +655,7 @@ export async function regenerateDraft(
   actor: string,
   introWriter?: IntroWriter | null,
   onProgress?: (step: RegenStep) => void,
+  onModelEvent?: (event: WriteEvent) => void,
 ): Promise<NewsletterDraft> {
   const draft = await editableDraft(store, id);
   const month = parseMonthKey(draft.month);
@@ -662,7 +665,7 @@ export async function regenerateDraft(
   const remembrances = monthRemembrances(people, month, draft.groups);
   const occasions = monthOccasions(events, month, draft.groups);
   onProgress?.("collected");
-  const modelBody = await writeBody(introWriter, month);
+  const modelBody = await writeBody(introWriter, month, onModelEvent);
   onProgress?.("written");
   const now = new Date().toISOString();
   const next: NewsletterDraft = {

@@ -86,8 +86,19 @@ export const handlers = define.handlers({
               const send = (event: unknown) =>
                 controller.enqueue(enc.encode(`${JSON.stringify(event)}\n`));
               try {
-                await regenerateDraft(store, id, viewer.name, getIntroWriter(), (step) =>
-                  send({ step }));
+                await regenerateDraft(
+                  store,
+                  id,
+                  viewer.name,
+                  getIntroWriter(),
+                  (step) => send({ step }),
+                  (event) =>
+                    send(
+                      event.type === "request"
+                        ? { request: { endpoint: event.endpoint, body: event.body } }
+                        : { token: event.text },
+                    ),
+                );
                 send({ done: true });
               } catch (error) {
                 send({ error: error instanceof Error ? error.message : String(error) });

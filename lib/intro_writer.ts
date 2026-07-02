@@ -11,9 +11,22 @@
  * never blocks a draft: callers fall back to the deterministic placeholder.
  */
 
+/**
+ * Live events emitted while a writer works, so callers can surface the raw model
+ * exchange (request + streamed tokens) in a UI. Best-effort and unpersisted —
+ * never required for correctness.
+ */
+export type WriteEvent =
+  | { type: "request"; endpoint: string; body: unknown }
+  | { type: "token"; text: string };
+
 export interface IntroWriter {
-  /** Returns the intro text for `prompt`. */
-  write(prompt: string): Promise<string>;
+  /**
+   * Returns the intro text for `prompt`. `onEvent`, if given, fires with the
+   * outgoing request and each streamed chunk (raw, incl. chain-of-thought) so a
+   * caller can show live progress.
+   */
+  write(prompt: string, onEvent?: (event: WriteEvent) => void): Promise<string>;
 }
 
 const DEFAULT_OLLAMA_HOST = "http://127.0.0.1:11434";
@@ -28,34 +41,70 @@ export class OllamaIntroWriter implements IntroWriter {
   #endpoint: string;
   #model: string;
   #timeoutMs: number;
+  #keepAlive: string;
 
-  constructor(opts: { host?: string; model?: string; timeoutMs?: number } = {}) {
+  constructor(
+    opts: { host?: string; model?: string; timeoutMs?: number; keepAlive?: string } = {},
+  ) {
     const host = opts.host ?? Deno.env.get("OLLAMA_HOST") ?? DEFAULT_OLLAMA_HOST;
     this.#endpoint = `${host.replace(/\/+$/, "")}/api/generate`;
     this.#model = opts.model ?? Deno.env.get("INTRO_MODEL") ?? DEFAULT_INTRO_MODEL;
     this.#timeoutMs = opts.timeoutMs ?? 120_000;
+    // How long Ollama keeps the ~8GB model resident after responding. The
+    // newsletter is a rare, admin-triggered job, so we default to "0" (unload
+    // immediately) rather than Ollama's 5-minute default that leaves it hogging
+    // RAM. Set OLLAMA_KEEP_ALIVE (e.g. "5m", "-1" to keep forever) to override.
+    this.#keepAlive = opts.keepAlive ?? Deno.env.get("OLLAMA_KEEP_ALIVE") ?? "0";
   }
 
-  async write(prompt: string): Promise<string> {
+  async write(prompt: string, onEvent?: (event: WriteEvent) => void): Promise<string> {
+    const body = {
+      model: this.#model,
+      prompt,
+      // Stream so we can forward tokens live; the full text is still assembled
+      // here before stripping chain-of-thought.
+      stream: true,
+      // Unload the model right after responding (see #keepAlive) so it doesn't
+      // sit in memory between monthly runs.
+      keep_alive: this.#keepAlive,
+      // Low temperature for instruction-following (a creative model otherwise
+      // invents names/facts); generous cap + the model's `</s>` stop give room to
+      // finish reasoning AND the answer, so we never truncate mid-thought.
+      options: { temperature: 0.2, num_predict: 2048 },
+    };
+    onEvent?.({ type: "request", endpoint: this.#endpoint, body });
     const res = await fetch(this.#endpoint, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        model: this.#model,
-        prompt,
-        stream: false,
-        // Low temperature for instruction-following (a creative model otherwise
-        // invents names/facts); generous cap + the model's `</s>` stop give room to
-        // finish reasoning AND the answer, so we never truncate mid-thought.
-        options: { temperature: 0.2, num_predict: 2048 },
-      }),
+      body: JSON.stringify(body),
       signal: AbortSignal.timeout(this.#timeoutMs),
     });
     if (!res.ok) {
       throw new Error(`Ollama ${res.status}: ${(await res.text()).slice(0, 200)}`);
     }
-    const { response } = await res.json() as { response?: string };
-    return stripReasoning(response ?? "");
+    if (!res.body) throw new Error("Ollama returned no response body");
+
+    // Ollama streams NDJSON: one `{ response, done }` object per line.
+    const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+    let buffer = "";
+    let full = "";
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += value;
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        const chunk = JSON.parse(line) as { response?: string; error?: string };
+        if (chunk.error) throw new Error(`Ollama: ${chunk.error}`);
+        if (chunk.response) {
+          full += chunk.response;
+          onEvent?.({ type: "token", text: chunk.response });
+        }
+      }
+    }
+    return stripReasoning(full);
   }
 }
 
@@ -75,7 +124,8 @@ export class CommandIntroWriter implements IntroWriter {
     this.#timeoutMs = timeoutMs;
   }
 
-  async write(prompt: string): Promise<string> {
+  async write(prompt: string, onEvent?: (event: WriteEvent) => void): Promise<string> {
+    onEvent?.({ type: "request", endpoint: [this.#exe, ...this.#args].join(" "), body: prompt });
     const child = new Deno.Command(this.#exe, {
       args: this.#args,
       stdin: "piped",

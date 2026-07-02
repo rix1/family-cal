@@ -203,13 +203,13 @@ export default define.page<typeof handlers>(({ data }) => {
                     <input type="hidden" name="action" value="send" />
                     <p class="text-sm text-ink-2">
                       Emails this to the {data.recipients.length}{" "}
-                      current recipients via Mailgun, then freezes the draft. This can't be undone.
+                      current recipients via Resend, then freezes the draft. This can't be undone.
                     </p>
                     <PendingSubmit
                       class="btn btn-primary"
                       label={`Send to ${data.recipients.length}`}
                       pendingLabel="Sending…"
-                      pendingHint="Emailing each recipient via Mailgun."
+                      pendingHint="Emailing each recipient via Resend."
                     />
                   </form>
                 </details>

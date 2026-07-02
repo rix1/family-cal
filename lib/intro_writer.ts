@@ -88,22 +88,24 @@ export class OllamaIntroWriter implements IntroWriter {
     const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
     let buffer = "";
     let full = "";
+    const consume = (line: string) => {
+      if (!line.trim()) return;
+      const chunk = JSON.parse(line) as { response?: string; error?: string };
+      if (chunk.error) throw new Error(`Ollama: ${chunk.error}`);
+      if (chunk.response) {
+        full += chunk.response;
+        onEvent?.({ type: "token", text: chunk.response });
+      }
+    };
     for (;;) {
       const { value, done } = await reader.read();
       if (done) break;
       buffer += value;
       const lines = buffer.split("\n");
-      buffer = lines.pop() ?? "";
-      for (const line of lines) {
-        if (!line.trim()) continue;
-        const chunk = JSON.parse(line) as { response?: string; error?: string };
-        if (chunk.error) throw new Error(`Ollama: ${chunk.error}`);
-        if (chunk.response) {
-          full += chunk.response;
-          onEvent?.({ type: "token", text: chunk.response });
-        }
-      }
+      buffer = lines.pop() ?? ""; // keep the trailing partial line for the next read
+      for (const line of lines) consume(line);
     }
+    consume(buffer); // flush a final line with no trailing newline
     return stripReasoning(full);
   }
 }

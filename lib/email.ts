@@ -1,6 +1,6 @@
 /**
  * Outbound email seam. The login flow depends only on `EmailSender`, so the
- * concrete provider — Mailgun, Postmark, SES, ... — stays swappable, mirroring
+ * concrete provider — Resend, Postmark, SES, ... — stays swappable, mirroring
  * the `Store` seam. With no provider configured, `getEmailSender()` falls back to
  * logging to the console, so magic-link login is fully exercisable in local dev.
  */
@@ -36,60 +36,53 @@ export class ConsoleEmailSender implements EmailSender {
   }
 }
 
-export interface MailgunConfig {
+export interface ResendConfig {
   apiKey: string;
-  domain: string;
   from: string;
-  /** API base, region-specific (EU: https://api.eu.mailgun.net). */
-  baseUrl: string;
+  /** API base; override for testing. Defaults to https://api.resend.com. */
+  baseUrl?: string;
 }
 
-/** Sends through the Mailgun HTTP messages API. */
-export class MailgunEmailSender implements EmailSender {
-  #config: MailgunConfig;
+const RESEND_DEFAULT_BASE_URL = "https://api.resend.com";
 
-  constructor(config: MailgunConfig) {
+/** Sends through the Resend HTTP API (`POST /emails`). */
+export class ResendEmailSender implements EmailSender {
+  #config: ResendConfig;
+
+  constructor(config: ResendConfig) {
     this.#config = config;
   }
 
   async send(message: EmailMessage): Promise<void> {
-    const body = new FormData();
-    body.set("from", this.#config.from);
-    body.set("to", message.to);
-    body.set("subject", message.subject);
-    body.set("text", message.text);
-    if (message.html) body.set("html", message.html);
-    for (const [name, value] of Object.entries(message.headers ?? {})) {
-      body.set(`h:${name}`, value);
-    }
-
-    const auth = btoa(`api:${this.#config.apiKey}`);
-    const res = await fetch(
-      `${this.#config.baseUrl}/v3/${this.#config.domain}/messages`,
-      { method: "POST", headers: { authorization: `Basic ${auth}` }, body },
-    );
+    const baseUrl = (this.#config.baseUrl ?? RESEND_DEFAULT_BASE_URL).replace(/\/+$/, "");
+    const res = await fetch(`${baseUrl}/emails`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${this.#config.apiKey}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        from: this.#config.from,
+        to: message.to,
+        subject: message.subject,
+        text: message.text,
+        // Resend requires at least one of html/text; we always send text.
+        ...(message.html ? { html: message.html } : {}),
+        ...(message.headers ? { headers: message.headers } : {}),
+      }),
+    });
     if (!res.ok) {
-      throw new Error(`Mailgun send failed (${res.status}): ${await res.text()}`);
+      throw new Error(`Resend send failed (${res.status}): ${await res.text()}`);
     }
   }
 }
 
-/** API base for Mailgun: explicit override, else region (EU default). */
-export function mailgunBaseUrl(): string {
-  const explicit = Deno.env.get("MAILGUN_BASE_URL");
-  if (explicit) return explicit.replace(/\/+$/, "");
-  return Deno.env.get("MAILGUN_REGION")?.toLowerCase() === "us"
-    ? "https://api.mailgun.net"
-    : "https://api.eu.mailgun.net";
-}
-
-/** Mailgun when fully configured by env, else the console fallback. */
+/** Resend when fully configured by env, else the console fallback. */
 export function getEmailSender(): EmailSender {
-  const apiKey = Deno.env.get("MAILGUN_API_KEY");
-  const domain = Deno.env.get("MAILGUN_DOMAIN");
-  const from = Deno.env.get("MAILGUN_FROM");
-  if (apiKey && domain && from) {
-    return new MailgunEmailSender({ apiKey, domain, from, baseUrl: mailgunBaseUrl() });
+  const apiKey = Deno.env.get("RESEND_API_KEY");
+  const from = Deno.env.get("RESEND_FROM");
+  if (apiKey && from) {
+    return new ResendEmailSender({ apiKey, from, baseUrl: Deno.env.get("RESEND_BASE_URL") });
   }
   return new ConsoleEmailSender();
 }

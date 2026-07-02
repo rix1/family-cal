@@ -113,5 +113,5 @@ birthday newsletters. No cron or email provider is introduced.
 
 ## Deferred
 
-- Automatic sending, Mailgun or another email provider, cron infrastructure,
+- Automatic sending, Resend or another email provider, cron infrastructure,
   delivery tracking, email verification, and personalized unsubscribe links.

@@ -1,4 +1,3 @@
-import { render } from "@deno/gfm";
 import { AdminShell } from "@/components/AdminShell.tsx";
 import { ConfirmPopover } from "@/components/ConfirmPopover.tsx";
 import { CopyButton } from "@/islands/CopyButton.tsx";
@@ -14,7 +13,9 @@ import {
   deleteDraft,
   draftRecipients,
   regenerateDraft,
+  renderNewsletterHtml,
   sendDraft,
+  sendTestDraft,
   updateDraftContent,
 } from "@/lib/newsletter.ts";
 import { ValidationError } from "@/lib/people.ts";
@@ -50,10 +51,11 @@ export const handlers = define.handlers({
         email: recipient.newsletter!.email,
       })),
       bcc: recipients.map((recipient) => recipient.newsletter!.email).join(", "),
-      html: render(draft.body),
+      html: renderNewsletterHtml(draft.body),
       saved: ctx.url.searchParams.get("saved") === "1",
       regenerated: ctx.url.searchParams.get("regenerated") === "1",
       sent: ctx.url.searchParams.get("sent") === "1",
+      tested: ctx.url.searchParams.get("tested"),
     });
   },
   async POST(ctx) {
@@ -117,6 +119,23 @@ export const handlers = define.handlers({
       if (action === "send") {
         await sendDraft(store, id, viewer.name, getEmailSender());
         return back("sent");
+      }
+      if (action === "send-test") {
+        const email = await sendTestDraft(
+          store,
+          id,
+          String(form.get("email") ?? ""),
+          viewer.name,
+          getEmailSender(),
+        );
+        return new Response(null, {
+          status: 303,
+          headers: {
+            location: `/admin/newsletters/${encodeURIComponent(id)}?tested=${
+              encodeURIComponent(email)
+            }`,
+          },
+        });
       }
       if (action === "delete") {
         await deleteDraft(store, id, viewer.name);
@@ -193,6 +212,37 @@ export default define.page<typeof handlers>(({ data }) => {
                   </form>
                 </details>
                 <details data-popover class="relative">
+                  <summary class="btn btn-ghost cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+                    Send test
+                  </summary>
+                  <form
+                    method="post"
+                    class="card absolute right-0 z-30 mt-2 grid w-[min(20rem,calc(100vw-2rem))] gap-3 p-4 shadow-pop"
+                  >
+                    <input type="hidden" name="action" value="send-test" />
+                    <p class="text-sm text-ink-2">
+                      Sends the draft's current subject and body to one address so you can preview
+                      it. Doesn't touch the recipient list or mark the draft sent.
+                    </p>
+                    <label class="grid gap-1.5 text-sm font-medium">
+                      Deliver to
+                      <input
+                        type="email"
+                        name="email"
+                        required
+                        value="admin@example.com"
+                        class="input"
+                      />
+                    </label>
+                    <PendingSubmit
+                      class="btn btn-primary"
+                      label="Send test"
+                      pendingLabel="Sending…"
+                      pendingHint="Emailing the test via Resend."
+                    />
+                  </form>
+                </details>
+                <details data-popover class="relative">
                   <summary class="btn btn-primary cursor-pointer list-none [&::-webkit-details-marker]:hidden">
                     Send
                   </summary>
@@ -221,6 +271,7 @@ export default define.page<typeof handlers>(({ data }) => {
         {data.saved && <Toast message="Draft saved." />}
         {data.regenerated && <Toast message="Draft regenerated from current birthday data." />}
         {data.sent && <Toast message="Marked as sent. The draft is now an immutable record." />}
+        {data.tested && <Toast message={`Test email sent to ${data.tested}.`} />}
 
         {isSent && (
           <section class="card mt-6 p-5">

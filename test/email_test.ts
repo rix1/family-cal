@@ -20,7 +20,7 @@ Deno.test("ResendEmailSender posts to /emails with auth and JSON body", async ()
   try {
     const sender = new ResendEmailSender({
       apiKey: "re_test",
-      from: "Familiekalender <noreply@example.com>",
+      from: "Familiekalender <noreply@updates.example.com>",
       baseUrl: "https://api.resend.com/",
     });
     await sender.send({
@@ -38,7 +38,7 @@ Deno.test("ResendEmailSender posts to /emails with auth and JSON body", async ()
     assertEquals(req.method, "POST");
     assertEquals(req.headers.get("authorization"), "Bearer re_test");
     const body = await req.json();
-    assertEquals(body.from, "Familiekalender <noreply@example.com>");
+    assertEquals(body.from, "Familiekalender <noreply@updates.example.com>");
     assertEquals(body.to, "admin@example.com");
     assertEquals(body.subject, "Hello World");
     assertEquals(body.text, "plain");
@@ -52,7 +52,7 @@ Deno.test("ResendEmailSender posts to /emails with auth and JSON body", async ()
 Deno.test("ResendEmailSender throws on a non-2xx response", async () => {
   const stub = withStubbedFetch(() => new Response("bad key", { status: 401 }));
   try {
-    const sender = new ResendEmailSender({ apiKey: "re_test", from: "x@example.com" });
+    const sender = new ResendEmailSender({ apiKey: "re_test", from: "x@updates.example.com" });
     await assertRejects(() =>
       sender.send({ to: "a@b.com", subject: "s", text: "t" })
     );
@@ -64,7 +64,7 @@ Deno.test("ResendEmailSender throws on a non-2xx response", async () => {
 Deno.test("ResendEmailSender omits html when not provided", async () => {
   const stub = withStubbedFetch(() => new Response("{}", { status: 200 }));
   try {
-    const sender = new ResendEmailSender({ apiKey: "re_test", from: "x@example.com" });
+    const sender = new ResendEmailSender({ apiKey: "re_test", from: "x@updates.example.com" });
     await sender.send({ to: "a@b.com", subject: "s", text: "t" });
     const body = await stub.calls[0].json();
     assertEquals("html" in body, false);

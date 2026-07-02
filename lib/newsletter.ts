@@ -7,7 +7,8 @@
 
 import { render } from "@deno/gfm";
 import { pad2, splitDate } from "./dates.ts";
-import type { EmailSender } from "./email.ts";
+import type { EmailMessage, EmailSender } from "./email.ts";
+import { fillNewsletterEmail } from "./newsletter_email.ts";
 import type { IntroWriter, WriteEvent } from "./intro_writer.ts";
 import { stripReasoning } from "./intro_writer.ts";
 import {
@@ -734,13 +735,54 @@ export async function markDraftSent(
   return next;
 }
 
-/** Footer appended to every newsletter, with the self-serve unsubscribe link. */
-function unsubscribeFooter(profileUrl: string): { html: string; text: string } {
+/**
+ * Render a draft's Markdown body to HTML for email or preview. Same as gfm's
+ * `render`, but strips the clickable heading anchors it injects (an octicon
+ * `<a class="anchor" href="#…">`): a docs affordance that's just a broken
+ * in-email fragment link in a newsletter.
+ */
+export function renderNewsletterHtml(markdown: string): string {
+  return render(markdown).replaceAll(/<a class="anchor"[\s\S]*?<\/a>/g, "");
+}
+
+/**
+ * Plain-text unsubscribe footer for the `text` part. The HTML footer lives in the
+ * email template (`fillNewsletterEmail`), which owns the visual chrome.
+ */
+function unsubscribeFooter(profileUrl: string): string {
+  return `\n\n—\nAdministrer eller meld deg av: ${profileUrl}`;
+}
+
+/** Preheader / inbox snippet shown for the newsletter. */
+const NEWSLETTER_PREVIEW = "Hvem skal feires denne måneden – og litt om det som venter oss.";
+
+/**
+ * Build the email for a draft: the local HTML template (`fillNewsletterEmail`)
+ * for the rich `html`, plus a plain-text `text` fallback with the unsubscribe
+ * footer. The template owns the visual header/footer, so its `content` is just
+ * the rendered body.
+ */
+function newsletterMessage(
+  draft: NewsletterDraft,
+  to: string,
+  subject: string,
+  profileUrl: string,
+): EmailMessage {
+  const month = parseMonthKey(draft.month);
+  const html = fillNewsletterEmail({
+    preview: NEWSLETTER_PREVIEW,
+    title: month ? `Bursdager i ${monthNameNb(month.month)}` : draft.subject,
+    issue_number: month ? `#${month.month}` : "",
+    issue_date: month ? `${monthNameNb(month.month)} ${month.year}` : draft.month,
+    content: renderNewsletterHtml(draft.body),
+    unsubscribe_url: profileUrl,
+  });
   return {
-    html: `<hr/><p style="color:#6b7280;font-size:12px">` +
-      `Du får denne e-posten fordi du har meldt deg på familiekalenderen. ` +
-      `<a href="${profileUrl}">Administrer eller meld deg av</a>.</p>`,
-    text: `\n\n—\nAdministrer eller meld deg av: ${profileUrl}`,
+    to,
+    subject,
+    text: `${draft.body}${unsubscribeFooter(profileUrl)}`,
+    html,
+    headers: { "List-Unsubscribe": `<${profileUrl}>` },
   };
 }
 
@@ -759,24 +801,46 @@ export async function sendDraft(
   const recipients = draftRecipients(await store.listViewers(), draft);
   const baseUrl = (Deno.env.get("BASE_URL") ?? "").replace(/\/+$/, "");
   const profileUrl = `${baseUrl}/profile`;
-  const footer = unsubscribeFooter(profileUrl);
-  const html = `${render(draft.body)}${footer.html}`;
-  const text = `${draft.body}${footer.text}`;
 
   for (const recipient of recipients) {
     try {
-      await sender.send({
-        to: recipient.newsletter!.email,
-        subject: draft.subject,
-        text,
-        html,
-        headers: { "List-Unsubscribe": `<${profileUrl}>` },
-      });
+      await sender.send(
+        newsletterMessage(draft, recipient.newsletter!.email, draft.subject, profileUrl),
+      );
     } catch (error) {
       console.error(`Newsletter send failed for ${recipient.newsletter!.email}:`, error);
     }
   }
   return markDraftSent(store, id, actor);
+}
+
+/**
+ * Deliver the draft's current content to a single address as a preview. Unlike
+ * `sendDraft` this never freezes the draft or touches the recipient list — it's a
+ * dry run to your own inbox. Mirrors the real email (unsubscribe footer +
+ * List-Unsubscribe header) but prefixes the subject with "[Test]" so it can't be
+ * mistaken for the real thing. Valid on unsent drafts only.
+ */
+export async function sendTestDraft(
+  store: Store,
+  id: string,
+  to: string,
+  actor: string,
+  sender: EmailSender,
+): Promise<string> {
+  const draft = await editableDraft(store, id);
+  const email = normalizeEmail(to);
+  const baseUrl = (Deno.env.get("BASE_URL") ?? "").replace(/\/+$/, "");
+  const profileUrl = `${baseUrl}/profile`;
+  await sender.send(newsletterMessage(draft, email, `[Test] ${draft.subject}`, profileUrl));
+  await store.appendAudit({
+    at: new Date().toISOString(),
+    actor,
+    action: "newsletter_test_send",
+    targetId: id,
+    detail: `Sent test of ${draft.month} (${draft.segment}) to ${email}`,
+  });
+  return email;
 }
 
 // --- Subscription preferences ---

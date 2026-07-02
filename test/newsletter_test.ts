@@ -23,6 +23,7 @@ import {
   regenerateDraft,
   segmentKey,
   sendDraft,
+  sendTestDraft,
   setNewsletterPreference,
   subscriberSegments,
   updateDraftContent,
@@ -500,12 +501,54 @@ Deno.test("sendDraft emails each recipient with an unsubscribe footer, then free
   const sent = await sendDraft(store, draft.id, "Admin", sender);
   assertEquals(sent.status, "sent");
   assertEquals(sender.messages.map((m) => m.to).sort(), ["anna@example.com", "solveig@example.com"]);
-  assertStringIncludes(sender.messages[0].text, "Administrer eller meld deg av");
+  assertStringIncludes(sender.messages[0].text!, "Administrer eller meld deg av");
   assert(sender.messages[0].headers?.["List-Unsubscribe"]);
   assert(sender.messages[0].html?.includes("Bursdager"));
 
   // Immutable once sent.
   await assertRejects(() => sendDraft(store, draft.id, "Admin", sender));
+});
+
+Deno.test("sendTestDraft delivers a [Test] preview to one address without freezing", async () => {
+  const store = new SeedStore(PEOPLE, GROUPS, [
+    subscriber("a1", "Anna", "anna@example.com", ["berg-siden"]),
+  ]);
+  const [draft] = await generateDraftsForMonth(store, JUNE, "Admin");
+  const sender = new FakeEmailSender();
+
+  const to = await sendTestDraft(store, draft.id, "Halvor@Example.com", "Admin", sender);
+  assertEquals(to, "halvor@example.com"); // normalized (trimmed + lowercased)
+  assertEquals(sender.messages.length, 1);
+  assertEquals(sender.messages[0].to, "halvor@example.com");
+  assertStringIncludes(sender.messages[0].subject, "[Test]");
+  assert(sender.messages[0].html?.includes("Bursdager"));
+
+  // Not marked sent — still editable, and no email went to the real subscriber.
+  const after = await store.getNewsletterDraft(draft.id);
+  assertEquals(after?.status, "draft");
+
+  // Bad address is rejected before any send.
+  await assertRejects(() => sendTestDraft(store, draft.id, "not-an-email", "Admin", sender));
+  assertEquals(sender.messages.length, 1);
+});
+
+Deno.test("sendDraft wraps the body in the local HTML template with month-derived chrome", async () => {
+  const store = new SeedStore(PEOPLE, GROUPS, [
+    subscriber("a1", "Anna", "anna@example.com", ["berg-siden"]),
+  ]);
+  const [draft] = await generateDraftsForMonth(store, JUNE, "Admin");
+  const sender = new FakeEmailSender();
+
+  await sendDraft(store, draft.id, "Admin", sender);
+  const html = sender.messages[0].html!;
+  assertStringIncludes(html, "FAMILIEKALENDEREN"); // template chrome
+  assertStringIncludes(html, "Bursdager i juni"); // {{title}}
+  assertStringIncludes(html, "Utgave #6 · juni 2026"); // {{issue_number}} · {{issue_date}}
+  assertStringIncludes(html, "Bursdager i juni 2026"); // {{content}}: the body's own heading
+  // Heading anchors gfm injects are stripped for email.
+  assert(!html.includes('class="anchor"'), "email should not contain gfm heading anchors");
+  // No unfilled placeholders leaked through.
+  assert(!html.includes("{{"), "all template placeholders should be filled");
 });
 
 Deno.test("link rotation carries the latest newsletter preference forward", async () => {

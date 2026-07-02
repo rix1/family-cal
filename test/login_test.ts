@@ -37,7 +37,7 @@ function store(): SeedStore {
 
 /** Pull the /auth/login/<token> token out of a sent email body. */
 function tokenFromMessage(message: EmailMessage): string {
-  const match = message.text.match(/\/auth\/login\/(\S+)/);
+  const match = (message.text ?? "").match(/\/auth\/login\/(\S+)/);
   assert(match, "email should contain a sign-in link");
   return match![1];
 }

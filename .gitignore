@@ -4,6 +4,10 @@ _chat.txt
 # Real family PII — keep the people file local only (groups/viewers seeds stay tracked).
 seed/people.csv
 
+# Local secrets / config — the template stays tracked.
+.env
+!.env.template
+
 # Generated / dependency output
 _fresh/
 node_modules/

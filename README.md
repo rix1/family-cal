@@ -18,12 +18,39 @@ web pages, admin pages, JSON API, and per-viewer iCal subscription feeds.
 | `architecture.md` | Architecture notes. |
 | `design.md` | Visual/product design notes. |
 
+## Configuration
+
+Configuration comes from environment variables. Copy the template and edit as
+needed — every `deno task` loads `.env` automatically (via Deno's `--env-file`):
+
+```sh
+cp .env.template .env
+```
+
+`.env` is gitignored; keep real secrets out of the repo. All variables are
+optional — with an empty `.env` the app uses a local KV file and logs emails to
+the console instead of sending. See `.env.template` for the full annotated list;
+the ones you'll most likely set:
+
+| Variable | Purpose |
+| --- | --- |
+| `BASE_URL` | Public origin for emailed links and iCal feed URLs. |
+| `KV_PATH` | Deno KV database path (default `./.data/kv.sqlite3`). Must match app and CLI tasks. |
+| `DEV_INSECURE_COOKIES` | Local dev only: allow non-Secure cookies over http (the `dev` task sets this). |
+| `RESEND_API_KEY`, `RESEND_FROM` | Send real email via Resend; otherwise mail logs to the console. |
+| `OLLAMA_HOST`, `INTRO_MODEL`, `OLLAMA_KEEP_ALIVE` | Local newsletter-prose model (built-in defaults work as-is). |
+| `INTRO_DISABLED`, `INTRO_CMD` | Turn prose off, or shell out to a different local model command. |
+
+Values already present in the real environment take precedence over `.env`, so
+deploys can inject secrets without a file. See `DEPLOY.md` for the production setup.
+
 ## Running
 
 ```sh
-KV_PATH=/path/to/family-cal.db deno task dev
+deno task dev
 ```
 
+Set `KV_PATH` in `.env` (or inline, e.g. `KV_PATH=/path/to/family-cal.db deno task dev`).
 The database starts empty. There are two ways to populate it:
 
 1. Run `KV_PATH=/path/to/family-cal.db deno task seed` to load `seed/*.csv`.

@@ -53,9 +53,7 @@ Deno.test("ResendEmailSender throws on a non-2xx response", async () => {
   const stub = withStubbedFetch(() => new Response("bad key", { status: 401 }));
   try {
     const sender = new ResendEmailSender({ apiKey: "re_test", from: "x@updates.example.com" });
-    await assertRejects(() =>
-      sender.send({ to: "a@b.com", subject: "s", text: "t" })
-    );
+    await assertRejects(() => sender.send({ to: "a@b.com", subject: "s", text: "t" }));
   } finally {
     stub.restore();
   }

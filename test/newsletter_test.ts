@@ -394,7 +394,39 @@ Deno.test("regenerateDraft reports progress milestones in order (drives the UI c
   const [draft] = await generateDraftsForMonth(store, JUNE, "Admin");
   const steps: string[] = [];
   await regenerateDraft(store, draft.id, "Admin", fixedIntro, (step) => steps.push(step));
-  assertEquals(steps, ["collected", "written", "saved"]);
+  assertEquals(steps, ["collected", "written", "titled", "saved"]);
+});
+
+Deno.test("title: model suggestion is stored; manual edits and clearing work", async () => {
+  const store = new SeedStore(PEOPLE, GROUPS, [
+    subscriber("a1", "Anna", "anna@example.com", ["berg-siden"]),
+  ]);
+  const titled: IntroWriter = {
+    // deno-lint-ignore require-await
+    async write(prompt: string) {
+      return prompt.includes("tittel")
+        ? "«Lysere kvelder i vente.»"
+        : "Intro.\n\n{{BURSDAGSLISTE}}";
+    },
+  };
+  const [draft] = await generateDraftsForMonth(store, JUNE, "Admin", titled);
+  // Quotes and the trailing period are stripped from the model's suggestion.
+  assertEquals(draft.title, "Lysere kvelder i vente");
+
+  const edited = await updateDraftContent(store, draft.id, {
+    subject: draft.subject,
+    title: "  Egen tittel  ",
+    body: draft.body,
+  }, "Admin");
+  assertEquals(edited.title, "Egen tittel");
+
+  // Clearing the field falls back to the deterministic default at render time.
+  const cleared = await updateDraftContent(store, draft.id, {
+    subject: draft.subject,
+    title: "",
+    body: draft.body,
+  }, "Admin");
+  assertEquals(cleared.title, undefined);
 });
 
 Deno.test("recipients stay dynamic until sent; sent drafts are immutable", async () => {

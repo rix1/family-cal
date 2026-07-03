@@ -10,7 +10,7 @@ export const eventKindLabels: Record<EventKind, string> = {
   wedding: "Wedding",
   baptism: "Baptism",
   confirmation: "Confirmation",
-  other: "Event",
+  other: "Other",
 };
 
 export interface FamilyEventInput {

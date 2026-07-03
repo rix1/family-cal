@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 
-type StepKey = "collected" | "written" | "saved" | "done";
+type StepKey = "collected" | "written" | "titled" | "saved" | "done";
 type StepState = "pending" | "active" | "done";
 
-const ORDER: StepKey[] = ["collected", "written", "saved", "done"];
+const ORDER: StepKey[] = ["collected", "written", "titled", "saved", "done"];
 const STEPS: { key: StepKey; label: string }[] = [
   { key: "collected", label: "Gathering birthday data" },
   { key: "written", label: "Writing the intro with the local model" },
+  { key: "titled", label: "Suggesting a title" },
   { key: "saved", label: "Saving the draft" },
   { key: "done", label: "Done" },
 ];

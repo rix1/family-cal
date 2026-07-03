@@ -1,6 +1,7 @@
 # Monthly Birthday Newsletter
 
-> **Status:** Implemented (no cron, no email provider — manual BCC sending).
+> **Status:** Implemented. Delivery goes through Resend, one email per recipient
+> (the earlier manual copy-and-BCC workflow is gone).
 
 ## Summary
 
@@ -77,10 +78,10 @@ birthday newsletters. No cron or email provider is introduced.
   and saves.
 - Render saved Markdown using sanitized `@deno/gfm`
   (https://jsr.io/@deno/gfm).
-- Provide copy actions for subject, BCC addresses, Markdown, LLM prompt, and
-  rich text.
-- For rich-text copying, clone the rendered preview and inline its computed
-  styles before writing HTML and plain text to the clipboard.
+- Provide copy actions for subject, Markdown, LLM prompt, and the full email
+  HTML.
+- The preview renders the complete email document (template chrome included)
+  in a sandboxed iframe, exactly as delivered.
 
 ## Draft Lifecycle
 
@@ -95,7 +96,8 @@ birthday newsletters. No cron or email provider is introduced.
   admin generates that month again.
 - The admin page lists active subscribers, audience segments, and historical
   drafts.
-- Manual delivery uses BCC so recipients cannot see one another's addresses.
+- Delivery sends one email per recipient via Resend, so recipients cannot see
+  one another's addresses.
 
 ## Test Plan
 
@@ -107,11 +109,11 @@ birthday newsletters. No cron or email provider is introduced.
 - Test viewer subscription authentication, validation, duplicate email
   handling, updates, unsubscribe, expiration, and link-rotation preservation.
 - Test admin authorization, settings changes, manual/automatic generation,
-  BCC audiences, and mark-sent behavior.
+  segment audiences, and mark-sent behavior.
 - Run `deno task check`, `deno fmt --check`, `deno lint`, and
   `deno task build`.
 
 ## Deferred
 
-- Automatic sending, Resend or another email provider, cron infrastructure,
-  delivery tracking, email verification, and personalized unsubscribe links.
+- Automatic sending, cron infrastructure, delivery tracking, email
+  verification, and personalized unsubscribe links.

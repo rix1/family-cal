@@ -271,6 +271,11 @@ export function defaultSubject(month: MonthRef): string {
   return `Familiekalenderen: bursdager i ${monthNameNb(month.month)} ${month.year}`;
 }
 
+/** Deterministic email heading, used when a draft has no model/manual title. */
+export function defaultTitle(month: MonthRef): string {
+  return `Bursdager i ${monthNameNb(month.month)}`;
+}
+
 export const INTRO_PLACEHOLDER = "_Skriv en kort introduksjon her._";
 
 function birthdayLine(birthday: MonthBirthday, month: MonthRef): string {
@@ -446,6 +451,62 @@ export function buildPrompt(month: MonthRef): string {
 }
 
 /**
+ * Prompt for the local model to suggest the email's heading: short, slightly
+ * abstract and seasonal, never factual. Like `buildPrompt` it passes no event
+ * data at all, so the model cannot leak or confabulate names and dates.
+ */
+export function buildTitlePrompt(month: MonthRef): string {
+  const when = `${monthNameNb(month.month)} ${month.year}`;
+  return [
+    `Foreslå en tittel til et privat månedlig familienyhetsbrev som sendes rett før ` +
+    `${when} begynner. Nyhetsbrevet handler om månedens bursdager og merkedager i familien.`,
+    "",
+    `Tittelen skal være på norsk (bokmål), kort (3–6 ord), leken og litt abstrakt – ` +
+    `gjerne med et bilde fra årstiden eller månedens stemning. Ikke bruk navn, datoer, ` +
+    `tall eller årstall, og ikke ordet «nyhetsbrev».`,
+    "",
+    `Eksempler på formen (for andre måneder – ikke gjenbruk dem):`,
+    `- Lysere kvelder i vente`,
+    `- Kakelys og vårtegn`,
+    `- Måneden som samler oss`,
+    "",
+    `Svar med kun selve tittelen, på én linje, uten anførselstegn eller punktum.`,
+  ].join("\n");
+}
+
+/**
+ * A model-suggested title for the month, or null (no writer / failure / junk
+ * output) — callers fall back to `defaultTitle`. Output is squeezed to the first
+ * line and rejected when it doesn't look like a title.
+ */
+async function writeTitle(
+  introWriter: IntroWriter | null | undefined,
+  month: MonthRef,
+): Promise<string | null> {
+  if (!introWriter) return null;
+  const key = monthKey(month);
+  try {
+    const out = stripReasoning(await introWriter.write(buildTitlePrompt(month)));
+    const title = out
+      .split("\n").map((line) => line.trim()).find(Boolean)
+      ?.replace(/^[-–•#*\s]+/, "")
+      .replace(/^[«"'‘“]+|[»"'’”]+$/g, "")
+      .replace(/[.!]+$/, "")
+      .trim() ?? "";
+    if (!title || title.length > 60) {
+      console.warn(`[newsletter] ${key}: unusable title suggestion → default.`);
+      return null;
+    }
+    console.info(`[newsletter] ${key}: title suggestion "${title}".`);
+    return title;
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    console.error(`[newsletter] ${key}: title suggestion failed → default: ${reason}`);
+    return null;
+  }
+}
+
+/**
  * Full email body from the writer (model's chain-of-thought stripped), or null on
  * no writer / failure / empty output — callers fall back to the deterministic body.
  */
@@ -497,12 +558,14 @@ async function createSegmentDraft(
   if (!birthdays.length && !remembrances.length && !occasions.length) return null;
 
   const modelBody = await writeBody(introWriter, month);
+  const modelTitle = await writeTitle(introWriter, month);
   const now = new Date().toISOString();
   const draft: NewsletterDraft = {
     id: crypto.randomUUID(),
     month: monthKey(month),
     segment: segment.key,
     subject: defaultSubject(month),
+    title: modelTitle ?? undefined,
     body: buildBody(month, birthdays, remembrances, occasions, modelBody),
     prompt: buildPrompt(month),
     groups: segment.groups,
@@ -616,18 +679,26 @@ async function editableDraft(store: Store, id: string): Promise<NewsletterDraft>
   return draft;
 }
 
-/** Save manual subject/body edits on an unsent draft. */
+/** Save manual subject/title/body edits on an unsent draft. */
 export async function updateDraftContent(
   store: Store,
   id: string,
-  input: { subject: string; body: string },
+  input: { subject: string; title?: string; body: string },
   actor: string,
 ): Promise<NewsletterDraft> {
   const draft = await editableDraft(store, id);
   const subject = input.subject.trim();
   if (!subject) throw new ValidationError("subject is required");
+  const title = input.title?.trim();
   const now = new Date().toISOString();
-  const next: NewsletterDraft = { ...draft, subject, body: input.body, updatedAt: now };
+  const next: NewsletterDraft = {
+    ...draft,
+    subject,
+    // Empty title falls back to the deterministic default at render time.
+    title: title || undefined,
+    body: input.body,
+    updatedAt: now,
+  };
   await store.upsertNewsletterDraft(next);
   await store.appendAudit({
     at: now,
@@ -640,7 +711,7 @@ export async function updateDraftContent(
 }
 
 /** Milestones reported by `regenerateDraft`, in order, to drive a progress UI. */
-export type RegenStep = "collected" | "written" | "saved";
+export type RegenStep = "collected" | "written" | "titled" | "saved";
 
 /**
  * Replace subject, body and prompt from current data, discarding manual edits,
@@ -668,10 +739,15 @@ export async function regenerateDraft(
   onProgress?.("collected");
   const modelBody = await writeBody(introWriter, month, onModelEvent);
   onProgress?.("written");
+  // The title call is short and not streamed to the log drawer — its tokens
+  // would interleave with the body's thinking/answer split.
+  const modelTitle = await writeTitle(introWriter, month);
+  onProgress?.("titled");
   const now = new Date().toISOString();
   const next: NewsletterDraft = {
     ...draft,
     subject: defaultSubject(month),
+    title: modelTitle ?? undefined,
     body: buildBody(month, birthdays, remembrances, occasions, modelBody),
     prompt: buildPrompt(month),
     updatedAt: now,
@@ -757,7 +833,31 @@ function unsubscribeFooter(profileUrl: string): string {
 const NEWSLETTER_PREVIEW = "Hvem skal feires denne måneden – og litt om det som venter oss.";
 
 /**
- * Build the email for a draft: the local HTML template (`fillNewsletterEmail`)
+ * The complete HTML document for a draft as it will be emailed: the local
+ * template filled with the draft's title (or the deterministic default) and its
+ * rendered body. Shared by delivery and the admin preview, so what you see is
+ * exactly what goes out.
+ */
+export function renderNewsletterEmail(draft: NewsletterDraft, profileUrl: string): string {
+  const month = parseMonthKey(draft.month);
+  return fillNewsletterEmail({
+    preview: NEWSLETTER_PREVIEW,
+    title: draft.title || (month ? defaultTitle(month) : draft.subject),
+    issue_number: month ? `#${month.month}` : "",
+    issue_date: month ? `${monthNameNb(month.month)} ${month.year}` : draft.month,
+    content: renderNewsletterHtml(draft.body),
+    unsubscribe_url: profileUrl,
+  });
+}
+
+/** The self-serve manage/unsubscribe URL every newsletter links to. */
+export function newsletterProfileUrl(): string {
+  const baseUrl = (Deno.env.get("BASE_URL") ?? "").replace(/\/+$/, "");
+  return `${baseUrl}/profile`;
+}
+
+/**
+ * Build the email for a draft: the local HTML template (`renderNewsletterEmail`)
  * for the rich `html`, plus a plain-text `text` fallback with the unsubscribe
  * footer. The template owns the visual header/footer, so its `content` is just
  * the rendered body.
@@ -768,15 +868,7 @@ function newsletterMessage(
   subject: string,
   profileUrl: string,
 ): EmailMessage {
-  const month = parseMonthKey(draft.month);
-  const html = fillNewsletterEmail({
-    preview: NEWSLETTER_PREVIEW,
-    title: month ? `Bursdager i ${monthNameNb(month.month)}` : draft.subject,
-    issue_number: month ? `#${month.month}` : "",
-    issue_date: month ? `${monthNameNb(month.month)} ${month.year}` : draft.month,
-    content: renderNewsletterHtml(draft.body),
-    unsubscribe_url: profileUrl,
-  });
+  const html = renderNewsletterEmail(draft, profileUrl);
   return {
     to,
     subject,
@@ -799,8 +891,7 @@ export async function sendDraft(
 ): Promise<NewsletterDraft> {
   const draft = await editableDraft(store, id);
   const recipients = draftRecipients(await store.listViewers(), draft);
-  const baseUrl = (Deno.env.get("BASE_URL") ?? "").replace(/\/+$/, "");
-  const profileUrl = `${baseUrl}/profile`;
+  const profileUrl = newsletterProfileUrl();
 
   for (const recipient of recipients) {
     try {
@@ -830,9 +921,9 @@ export async function sendTestDraft(
 ): Promise<string> {
   const draft = await editableDraft(store, id);
   const email = normalizeEmail(to);
-  const baseUrl = (Deno.env.get("BASE_URL") ?? "").replace(/\/+$/, "");
-  const profileUrl = `${baseUrl}/profile`;
-  await sender.send(newsletterMessage(draft, email, `[Test] ${draft.subject}`, profileUrl));
+  await sender.send(
+    newsletterMessage(draft, email, `[Test] ${draft.subject}`, newsletterProfileUrl()),
+  );
   await store.appendAudit({
     at: new Date().toISOString(),
     actor,

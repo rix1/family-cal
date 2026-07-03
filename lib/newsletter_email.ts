@@ -24,11 +24,9 @@ export interface NewsletterEmailVars {
   unsubscribe_url: string;
 }
 
-const FONT_STACK =
-  "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', " +
+const FONT_STACK = "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', " +
   "'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif";
-const DIVIDER =
-  "width:100%;border:none;border-top:2px solid #eaeaea;margin:0;padding-bottom:1em";
+const DIVIDER = "width:100%;border:none;border-top:2px solid #eaeaea;margin:0;padding-bottom:1em";
 
 const TEMPLATE = `<!DOCTYPE html>
 <html dir="ltr" lang="nb">

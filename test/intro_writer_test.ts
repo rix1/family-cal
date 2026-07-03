@@ -84,8 +84,7 @@ Deno.test("OllamaIntroWriter posts to /api/generate and strips the reasoning", a
 
 Deno.test("OllamaIntroWriter throws on a non-200 so the draft falls back", async () => {
   const original = globalThis.fetch;
-  globalThis.fetch = (() =>
-    Promise.resolve(new Response("boom", { status: 500 }))) as typeof fetch;
+  globalThis.fetch = (() => Promise.resolve(new Response("boom", { status: 500 }))) as typeof fetch;
   try {
     await assertRejects(() => new OllamaIntroWriter().write("x"));
   } finally {

@@ -214,9 +214,9 @@ routeTest("generation, editing, sending and deleting a draft work end-to-end", a
   const detail = await draftRoute.handlers.GET(ctx(url, { headers: ADMIN }, { id }));
   assert(!(detail instanceof Response));
   assertEquals(detail.data.draft.month, month);
-  assertStringIncludes(detail.data.bcc, "everyone@example.com");
-  assertStringIncludes(detail.data.html, "Nyhetsbrevperson");
-  assertStringIncludes(detail.data.html, "<h2");
+  assertStringIncludes(detail.data.emailHtml, "<!DOCTYPE html>");
+  assertStringIncludes(detail.data.emailHtml, "Nyhetsbrevperson");
+  assertStringIncludes(detail.data.emailHtml, "<h2");
   assertStringIncludes(detail.data.draft.subject, "Familiekalenderen: bursdager i");
 
   const savedDraft = await draftRoute.handlers.POST(
@@ -228,6 +228,20 @@ routeTest("generation, editing, sending and deleting a draft work end-to-end", a
   );
   assert(savedDraft instanceof Response);
   assertEquals((await store.getNewsletterDraft(id))?.subject, "Egen tittel");
+
+  // The preview action renders unsaved form values without persisting them.
+  const previewed = await draftRoute.handlers.POST(
+    ctx(url, {
+      method: "POST",
+      headers: ADMIN,
+      body: form({ action: "preview", subject: "x", title: "Utkast-tittel", body: "Bare en test" }),
+    }, { id }),
+  );
+  assert(previewed instanceof Response);
+  const previewHtml = await previewed.text();
+  assertStringIncludes(previewHtml, "Utkast-tittel");
+  assertStringIncludes(previewHtml, "Bare en test");
+  assert(!(await store.getNewsletterDraft(id))?.body.includes("Bare en test"));
 
   const sent = await draftRoute.handlers.POST(
     ctx(url, { method: "POST", headers: ADMIN, body: form({ action: "send" }) }, { id }),

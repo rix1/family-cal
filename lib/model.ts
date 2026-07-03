@@ -165,6 +165,11 @@ export interface NewsletterDraft {
   /** Canonical group-segment key: sorted unique groups joined by `+`, or `all`. */
   segment: string;
   subject: string;
+  /**
+   * Editable heading shown inside the email template. Model-suggested at
+   * generation time; absent means the deterministic "Bursdager i <måned>".
+   */
+  title?: string;
   /** Editable Markdown body. */
   body: string;
   /** Copyable, anonymous LLM prompt for the introduction. */

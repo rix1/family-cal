@@ -129,8 +129,8 @@ export default define.page<typeof handlers>(({ data }) => (
         <div>
           <h1 class="text-2xl font-semibold tracking-tight">Newsletters</h1>
           <p class="mt-1 max-w-2xl text-sm text-ink-2">
-            Monthly birthday emails in Norwegian. Drafts are prepared here per audience segment; you
-            copy the result into your own email client and send it with BCC.
+            Monthly birthday emails in Norwegian. Drafts are prepared here per audience segment;
+            review each one, then send it via Resend — every recipient gets their own copy.
           </p>
         </div>
         {data.segments.length

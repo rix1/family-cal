@@ -10,7 +10,8 @@
     "set-permission": "deno run --env-file --allow-env --allow-read --allow-write scripts/set_permission.ts",
     "prepare-newsletter": "deno run --env-file --allow-net --allow-env --allow-read --allow-write scripts/prepare_newsletter.ts",
     "test": "deno test --allow-net --allow-env --allow-read --allow-write --allow-run",
-    "check": "deno check main.ts && deno test --allow-net --allow-env --allow-read --allow-write --allow-run"
+    "check": "deno check main.ts && deno test --allow-net --allow-env --allow-read --allow-write --allow-run",
+    "deploy": "deno task check && deno task build && launchctl kickstart -k gui/$(id -u)/dev.rix1.family-cal && sleep 1 && curl -sf http://localhost:8000/ > /dev/null && echo Deployed"
   },
   "imports": {
     "@/": "./",

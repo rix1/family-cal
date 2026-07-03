@@ -12,8 +12,9 @@ import { getIntroWriter } from "@/lib/intro_writer.ts";
 import {
   deleteDraft,
   draftRecipients,
+  newsletterProfileUrl,
   regenerateDraft,
-  renderNewsletterHtml,
+  renderNewsletterEmail,
   sendDraft,
   sendTestDraft,
   updateDraftContent,
@@ -50,8 +51,7 @@ export const handlers = define.handlers({
         name: recipient.name,
         email: recipient.newsletter!.email,
       })),
-      bcc: recipients.map((recipient) => recipient.newsletter!.email).join(", "),
-      html: renderNewsletterHtml(draft.body),
+      emailHtml: renderNewsletterEmail(draft, newsletterProfileUrl()),
       saved: ctx.url.searchParams.get("saved") === "1",
       regenerated: ctx.url.searchParams.get("regenerated") === "1",
       sent: ctx.url.searchParams.get("sent") === "1",
@@ -71,9 +71,26 @@ export const handlers = define.handlers({
         headers: { location: `/admin/newsletters/${encodeURIComponent(id)}?${flag}=1` },
       });
     try {
+      // Render the email for as-yet-unsaved form values, so the preview island
+      // can refresh live while the admin types. Read-only: nothing is stored.
+      if (action === "preview") {
+        const draft = await store.getNewsletterDraft(id);
+        if (!draft) throw new HttpError(404, "Newsletter draft was not found.");
+        const title = String(form.get("title") ?? "").trim();
+        const html = renderNewsletterEmail({
+          ...draft,
+          subject: String(form.get("subject") ?? draft.subject),
+          title: title || undefined,
+          body: String(form.get("body") ?? draft.body),
+        }, newsletterProfileUrl());
+        return new Response(html, {
+          headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" },
+        });
+      }
       if (action === "save") {
         await updateDraftContent(store, id, {
           subject: String(form.get("subject") ?? ""),
+          title: String(form.get("title") ?? ""),
           body: String(form.get("body") ?? ""),
         }, viewer.name);
         return back("saved");
@@ -205,8 +222,8 @@ export default define.page<typeof handlers>(({ data }) => {
                   >
                     <input type="hidden" name="action" value="regenerate" />
                     <p class="text-sm text-ink-2">
-                      Rewrite the intro with the local model and rebuild the list from current data.
-                      Your manual edits are discarded.
+                      Rewrite the intro and title with the local model and rebuild the list from
+                      current data. Your manual edits are discarded.
                     </p>
                     <RegenerateProgress class="btn btn-danger" label="Generate draft" />
                   </form>
@@ -289,7 +306,6 @@ export default define.page<typeof handlers>(({ data }) => {
               <p class="kicker">Email</p>
               <div class="flex flex-wrap items-center gap-1.5">
                 <CopyButton value={draft.subject} label="Copy subject" />
-                {!isSent && <CopyButton value={data.bcc} label="Copy BCC" />}
                 <CopyButton value={draft.body} label="Copy Markdown" />
               </div>
             </div>
@@ -300,6 +316,12 @@ export default define.page<typeof handlers>(({ data }) => {
                     <p class="text-sm font-medium">Subject</p>
                     <p class="mt-1 text-sm text-ink-2">{draft.subject}</p>
                   </div>
+                  {draft.title && (
+                    <div>
+                      <p class="text-sm font-medium">Email title</p>
+                      <p class="mt-1 text-sm text-ink-2">{draft.title}</p>
+                    </div>
+                  )}
                   <div>
                     <p class="text-sm font-medium">Markdown</p>
                     <pre class="mt-1 max-h-96 overflow-auto whitespace-pre-wrap rounded-lg bg-inset p-3 font-mono text-xs text-ink-2">{draft.body}</pre>
@@ -314,6 +336,14 @@ export default define.page<typeof handlers>(({ data }) => {
                     <input name="subject" required class="input" value={draft.subject} />
                   </label>
                   <label class="grid gap-1.5 text-sm font-medium">
+                    Email title
+                    <input name="title" class="input" value={draft.title ?? ""} />
+                    <span class="text-xs font-normal text-ink-3">
+                      The big heading inside the email. Suggested by the local model when the draft
+                      is generated; leave empty for the plain "Bursdager i …" default.
+                    </span>
+                  </label>
+                  <label class="grid gap-1.5 text-sm font-medium">
                     Body (Markdown)
                     <textarea
                       name="body"
@@ -324,7 +354,7 @@ export default define.page<typeof handlers>(({ data }) => {
                     </textarea>
                     <span class="text-xs font-normal text-ink-3">
                       Paste the generated introduction over the placeholder on the first line, then
-                      save. The preview updates after saving.
+                      save. The preview follows your edits as you type.
                     </span>
                   </label>
                   <button type="submit" class="btn btn-primary justify-self-start">
@@ -336,15 +366,15 @@ export default define.page<typeof handlers>(({ data }) => {
 
           <div class="grid content-start gap-3">
             <section class="card p-5">
-              <NewsletterPreview html={data.html} />
+              <NewsletterPreview html={data.emailHtml} />
             </section>
 
             {!isSent && (
               <section class="card p-5">
                 <p class="kicker">Recipients (live)</p>
                 <p class="mt-2 text-xs text-ink-3">
-                  Derived from current subscriptions until the draft is marked sent. Use the BCC
-                  field so addresses stay private.
+                  Derived from current subscriptions until the draft is marked sent. Each recipient
+                  gets their own email via Resend, so addresses stay private.
                 </p>
                 <ul class="mt-3 grid gap-1 text-sm">
                   {data.recipients.map((recipient) => (

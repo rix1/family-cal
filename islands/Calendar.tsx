@@ -37,6 +37,22 @@ type CalendarEvent =
     years: number | null;
   };
 
+/** One table-view row: the next upcoming occurrence of an item. */
+interface TableRow {
+  key: string;
+  name: string;
+  date: string;
+  age: number | null;
+  note: string;
+  person: ViewPerson | null;
+  /** Group key for the colored badge (birthdays/memorials); null for the rest. */
+  affiliation: string | null;
+  /** Neutral badge text for occasions/holidays. */
+  badge: string | null;
+}
+
+type TableSortKey = "age" | "date" | "name";
+
 const dayMs = 86_400_000;
 const monthBatchSize = 12;
 const maxPastMonths = 120;
@@ -166,6 +182,26 @@ function SparkIcon({ class: cls = "size-3" }: { class?: string }) {
   return (
     <svg class={cls} {...iconProps}>
       <path d="M8 2.2 9.3 6.7 13.8 8 9.3 9.3 8 13.8 6.7 9.3 2.2 8 6.7 6.7Z" />
+    </svg>
+  );
+}
+
+/* Bulleted lines for the timeline view toggle. */
+function ListIcon({ class: cls = "size-4" }: { class?: string }) {
+  return (
+    <svg class={cls} {...iconProps}>
+      <path d="M5.5 4.5h8M5.5 8h8M5.5 11.5h8" />
+      <path d="M2.4 4.5h.01M2.4 8h.01M2.4 11.5h.01" />
+    </svg>
+  );
+}
+
+/* Grid for the table view toggle. */
+function TableIcon({ class: cls = "size-4" }: { class?: string }) {
+  return (
+    <svg class={cls} {...iconProps}>
+      <rect x="2.5" y="3" width="11" height="10" rx="1.2" />
+      <path d="M2.5 6.5h11M6.5 6.5V13" />
     </svg>
   );
 }
@@ -383,6 +419,11 @@ export function Calendar({
   );
   const [firstMonthOffset, setFirstMonthOffset] = useState(0);
   const [renderedMonthCount, setRenderedMonthCount] = useState(24);
+  const [viewMode, setViewMode] = useState<"timeline" | "table">("timeline");
+  const [tableSort, setTableSort] = useState<{ key: TableSortKey; dir: 1 | -1 }>({
+    key: "age",
+    dir: -1,
+  });
   const [toast, setToast] = useState("");
   const [selectedPerson, setSelectedPerson] = useState<ViewPerson | null>(null);
   const [personClosing, setPersonClosing] = useState(false);
@@ -425,6 +466,10 @@ export function Calendar({
   );
   const dayMonthFormatter = useMemo(
     () => new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long" }),
+    [],
+  );
+  const tableDateFormatter = useMemo(
+    () => new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" }),
     [],
   );
 
@@ -562,6 +607,86 @@ export function Calendar({
     });
   }, [rawEvents, activeGroups, activeTypes, query]);
 
+  // Table view: one row per item, dated at its next upcoming occurrence.
+  // `events` is sorted by date, so the first hit per identity is the next one.
+  const tableRows = useMemo(() => {
+    const seen = new Set<string>();
+    const rows: TableRow[] = [];
+    for (const event of events) {
+      if (event.date < todayKey) continue;
+      const key = event.type === "birthday"
+        ? `birthday-${event.person.id}`
+        : event.type === "memorial"
+        ? `memorial-${event.person.id}`
+        : event.type === "occasion"
+        ? `occasion-${event.occasion.id}`
+        : `holiday-${event.name}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      if (event.type === "birthday") {
+        rows.push({
+          key,
+          name: event.name,
+          date: event.date,
+          age: event.age,
+          note: event.person.notes || "",
+          person: event.person,
+          affiliation: event.person.affiliation,
+          badge: null,
+        });
+      } else if (event.type === "memorial") {
+        rows.push({
+          key,
+          name: event.name,
+          date: event.date,
+          age: null,
+          note: event.person.notes || "",
+          person: event.person,
+          affiliation: event.person.affiliation,
+          badge: null,
+        });
+      } else if (event.type === "occasion") {
+        rows.push({
+          key,
+          name: event.name,
+          date: event.date,
+          age: event.years,
+          note: event.occasion.notes || "",
+          person: null,
+          affiliation: null,
+          badge: occasionLabel(event.kind),
+        });
+      } else {
+        rows.push({
+          key,
+          name: event.name,
+          date: event.date,
+          age: null,
+          note: "",
+          person: null,
+          affiliation: null,
+          badge: "Holiday",
+        });
+      }
+    }
+    return rows;
+  }, [events, todayKey]);
+
+  const sortedTableRows = useMemo(() => {
+    const dir = tableSort.dir;
+    const byName = (a: TableRow, b: TableRow) => a.name.localeCompare(b.name, "nb");
+    return [...tableRows].sort((a, b) => {
+      if (tableSort.key === "name") return dir * byName(a, b);
+      if (tableSort.key === "date") return dir * a.date.localeCompare(b.date) || byName(a, b);
+      // Ageless rows (holidays, remembrances) sink to the bottom either direction.
+      if (a.age === null || b.age === null) {
+        if (a.age === b.age) return byName(a, b);
+        return a.age === null ? 1 : -1;
+      }
+      return dir * (a.age - b.age) || byName(a, b);
+    });
+  }, [tableRows, tableSort]);
+
   function loadPastEvents() {
     if (firstMonthOffset <= -maxPastMonths) return;
     const delta = Math.min(monthBatchSize, maxPastMonths + firstMonthOffset);
@@ -587,6 +712,7 @@ export function Calendar({
   }, [firstMonthOffset, renderedMonthCount]);
 
   useEffect(() => {
+    if (viewMode !== "timeline") return;
     function onScroll() {
       const nearBottom = globalThis.innerHeight + globalThis.scrollY >
         document.documentElement.scrollHeight - 1200;
@@ -595,7 +721,30 @@ export function Calendar({
     globalThis.addEventListener("scroll", onScroll, { passive: true });
     requestAnimationFrame(onScroll);
     return () => globalThis.removeEventListener("scroll", onScroll);
+  }, [viewMode]);
+
+  // The island renders "timeline" on the server; only flip after hydration.
+  useEffect(() => {
+    try {
+      if (localStorage.getItem("family-cal:view") === "table") setViewMode("table");
+    } catch { /* storage unavailable */ }
   }, []);
+
+  function switchViewMode(mode: "timeline" | "table") {
+    setViewMode(mode);
+    try {
+      localStorage.setItem("family-cal:view", mode);
+    } catch { /* storage unavailable */ }
+  }
+
+  function toggleTableSort(key: TableSortKey) {
+    setTableSort((current) =>
+      current.key === key
+        ? { key, dir: current.dir === 1 ? -1 : 1 }
+        // Fresh column: age starts oldest-first, date and name ascending.
+        : { key, dir: key === "age" ? -1 : 1 }
+    );
+  }
 
   useEffect(() => {
     if (!toast) return;
@@ -1263,6 +1412,49 @@ export function Calendar({
     );
   }
 
+  function SortHeader({
+    label,
+    sortKey,
+    align = "left",
+  }: {
+    label: string;
+    sortKey: TableSortKey;
+    align?: "left" | "right";
+  }) {
+    const active = tableSort.key === sortKey;
+    return (
+      <th
+        scope="col"
+        aria-sort={active ? (tableSort.dir === 1 ? "ascending" : "descending") : undefined}
+        class={`px-4 py-2.5 ${align === "right" ? "text-right" : "text-left"}`}
+      >
+        <button
+          type="button"
+          onClick={() => toggleTableSort(sortKey)}
+          class={`inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wide ${
+            active ? "text-ink" : "text-ink-3 hover:text-ink"
+          }`}
+        >
+          {label}
+          <svg
+            class={`size-3 ${active ? "" : "invisible"} ${
+              active && tableSort.dir === 1 ? "rotate-180" : ""
+            }`}
+            viewBox="0 0 12 12"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.6"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M2.5 4.5L6 8l3.5-3.5" />
+          </svg>
+        </button>
+      </th>
+    );
+  }
+
   const selectedDetail = selectedPerson ? personDetail(selectedPerson) : null;
 
   // The default forward view trims the current month to today onward; once past
@@ -1702,10 +1894,98 @@ export function Calendar({
               active={activeTypes}
               onToggle={(type) => setActiveTypes((current) => toggleSelection(current, type))}
             />
+            <div
+              role="group"
+              aria-label="Switch between timeline and table view"
+              class="flex items-center gap-0.5 rounded-lg border border-line bg-surface p-0.5"
+            >
+              <button
+                type="button"
+                title="Timeline view"
+                aria-pressed={viewMode === "timeline"}
+                onClick={() => switchViewMode("timeline")}
+                class={`grid size-8 place-items-center rounded-md ${
+                  viewMode === "timeline" ? "bg-inset text-ink" : "text-ink-3 hover:text-ink"
+                }`}
+              >
+                <ListIcon />
+              </button>
+              <button
+                type="button"
+                title="Table view"
+                aria-pressed={viewMode === "table"}
+                onClick={() => switchViewMode("table")}
+                class={`grid size-8 place-items-center rounded-md ${
+                  viewMode === "table" ? "bg-inset text-ink" : "text-ink-3 hover:text-ink"
+                }`}
+              >
+                <TableIcon />
+              </button>
+            </div>
           </div>
         </section>
 
-        <div class="mb-6 flex justify-center">
+        {viewMode === "table" && (
+          <section class="card overflow-x-auto" aria-label="Upcoming events">
+            <table class="w-full min-w-[28rem] text-sm">
+              <thead>
+                <tr class="border-b border-line">
+                  <SortHeader label="Name" sortKey="name" />
+                  <SortHeader label="Date" sortKey="date" />
+                  <SortHeader label="Age" sortKey="age" align="right" />
+                </tr>
+              </thead>
+              <tbody>
+                {sortedTableRows.map((row) => {
+                  const group = row.affiliation ? groups[row.affiliation] : undefined;
+                  return (
+                    <tr key={row.key} class="border-b border-line last:border-b-0">
+                      <td class="px-4 py-2.5">
+                        <div class="flex flex-wrap items-center gap-2">
+                          {row.person
+                            ? (
+                              <button
+                                type="button"
+                                class="text-left font-medium hover:underline"
+                                onClick={() => openPerson(row.person!)}
+                              >
+                                {row.name}
+                              </button>
+                            )
+                            : <span class="font-medium">{row.name}</span>}
+                          {group && (
+                            <span class={`badge ${groupBadgeClass(group.color)}`}>
+                              {group.label}
+                            </span>
+                          )}
+                          {row.badge && <span class="badge bg-inset text-ink-2">{row.badge}</span>}
+                        </div>
+                        {row.note && (
+                          <p class="mt-0.5 text-xs text-ink-3">{linkedNotes(row.note)}</p>
+                        )}
+                      </td>
+                      <td class="whitespace-nowrap px-4 py-2.5 align-top tabular-nums text-ink-2">
+                        <PersonDate value={row.date}>
+                          {tableDateFormatter.format(parseDate(row.date))}
+                        </PersonDate>
+                      </td>
+                      <td class="px-4 py-2.5 text-right align-top tabular-nums">
+                        {row.age ?? <span class="text-ink-3">—</span>}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            {!sortedTableRows.length && (
+              <p class="p-6 text-center text-sm text-ink-3">
+                No upcoming events match the current filters.
+              </p>
+            )}
+          </section>
+        )}
+
+        <div class={viewMode === "table" ? "hidden" : "mb-6 flex justify-center"}>
           <button
             type="button"
             onClick={loadPastEvents}
@@ -1716,7 +1996,7 @@ export function Calendar({
           </button>
         </div>
 
-        <section class="space-y-8">
+        <section class={viewMode === "table" ? "hidden" : "space-y-8"}>
           {months.length
             ? (
               months.map((m) => (

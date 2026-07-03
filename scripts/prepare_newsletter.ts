@@ -1,5 +1,5 @@
 /**
- * Monthly "prepare + notify" job (run by system cron — see DEPLOY.md).
+ * Monthly "prepare + notify" job (run by the launchd calendar job — see DEPLOY.md).
  *
  * Idempotently generates next month's newsletter draft(s) — with the intro
  * drafted by the local model — then emails every editor a link to review and

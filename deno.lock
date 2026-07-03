@@ -1621,6 +1621,7 @@
       "jsr:@deno/gfm@0.12",
       "jsr:@fresh/core@^2.3.3",
       "jsr:@fresh/plugin-vite@^1.1.2",
+      "npm:@opentelemetry/api@^1.9.0",
       "npm:@preact/signals@^2.9.0",
       "npm:@tailwindcss/vite@^4.3.0",
       "npm:@types/babel__core@^7.20.5",

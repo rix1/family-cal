@@ -623,6 +623,8 @@ routeTest("unknown pages use the shared 404 template", async () => {
   assertStringIncludes(body, "Family Calendar");
 });
 
-routeTest("GET /health returns ok", async () => {
-  assertEquals(await (await healthRoute.handler.GET()).text(), "ok");
+routeTest("GET /health pings KV and returns ok", async () => {
+  const response = await healthRoute.handler.GET();
+  assertEquals(response.status, 200);
+  assertEquals(await response.text(), "ok");
 });

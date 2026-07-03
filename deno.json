@@ -11,10 +11,11 @@
     "prepare-newsletter": "deno run --env-file --allow-net --allow-env --allow-read --allow-write scripts/prepare_newsletter.ts",
     "test": "deno test --allow-net --allow-env --allow-read --allow-write --allow-run",
     "check": "deno check main.ts && deno test --allow-net --allow-env --allow-read --allow-write --allow-run",
-    "deploy": "deno task check && deno task build && launchctl kickstart -k gui/$(id -u)/dev.rix1.family-cal && sleep 1 && curl -sf http://localhost:8000/ > /dev/null && echo Deployed"
+    "deploy": "deno task check && deno task build && git describe --always --dirty > .deploy-commit && git tag -f deployed && launchctl kickstart -k gui/$(id -u)/dev.rix1.family-cal && sleep 1 && curl -sf http://localhost:8000/health > /dev/null && echo Deployed $(cat .deploy-commit)"
   },
   "imports": {
     "@/": "./",
+    "@opentelemetry/api": "npm:@opentelemetry/api@^1.9.0",
     "@deno/gfm": "jsr:@deno/gfm@^0.12.0",
     "@tailwindcss/vite": "npm:@tailwindcss/vite@^4.3.0",
     "fresh": "jsr:@fresh/core@^2.3.3",

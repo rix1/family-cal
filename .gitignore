@@ -11,6 +11,7 @@ seed/people.csv
 # Generated / dependency output
 _fresh/
 node_modules/
+.deploy-commit
 
 # Local Deno KV databases
 *.db

@@ -1,3 +1,4 @@
+import "@/lib/otel.ts";
 import { ErrorPage } from "@/components/ErrorPage.tsx";
 import type { State } from "@/utils.ts";
 import { App, HttpError, page, staticFiles } from "fresh";

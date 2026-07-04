@@ -135,9 +135,17 @@ export class CommandIntroWriter implements IntroWriter {
       stderr: "piped",
     }).spawn();
 
-    const writer = child.stdin.getWriter();
-    await writer.write(new TextEncoder().encode(prompt));
-    await writer.close();
+    // Start consuming stdout/stderr before touching stdin: if the process dies
+    // without reading its input (broken pipe), output() still closes the pipes
+    // and reports the exit code — the stdin error alone says nothing useful.
+    const pendingOutput = child.output();
+    try {
+      const writer = child.stdin.getWriter();
+      await writer.write(new TextEncoder().encode(prompt));
+      await writer.close();
+    } catch {
+      // The exit-code check below surfaces the failure.
+    }
 
     const timer = setTimeout(() => {
       try {
@@ -149,7 +157,7 @@ export class CommandIntroWriter implements IntroWriter {
 
     let output;
     try {
-      output = await child.output();
+      output = await pendingOutput;
     } finally {
       clearTimeout(timer);
     }

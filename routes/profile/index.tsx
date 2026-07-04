@@ -122,15 +122,22 @@ export default define.page<typeof handlers>(({ data }) => {
               </div>
               <div class="grid gap-2 sm:grid-cols-2">
                 {data.groups.map((group) => (
-                  <label class="flex cursor-pointer items-center gap-3 rounded-lg border border-line-2 px-3 py-2.5 text-sm font-medium hover:bg-inset has-checked:border-accent has-checked:bg-accent-soft has-checked:text-accent-2">
+                  <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-line-2 px-3 py-2.5 text-sm font-medium hover:bg-inset has-checked:border-accent has-checked:bg-accent-soft has-checked:text-accent-2">
                     <input
                       type="checkbox"
                       name="groups"
                       value={group.key}
                       checked={data.followedGroups.includes(group.key)}
-                      class="accent-accent"
+                      class="mt-0.5 accent-accent"
                     />
-                    <span>{group.label}</span>
+                    <span class="min-w-0">
+                      <span class="block">{group.label}</span>
+                      {group.description && (
+                        <span class="mt-0.5 block text-xs font-normal leading-relaxed text-ink-3">
+                          {group.description}
+                        </span>
+                      )}
+                    </span>
                   </label>
                 ))}
               </div>

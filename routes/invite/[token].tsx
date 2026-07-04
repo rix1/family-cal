@@ -72,9 +72,10 @@ export const handlers = define.handlers({
       targetId: viewer.token,
       detail: `Joined through invite ${invite.token} as viewer ${viewer.token}`,
     });
+    // welcome=1 rides along to /calendar/ and triggers the one-time welcome tour.
     return new Response(null, {
       status: 303,
-      headers: { location: `/view/${encodeURIComponent(viewer.token)}` },
+      headers: { location: `/view/${encodeURIComponent(viewer.token)}?welcome=1` },
     });
   },
 });
@@ -88,7 +89,13 @@ export default define.page<typeof handlers>(({ data }) => (
         <p class="kicker mt-8">You're invited</p>
         <h1 class="mt-2 text-2xl font-semibold tracking-tight">Join the family calendar</h1>
         <p class="mt-3 leading-relaxed text-ink-2">
-          Add your name and choose the groups you want included in your calendar.
+          A private calendar for the family's birthdays, remembrances, and celebrations — so
+          nobody's day slips by unnoticed. You can get it in your own calendar app and as a short
+          monthly email.
+        </p>
+        <p class="mt-2 text-sm leading-relaxed text-ink-3">
+          No passwords here: the personal link you get when you join is your key. Keep it to
+          yourself.
         </p>
 
         <form method="post" class="mt-8 grid gap-6">
@@ -121,14 +128,27 @@ export default define.page<typeof handlers>(({ data }) => (
 
           <fieldset>
             <legend class="text-sm font-medium">Your groups</legend>
-            <p class="mt-1 text-xs text-ink-3">
-              Pick the groups you want to follow. You can change this anytime from your profile.
+            <p class="mt-1 text-xs leading-relaxed text-ink-3">
+              Groups are the branches of the family, and they decide whose dates you see. Follow the
+              sides you care about — you can change your mind anytime from your profile.
             </p>
             <div class="mt-3 grid gap-2 sm:grid-cols-2">
               {data.groups.map((group) => (
-                <label class="flex cursor-pointer items-center gap-3 rounded-lg border border-line-2 px-3 py-2.5 text-sm font-medium hover:bg-inset has-checked:border-accent has-checked:bg-accent-soft has-checked:text-accent-2">
-                  <input type="checkbox" name="groups" value={group.key} class="accent-accent" />
-                  <span>{group.label}</span>
+                <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-line-2 px-3 py-2.5 text-sm font-medium hover:bg-inset has-checked:border-accent has-checked:bg-accent-soft has-checked:text-accent-2">
+                  <input
+                    type="checkbox"
+                    name="groups"
+                    value={group.key}
+                    class="mt-0.5 accent-accent"
+                  />
+                  <span class="min-w-0">
+                    <span class="block">{group.label}</span>
+                    {group.description && (
+                      <span class="mt-0.5 block text-xs font-normal leading-relaxed text-ink-3">
+                        {group.description}
+                      </span>
+                    )}
+                  </span>
                 </label>
               ))}
             </div>

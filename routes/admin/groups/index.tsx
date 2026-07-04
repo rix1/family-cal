@@ -25,6 +25,7 @@ export const handlers = define.handlers({
     const form = await ctx.req.formData();
     const keys = form.getAll("key").map(String);
     const labels = form.getAll("label").map(String);
+    const descriptions = form.getAll("description").map(String);
     // Color is a per-row radio group (`color-<index>`), aligned with the
     // positional key/label arrays above.
     const groups: GroupInfo[] = keys
@@ -32,6 +33,7 @@ export const handlers = define.handlers({
         key: key.trim(),
         label: labels[index]?.trim() ?? "",
         color: String(form.get(`color-${index}`) ?? DEFAULT_GROUP_COLOR),
+        description: descriptions[index]?.trim() || undefined,
       }))
       .filter((group) => group.key && group.label);
     await store.setGroups(groups);
@@ -61,6 +63,7 @@ export default define.page<typeof handlers>(({ data }) => {
                 <tr>
                   <th>Key</th>
                   <th>Label</th>
+                  <th>Description</th>
                   <th>Color</th>
                   <th>Preview</th>
                 </tr>
@@ -73,6 +76,14 @@ export default define.page<typeof handlers>(({ data }) => {
                     </td>
                     <td>
                       <input name="label" value={group.label} class="input" />
+                    </td>
+                    <td>
+                      <input
+                        name="description"
+                        value={group.description ?? ""}
+                        placeholder="Who this group covers — shown at signup"
+                        class="input min-w-48"
+                      />
                     </td>
                     <td>
                       <div class="flex flex-wrap gap-1.5">

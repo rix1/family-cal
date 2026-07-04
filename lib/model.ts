@@ -33,6 +33,12 @@ export interface GroupInfo {
   label: string;
   /** Palette key from `group_colors.ts`; styles the group's badges. */
   color: string;
+  /**
+   * One friendly sentence explaining who the group covers ("Norwegian side —
+   * everyone descending from ..."). Shown at signup and on the profile so
+   * newcomers understand what they're choosing.
+   */
+  description?: string;
 }
 
 export const EVENT_KINDS = ["wedding", "baptism", "confirmation", "other"] as const;
@@ -99,6 +105,8 @@ export interface Viewer {
   feedToken?: string;
   /** Monthly email opt-in. Absent = unsubscribed. */
   newsletter?: NewsletterPreference;
+  /** Set once the welcome tour was finished or skipped; it never shows again. */
+  welcomedAt?: string;
 }
 
 export function viewerIsActive(viewer: Viewer): boolean {

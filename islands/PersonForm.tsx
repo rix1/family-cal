@@ -1,4 +1,5 @@
 import { activeMention, insertMention, type MentionMatch } from "@/lib/mentions.ts";
+import { t } from "@/lib/i18n.ts";
 import type { ViewGroup, ViewPerson } from "@/lib/view_data.ts";
 import { useEffect, useRef, useState } from "preact/hooks";
 
@@ -99,14 +100,14 @@ export function PersonForm({ person, groups, people, saveUrl, onSaved, onCancel 
   }
 
   async function save() {
-    if (!draft.name.trim()) return setError("Name is required.");
+    if (!draft.name.trim()) return setError(t("personForm.error.nameRequired"));
     if (!birthDateValid(draft.born)) {
-      return setError("Born must be YYYY-MM-DD, MM-DD, or empty.");
+      return setError(t("personForm.error.bornFormat"));
     }
     if (!deathDateValid(draft.died)) {
-      return setError("Died must be YYYY-MM-DD or empty.");
+      return setError(t("personForm.error.diedFormat"));
     }
-    if (!draft.affiliation) return setError("Pick a group for this person.");
+    if (!draft.affiliation) return setError(t("personForm.error.groupRequired"));
 
     setSaving(true);
     setError("");
@@ -127,12 +128,12 @@ export function PersonForm({ person, groups, people, saveUrl, onSaved, onCancel 
       });
       const body = await response.json();
       if (!response.ok) {
-        setError(body.error || `Couldn't save (${response.status}).`);
+        setError(body.error || t("common.error.saveFailed", { status: response.status }));
         return;
       }
       onSaved(toViewPerson(body.person));
     } catch {
-      setError("Couldn't reach the server.");
+      setError(t("common.error.network"));
     } finally {
       setSaving(false);
     }
@@ -147,7 +148,7 @@ export function PersonForm({ person, groups, people, saveUrl, onSaved, onCancel 
       }}
     >
       <label class="grid gap-1.5 text-sm font-medium">
-        Name
+        {t("personForm.name")}
         <input
           ref={nameInput}
           value={draft.name}
@@ -157,7 +158,7 @@ export function PersonForm({ person, groups, people, saveUrl, onSaved, onCancel 
       </label>
       {editing && (
         <label class="grid gap-1.5 text-sm font-medium">
-          ID
+          {t("personForm.id")}
           <input
             value={person!.id}
             readOnly
@@ -167,7 +168,7 @@ export function PersonForm({ person, groups, people, saveUrl, onSaved, onCancel 
       )}
       <div class="grid grid-cols-2 gap-3">
         <label class="grid gap-1.5 text-sm font-medium">
-          Born
+          {t("personForm.born")}
           <input
             value={draft.born}
             onInput={(event) => setDraft({ ...draft, born: event.currentTarget.value })}
@@ -176,7 +177,7 @@ export function PersonForm({ person, groups, people, saveUrl, onSaved, onCancel 
           />
         </label>
         <label class="grid gap-1.5 text-sm font-medium">
-          Died
+          {t("personForm.died")}
           <input
             value={draft.died}
             onInput={(event) => setDraft({ ...draft, died: event.currentTarget.value })}
@@ -186,7 +187,7 @@ export function PersonForm({ person, groups, people, saveUrl, onSaved, onCancel 
         </label>
       </div>
       <fieldset>
-        <legend class="text-sm font-medium">Group</legend>
+        <legend class="text-sm font-medium">{t("personForm.group")}</legend>
         <div class="mt-2 flex flex-wrap gap-2">
           {Object.entries(groups).map(([key, group]) => (
             <button
@@ -202,7 +203,7 @@ export function PersonForm({ person, groups, people, saveUrl, onSaved, onCancel 
         </div>
       </fieldset>
       <div class="relative grid gap-1.5 text-sm font-medium">
-        <label for="person-form-notes">Notes</label>
+        <label for="person-form-notes">{t("common.notes")}</label>
         <textarea
           id="person-form-notes"
           ref={notesInput}
@@ -233,7 +234,7 @@ export function PersonForm({ person, groups, people, saveUrl, onSaved, onCancel 
           onBlur={() => setTimeout(() => setMenu(null), 120)}
           rows={5}
           class="input resize-y leading-6"
-          placeholder="Optional; type @ to link a person"
+          placeholder={t("common.notesPlaceholder")}
         />
         {menu && suggestions(menu).length > 0 && (
           <div class="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-lg border border-line bg-surface shadow-pop">
@@ -261,10 +262,14 @@ export function PersonForm({ person, groups, people, saveUrl, onSaved, onCancel 
       )}
       <div class="grid grid-cols-2 gap-2">
         <button type="button" class="btn btn-ghost" onClick={onCancel}>
-          Cancel
+          {t("common.cancel")}
         </button>
         <button type="submit" class="btn btn-primary" disabled={saving}>
-          {saving ? "Saving…" : editing ? "Save changes" : "Add person"}
+          {saving
+            ? t("common.saving")
+            : editing
+            ? t("personForm.saveChanges")
+            : t("personForm.add")}
         </button>
       </div>
     </form>

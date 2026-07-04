@@ -1,6 +1,8 @@
 import { BrandMark } from "@/components/AppHeader.tsx";
+import { LanguageToggle } from "@/islands/LanguageToggle.tsx";
 import { getStore } from "@/lib/db.ts";
 import { getEmailSender } from "@/lib/email.ts";
+import { t } from "@/lib/i18n.ts";
 import { requestLogin } from "@/lib/login.ts";
 import { clientKey, RateLimiter } from "@/lib/rate_limit.ts";
 import { sessionViewer } from "@/lib/viewer_auth.ts";
@@ -26,7 +28,7 @@ export const handlers = define.handlers({
   },
   async POST(ctx) {
     if (!loginLimiter.check(clientKey(ctx.req, ctx.info)).allowed) {
-      throw new HttpError(429, "Too many sign-in attempts from your network. Please wait.");
+      throw new HttpError(429, t("login.rateLimited"));
     }
     const form = await ctx.req.formData();
     // Always neutral: never reveal whether the email is registered.
@@ -37,36 +39,37 @@ export const handlers = define.handlers({
 
 export default define.page<typeof handlers>(({ data }) => (
   <>
-    <title>Sign in | Family Calendar</title>
+    <title>{`${t("login.title")} | ${t("app.name")}`}</title>
     <main class="grid min-h-screen place-items-center px-4 py-12">
+      <div class="fixed right-4 top-4">
+        <LanguageToggle />
+      </div>
       <div class="w-full max-w-md">
         <div class="card p-8">
           <BrandMark />
           {data.submitted
             ? (
               <>
-                <p class="kicker mt-8">Check your inbox</p>
-                <h1 class="mt-2 text-2xl font-semibold tracking-tight">Sign-in link sent</h1>
+                <p class="kicker mt-8">{t("login.sent.kicker")}</p>
+                <h1 class="mt-2 text-2xl font-semibold tracking-tight">{t("login.sent.title")}</h1>
                 <p class="mt-3 leading-relaxed text-ink-2">
-                  If that email belongs to a family member, a sign-in link is on its way. It works
-                  once and expires in 30 minutes.
+                  {t("login.sent.body")}
                 </p>
                 <p class="mt-6 border-t border-line pt-5 text-sm leading-relaxed text-ink-3">
-                  Signing in on this device ends your other active session.
+                  {t("login.sent.note")}
                 </p>
               </>
             )
             : (
               <>
-                <p class="kicker mt-8">Private</p>
-                <h1 class="mt-2 text-2xl font-semibold tracking-tight">Sign in</h1>
+                <p class="kicker mt-8">{t("login.kicker")}</p>
+                <h1 class="mt-2 text-2xl font-semibold tracking-tight">{t("login.title")}</h1>
                 <p class="mt-3 leading-relaxed text-ink-2">
-                  Enter the email you signed up with and we'll send a one-time link to sign in on
-                  this device.
+                  {t("login.body")}
                 </p>
                 <form method="post" class="mt-6 grid gap-4">
                   <label class="grid gap-2 text-sm font-medium">
-                    Email
+                    {t("login.email")}
                     <input
                       type="email"
                       name="email"
@@ -74,19 +77,19 @@ export default define.page<typeof handlers>(({ data }) => (
                       autofocus
                       autocomplete="email"
                       class="input"
-                      placeholder="you@example.com"
+                      placeholder={t("login.emailPlaceholder")}
                     />
                   </label>
                   <button type="submit" class="btn btn-primary w-full">
-                    Send sign-in link
+                    {t("login.submit")}
                   </button>
                 </form>
                 <p class="mt-6 border-t border-line pt-5 text-sm leading-relaxed text-ink-3">
-                  New here? Read{" "}
+                  {t("login.footer.before")}{" "}
                   <a href="/about" class="font-medium text-accent-2 underline underline-offset-2">
-                    what this is
-                  </a>. Access is by personal invite — ask the family member who set up the
-                  calendar.
+                    {t("login.footer.link")}
+                  </a>
+                  {t("login.footer.after")}
                 </p>
               </>
             )}

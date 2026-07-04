@@ -19,6 +19,23 @@ export const MONTH_NAMES = [
 /** Three-letter English month abbreviations, indexed 0-11. */
 export const MONTH_NAMES_SHORT = MONTH_NAMES.map((name) => name.slice(0, 3));
 
+const monthNameCache = new Map<string, string[]>();
+
+/**
+ * Month names for a BCP-47 locale, indexed 0-11 — Intl gives each language its
+ * native style (nb-NO: lowercase "januar", short "jan."). Cached per locale.
+ */
+export function localizedMonthNames(locale: string, style: "long" | "short" = "long"): string[] {
+  const cacheKey = `${locale}:${style}`;
+  let names = monthNameCache.get(cacheKey);
+  if (!names) {
+    const format = new Intl.DateTimeFormat(locale, { month: style });
+    names = Array.from({ length: 12 }, (_, month) => format.format(new Date(2000, month, 15)));
+    monthNameCache.set(cacheKey, names);
+  }
+  return names;
+}
+
 export function pad2(n: number): string {
   return String(n).padStart(2, "0");
 }

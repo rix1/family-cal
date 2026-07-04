@@ -2,6 +2,7 @@ import { Calendar } from "@/islands/Calendar.tsx";
 import { WelcomeTour } from "@/islands/WelcomeTour.tsx";
 import { ensureFeedToken } from "@/lib/access_links.ts";
 import { getStore } from "@/lib/db.ts";
+import { t } from "@/lib/i18n.ts";
 import { sessionViewer } from "@/lib/viewer_auth.ts";
 import { calendarViewData } from "@/lib/view_data.ts";
 import { define } from "@/utils.ts";
@@ -11,7 +12,7 @@ export const handlers = define.handlers({
   async GET(ctx) {
     const store = await getStore();
     const viewer = await sessionViewer(ctx.req, store);
-    if (!viewer) throw new HttpError(404, "This calendar requires a family access link.");
+    if (!viewer) throw new HttpError(404, t("calendar.error.requiresLink"));
     const calendar = await calendarViewData(store, viewer.groups);
     // The welcome tour shows once: fresh signups land here with ?welcome=1,
     // and finishing (or skipping) it stamps `welcomedAt` on the viewer.

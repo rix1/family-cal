@@ -1,6 +1,7 @@
 import { BrandMark } from "@/components/AppHeader.tsx";
 import { createViewer } from "@/lib/access_links.ts";
 import { getStore } from "@/lib/db.ts";
+import { t } from "@/lib/i18n.ts";
 import { emailInUse } from "@/lib/login.ts";
 import { inviteIsActive } from "@/lib/model.ts";
 import { normalizeEmail } from "@/lib/newsletter.ts";
@@ -17,9 +18,9 @@ const signupLimiter = new RateLimiter({ windowMs: 10 * 60_000, max: 50 });
 async function inviteData(token: string) {
   const store = await getStore();
   const invite = await store.getInvite(token);
-  if (!invite) throw new HttpError(404, "This family invite was not found.");
+  if (!invite) throw new HttpError(404, t("invite.error.notFound"));
   if (!inviteIsActive(invite)) {
-    throw new HttpError(410, "This family invite has expired. Ask for a new one.");
+    throw new HttpError(410, t("invite.error.expired"));
   }
   return { store, invite };
 }
@@ -31,31 +32,31 @@ export const handlers = define.handlers({
   },
   async POST(ctx) {
     if (!signupLimiter.check(clientKey(ctx.req, ctx.info)).allowed) {
-      throw new HttpError(429, "Too many signups from your network. Please wait and try again.");
+      throw new HttpError(429, t("invite.error.rateLimited"));
     }
     const { store, invite } = await inviteData(ctx.params.token);
     const form = await ctx.req.formData();
     const name = String(form.get("name") ?? "").trim();
-    if (!name) throw new HttpError(400, "Your name is required.");
+    if (!name) throw new HttpError(400, t("invite.error.nameRequired"));
 
     let email: string;
     try {
       email = normalizeEmail(form.get("email"));
     } catch (error) {
       if (error instanceof ValidationError) {
-        throw new HttpError(400, "Please enter a valid email address.");
+        throw new HttpError(400, t("invite.error.invalidEmail"));
       }
       throw error;
     }
     // Email identifies you for magic-link sign-in, so it must be unique.
     if (await emailInUse(store, email)) {
-      throw new HttpError(400, "That email is already used by another family member.");
+      throw new HttpError(400, t("invite.error.emailInUse"));
     }
 
     const knownGroups = new Set((await store.listGroups()).map((group) => group.key));
     const groups = form.getAll("groups").map(String);
     if (groups.some((group) => !knownGroups.has(group))) {
-      throw new HttpError(400, "One or more selected groups are invalid.");
+      throw new HttpError(400, t("invite.error.invalidGroups"));
     }
 
     // Self-chosen names are untrusted, so we do NOT expire existing same-named
@@ -82,55 +83,51 @@ export const handlers = define.handlers({
 
 export default define.page<typeof handlers>(({ data }) => (
   <>
-    <title>Join Family Calendar</title>
+    <title>{t("invite.pageTitle")}</title>
     <main class="grid min-h-screen place-items-center px-4 py-12">
       <section class="card w-full max-w-lg p-6 sm:p-8">
         <BrandMark />
-        <p class="kicker mt-8">You're invited</p>
-        <h1 class="mt-2 text-2xl font-semibold tracking-tight">Join the family calendar</h1>
+        <p class="kicker mt-8">{t("invite.kicker")}</p>
+        <h1 class="mt-2 text-2xl font-semibold tracking-tight">{t("invite.title")}</h1>
         <p class="mt-3 leading-relaxed text-ink-2">
-          A private calendar for the family's birthdays, remembrances, and celebrations — so
-          nobody's day slips by unnoticed. You can get it in your own calendar app and as a short
-          monthly email.
+          {t("invite.intro")}
         </p>
         <p class="mt-2 text-sm leading-relaxed text-ink-3">
-          No passwords here: the personal link you get when you join is your key. Keep it to
-          yourself.
+          {t("invite.noPasswords")}
         </p>
 
         <form method="post" class="mt-8 grid gap-6">
           <label class="grid gap-2 text-sm font-medium">
-            Your name
+            {t("invite.name")}
             <input
               name="name"
               required
               autofocus
               autocomplete="name"
               class="input"
-              placeholder="First and last name"
+              placeholder={t("invite.namePlaceholder")}
             />
           </label>
 
           <label class="grid gap-2 text-sm font-medium">
-            Your email
+            {t("invite.email")}
             <input
               type="email"
               name="email"
               required
               autocomplete="email"
               class="input"
-              placeholder="you@example.com"
+              placeholder={t("login.emailPlaceholder")}
             />
             <span class="text-xs font-normal text-ink-3">
-              Lets you sign in on a new device later, and powers the optional monthly email.
+              {t("invite.emailHint")}
             </span>
           </label>
 
           <fieldset>
-            <legend class="text-sm font-medium">Your groups</legend>
+            <legend class="text-sm font-medium">{t("invite.groups")}</legend>
             <p class="mt-1 text-xs leading-relaxed text-ink-3">
-              Groups are the branches of the family, and they decide whose dates you see. Follow the
-              sides you care about — you can change your mind anytime from your profile.
+              {t("invite.groupsHint")}
             </p>
             <div class="mt-3 grid gap-2 sm:grid-cols-2">
               {data.groups.map((group) => (
@@ -155,16 +152,16 @@ export default define.page<typeof handlers>(({ data }) => (
           </fieldset>
 
           <button type="submit" class="btn btn-primary w-full">
-            Join and open calendar
+            {t("invite.submit")}
           </button>
         </form>
 
         <p class="mt-6 text-center text-xs text-ink-3">
-          Curious first?{" "}
+          {t("invite.footer.before")}{" "}
           <a href="/about" class="font-medium text-accent-2 underline underline-offset-2">
-            Read how it all works
+            {t("invite.footer.link")}
           </a>{" "}
-          — no sign-up needed.
+          {t("invite.footer.after")}
         </p>
       </section>
     </main>

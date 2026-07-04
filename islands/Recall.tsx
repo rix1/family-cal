@@ -1,4 +1,5 @@
-import { MONTH_NAMES } from "@/lib/dates.ts";
+import { localizedMonthNames } from "@/lib/dates.ts";
+import { dateLocale, t } from "@/lib/i18n.ts";
 import type { ViewPerson } from "@/lib/view_data.ts";
 import type { ComponentChildren } from "preact";
 import { useMemo, useState } from "preact/hooks";
@@ -53,7 +54,19 @@ type Question = MCQuestion | TFQuestion | MatchQuestion;
 const MIN_PEOPLE = 3;
 const MAX_QUESTIONS = 5;
 
-const month = (m: number) => MONTH_NAMES[m - 1];
+const month = (m: number) => localizedMonthNames(dateLocale())[m - 1];
+
+// Cached per locale — the locale is fixed per page load (the toggle reloads).
+const dayFormatters = new Map<string, Intl.DateTimeFormat>();
+function formatDay(m: number, d: number): string {
+  const locale = dateLocale();
+  let format = dayFormatters.get(locale);
+  if (!format) {
+    format = new Intl.DateTimeFormat(locale, { month: "long", day: "numeric" });
+    dayFormatters.set(locale, format);
+  }
+  return format.format(new Date(2000, m - 1, d));
+}
 
 function partsOf(date: string): { month: number; day: number } | null {
   if (!date) return null;
@@ -63,23 +76,23 @@ function partsOf(date: string): { month: number; day: number } | null {
 }
 
 function dayLabel(e: Eligible): string {
-  return `${month(e.month)} ${e.day}`;
+  return formatDay(e.month, e.day);
 }
 
 function fullLabel(e: Eligible): string {
-  return e.year != null ? `${month(e.month)} ${e.day}, ${e.year}` : dayLabel(e);
+  return e.year != null ? t("recall.fullDate", { date: dayLabel(e), year: e.year }) : dayLabel(e);
 }
 
 function birthdayFact(e: Eligible): string {
-  return `${e.person.name}'s birthday is ${dayLabel(e)}`;
+  return t("recall.fact.birthday", { name: e.person.name, date: dayLabel(e) });
 }
 
 function yearFact(e: Eligible): string {
-  return `${e.person.name} was born in ${e.year}`;
+  return t("recall.fact.year", { name: e.person.name, year: e.year! });
 }
 
 function ageFact(e: Eligible, currentYear: number): string {
-  return `${e.person.name} turns ${currentYear - e.year!} this year`;
+  return t("recall.fact.age", { name: e.person.name, age: currentYear - e.year! });
 }
 
 function shuffle<T>(arr: readonly T[]): T[] {
@@ -120,7 +133,7 @@ function oneWrong(pool: number[], correct: number): number {
 }
 
 function randomDayLabel(): string {
-  return `${month(1 + Math.floor(Math.random() * 12))} ${1 + Math.floor(Math.random() * 28)}`;
+  return formatDay(1 + Math.floor(Math.random() * 12), 1 + Math.floor(Math.random() * 28));
 }
 
 interface Ctx {
@@ -150,7 +163,7 @@ function makeMC(e: Eligible, attr: Attr, ctx: Ctx): MCQuestion {
     const options = shuffle([answer, ...sample(ALL_MONTHS.map(month), 3, answer)]);
     return {
       kind: "mc",
-      prompt: `Which month is ${name}'s birthday?`,
+      prompt: t("recall.q.month", { name }),
       options,
       answer,
       fact: birthdayFact(e),
@@ -165,7 +178,7 @@ function makeMC(e: Eligible, attr: Attr, ctx: Ctx): MCQuestion {
     }
     return {
       kind: "mc",
-      prompt: `When is ${name}'s birthday?`,
+      prompt: t("recall.q.date", { name }),
       options: shuffle([answer, ...distractors]),
       answer,
       fact: birthdayFact(e),
@@ -176,7 +189,7 @@ function makeMC(e: Eligible, attr: Attr, ctx: Ctx): MCQuestion {
     const distractors = sample(nearby(e.year!, 8).map(String), 3, answer);
     return {
       kind: "mc",
-      prompt: `Which year was ${name} born?`,
+      prompt: t("recall.q.year", { name }),
       options: shuffle([answer, ...distractors]),
       answer,
       fact: yearFact(e),
@@ -187,7 +200,7 @@ function makeMC(e: Eligible, attr: Attr, ctx: Ctx): MCQuestion {
   const distractors = sample(nearby(age, 10, 0).map(String), 3, answer);
   return {
     kind: "mc",
-    prompt: `How old does ${name} turn this year?`,
+    prompt: t("recall.q.age", { name }),
     options: shuffle([answer, ...distractors]),
     answer,
     fact: ageFact(e, ctx.currentYear),
@@ -201,7 +214,7 @@ function makeTF(e: Eligible, attr: Attr, ctx: Ctx): TFQuestion {
     const shown = truthful ? e.month : oneWrong(ALL_MONTHS, e.month);
     return {
       kind: "tf",
-      prompt: `${name}'s birthday is in ${month(shown)}.`,
+      prompt: t("recall.tf.month", { name, month: month(shown) }),
       statementTrue: truthful,
       fact: birthdayFact(e),
     };
@@ -210,7 +223,7 @@ function makeTF(e: Eligible, attr: Attr, ctx: Ctx): TFQuestion {
     const shown = truthful ? dayLabel(e) : altDate(e, ctx);
     return {
       kind: "tf",
-      prompt: `${name}'s birthday is ${shown}.`,
+      prompt: t("recall.tf.date", { name, date: shown }),
       statementTrue: truthful,
       fact: birthdayFact(e),
     };
@@ -219,7 +232,7 @@ function makeTF(e: Eligible, attr: Attr, ctx: Ctx): TFQuestion {
     const shown = truthful ? e.year! : oneWrong(nearby(e.year!, 8), e.year!);
     return {
       kind: "tf",
-      prompt: `${name} was born in ${shown}.`,
+      prompt: t("recall.tf.year", { name, year: shown }),
       statementTrue: truthful,
       fact: yearFact(e),
     };
@@ -228,7 +241,7 @@ function makeTF(e: Eligible, attr: Attr, ctx: Ctx): TFQuestion {
   const shown = truthful ? age : oneWrong(nearby(age, 10, 0), age);
   return {
     kind: "tf",
-    prompt: `${name} turns ${shown} this year.`,
+    prompt: t("recall.tf.age", { name, age: shown }),
     statementTrue: truthful,
     fact: ageFact(e, ctx.currentYear),
   };
@@ -245,7 +258,7 @@ function buildMatch(eligible: Eligible[], difficulty: Difficulty): MatchQuestion
     if (items.length === 4) break;
   }
   if (items.length < 3) return null;
-  return { kind: "match", prompt: "Match each person to their birthday.", items };
+  return { kind: "match", prompt: t("recall.match.prompt"), items };
 }
 
 function buildQuestions(
@@ -313,7 +326,9 @@ function MultipleChoice({ q, onResolved }: { q: MCQuestion; onResolved: () => vo
       </div>
       {locked && (
         <Feedback correct={picked === q.answer}>
-          {picked === q.answer ? `Correct ✨ ${q.fact}` : `Not quite — ${q.fact}`}
+          {picked === q.answer
+            ? t("recall.feedback.correct", { fact: q.fact })
+            : t("recall.feedback.wrong", { fact: q.fact })}
         </Feedback>
       )}
     </div>
@@ -345,7 +360,7 @@ function TrueFalse({ q, onResolved }: { q: TFQuestion; onResolved: () => void })
               }}
               class={`${optionBase} text-center ${cls}`}
             >
-              {value ? "True" : "False"}
+              {value ? t("recall.true") : t("recall.false")}
             </button>
           );
         })}
@@ -353,8 +368,10 @@ function TrueFalse({ q, onResolved }: { q: TFQuestion; onResolved: () => void })
       {locked && (
         <Feedback correct={picked === q.statementTrue}>
           {picked === q.statementTrue
-            ? `Correct ✨ ${q.fact}`
-            : `That one was ${q.statementTrue ? "true" : "false"}, ${q.fact}`}
+            ? t("recall.feedback.correct", { fact: q.fact })
+            : q.statementTrue
+            ? t("recall.feedback.wasTrue", { fact: q.fact })
+            : t("recall.feedback.wasFalse", { fact: q.fact })}
         </Feedback>
       )}
     </div>
@@ -449,14 +466,12 @@ function Matching({ q, onResolved }: { q: MatchQuestion; onResolved: () => void 
           }}
           class="btn btn-primary btn-sm mt-4 disabled:opacity-50"
         >
-          Check
+          {t("recall.check")}
         </button>
       )}
       {checked && (
         <Feedback correct={allRight}>
-          {allRight
-            ? "Correct ✨ Everyone's in the right place."
-            : "Not quite — the right dates are shown above."}
+          {allRight ? t("recall.match.correct") : t("recall.match.wrong")}
         </Feedback>
       )}
     </div>
@@ -499,10 +514,9 @@ export function Recall({ people, calendarUrl }: { people: ViewPerson[]; calendar
     return (
       <article class="card p-6">
         <p class="text-sm leading-relaxed text-ink-2">
-          There aren't enough birthdays on file yet to play. Add a few birthdays and come back — the
-          questions build themselves from the family's dates.
+          {t("recall.notEnough")}
         </p>
-        <a href={calendarUrl} class="btn btn-ghost btn-sm mt-4">Back to the calendar</a>
+        <a href={calendarUrl} class="btn btn-ghost btn-sm mt-4">{t("recall.backToCalendar")}</a>
       </article>
     );
   }
@@ -518,9 +532,9 @@ export function Recall({ people, calendarUrl }: { people: ViewPerson[]; calendar
   if (!difficulty) {
     return (
       <article class="card p-6">
-        <p class="text-base font-medium">Choose a difficulty</p>
+        <p class="text-base font-medium">{t("recall.difficulty.title")}</p>
         <p class="mt-1 text-sm text-ink-2">
-          Both draw from the family's birthdays. You can switch any time.
+          {t("recall.difficulty.hint")}
         </p>
         <div class="mt-4 grid gap-2 sm:grid-cols-2">
           <button
@@ -528,19 +542,19 @@ export function Recall({ people, calendarUrl }: { people: ViewPerson[]; calendar
             onClick={() => start("easy")}
             class="rounded-lg border border-line-2 bg-surface px-4 py-3 text-left transition-colors hover:bg-inset"
           >
-            <span class="block font-medium">Easy</span>
-            <span class="mt-0.5 block text-xs text-ink-3">Which month — gentle recognition.</span>
+            <span class="block font-medium">{t("recall.easy")}</span>
+            <span class="mt-0.5 block text-xs text-ink-3">{t("recall.easy.hint")}</span>
           </button>
           <button
             type="button"
             onClick={() => start("hard")}
             class="rounded-lg border border-line-2 bg-surface px-4 py-3 text-left transition-colors hover:bg-inset"
           >
-            <span class="block font-medium">Hard</span>
-            <span class="mt-0.5 block text-xs text-ink-3">Birth years, ages and exact dates.</span>
+            <span class="block font-medium">{t("recall.hard")}</span>
+            <span class="mt-0.5 block text-xs text-ink-3">{t("recall.hard.hint")}</span>
           </button>
         </div>
-        <a href={calendarUrl} class="btn btn-ghost btn-sm mt-4">Back to the calendar</a>
+        <a href={calendarUrl} class="btn btn-ghost btn-sm mt-4">{t("recall.backToCalendar")}</a>
       </article>
     );
   }
@@ -548,18 +562,18 @@ export function Recall({ people, calendarUrl }: { people: ViewPerson[]; calendar
   if (done) {
     return (
       <article class="card p-6">
-        <p class="text-base font-medium">That's the family kept close.</p>
+        <p class="text-base font-medium">{t("recall.done.title")}</p>
         <p class="mt-1 text-sm leading-relaxed text-ink-2">
-          Come back any time — a fresh few questions are always waiting.
+          {t("recall.done.body")}
         </p>
         <div class="mt-5 flex flex-wrap gap-2">
           <button type="button" onClick={() => start(difficulty)} class="btn btn-primary btn-sm">
-            Again
+            {t("recall.again")}
           </button>
           <button type="button" onClick={() => setDifficulty(null)} class="btn btn-ghost btn-sm">
-            Change difficulty
+            {t("recall.changeDifficulty")}
           </button>
-          <a href={calendarUrl} class="btn btn-ghost btn-sm">Back to the calendar</a>
+          <a href={calendarUrl} class="btn btn-ghost btn-sm">{t("recall.backToCalendar")}</a>
         </div>
       </article>
     );
@@ -588,7 +602,9 @@ export function Recall({ people, calendarUrl }: { people: ViewPerson[]; calendar
           />
         ))}
       </div>
-      <p class="mt-3 text-xs text-ink-3">Question {index + 1} of {questions.length}</p>
+      <p class="mt-3 text-xs text-ink-3">
+        {t("recall.questionOf", { current: index + 1, total: questions.length })}
+      </p>
 
       <div class="mt-4">
         <QuestionView key={index} q={questions[index]} onResolved={() => setAnswered(true)} />
@@ -601,7 +617,7 @@ export function Recall({ people, calendarUrl }: { people: ViewPerson[]; calendar
           onClick={next}
           class="btn btn-primary btn-sm disabled:opacity-50"
         >
-          {isLast ? "Finish" : "Next"}
+          {isLast ? t("recall.finish") : t("recall.next")}
         </button>
       </div>
     </article>

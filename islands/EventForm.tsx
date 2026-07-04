@@ -1,5 +1,5 @@
 import { activeMention, insertMention, type MentionMatch } from "@/lib/mentions.ts";
-import { eventKindLabels } from "@/lib/family_events.ts";
+import { t } from "@/lib/i18n.ts";
 import { EVENT_KINDS } from "@/lib/model.ts";
 import type { ViewEvent, ViewGroup, ViewPerson } from "@/lib/view_data.ts";
 import { useEffect, useRef, useState } from "preact/hooks";
@@ -104,11 +104,11 @@ export function EventForm({ groups, people, saveUrl, onSaved, onCancel }: Props)
   }
 
   async function save() {
-    if (!draft.title.trim()) return setError("Title is required.");
+    if (!draft.title.trim()) return setError(t("eventForm.error.titleRequired"));
     if (!dateValid(draft.date.trim())) {
-      return setError("Date must be YYYY-MM-DD or MM-DD.");
+      return setError(t("eventForm.error.dateFormat"));
     }
-    if (!draft.groups.length) return setError("Pick at least one group.");
+    if (!draft.groups.length) return setError(t("eventForm.error.groupRequired"));
 
     setSaving(true);
     setError("");
@@ -127,12 +127,12 @@ export function EventForm({ groups, people, saveUrl, onSaved, onCancel }: Props)
       });
       const body = await response.json();
       if (!response.ok) {
-        setError(body.error || `Couldn't save (${response.status}).`);
+        setError(body.error || t("common.error.saveFailed", { status: response.status }));
         return;
       }
       onSaved(toViewEvent(body.event));
     } catch {
-      setError("Couldn't reach the server.");
+      setError(t("common.error.network"));
     } finally {
       setSaving(false);
     }
@@ -147,19 +147,19 @@ export function EventForm({ groups, people, saveUrl, onSaved, onCancel }: Props)
       }}
     >
       <label class="grid gap-1.5 text-sm font-medium">
-        Kind
+        {t("eventForm.kind")}
         <select
           value={draft.kind}
           onChange={(event) => setDraft({ ...draft, kind: event.currentTarget.value })}
           class="input"
         >
           {EVENT_KINDS.map((kind) => (
-            <option key={kind} value={kind}>{eventKindLabels[kind]}</option>
+            <option key={kind} value={kind}>{t(`eventKind.${kind}`)}</option>
           ))}
         </select>
       </label>
       <label class="grid gap-1.5 text-sm font-medium">
-        Title
+        {t("eventForm.title")}
         <input
           ref={titleInput}
           value={draft.title}
@@ -169,7 +169,7 @@ export function EventForm({ groups, people, saveUrl, onSaved, onCancel }: Props)
         />
       </label>
       <label class="grid gap-1.5 text-sm font-medium">
-        Date
+        {t("eventForm.date")}
         <input
           value={draft.date}
           onInput={(event) => setDraft({ ...draft, date: event.currentTarget.value })}
@@ -177,12 +177,12 @@ export function EventForm({ groups, people, saveUrl, onSaved, onCancel }: Props)
           class="input tabular-nums"
         />
         <span class="text-xs font-normal text-ink-3">
-          Use MM-DD when the year is unknown. The event repeats every year.
+          {t("eventForm.dateHint")}
         </span>
       </label>
       <fieldset>
-        <legend class="text-sm font-medium">Groups</legend>
-        <p class="mt-1 text-xs text-ink-3">Who sees this event. Pick one or several.</p>
+        <legend class="text-sm font-medium">{t("eventForm.groups")}</legend>
+        <p class="mt-1 text-xs text-ink-3">{t("eventForm.groupsHint")}</p>
         <div class="mt-2 flex flex-wrap gap-2">
           {Object.entries(groups).map(([key, group]) => (
             <button
@@ -198,7 +198,7 @@ export function EventForm({ groups, people, saveUrl, onSaved, onCancel }: Props)
         </div>
       </fieldset>
       <div class="relative grid gap-1.5 text-sm font-medium">
-        <label for="event-form-notes">Notes</label>
+        <label for="event-form-notes">{t("common.notes")}</label>
         <textarea
           id="event-form-notes"
           ref={notesInput}
@@ -229,7 +229,7 @@ export function EventForm({ groups, people, saveUrl, onSaved, onCancel }: Props)
           onBlur={() => setTimeout(() => setMenu(null), 120)}
           rows={3}
           class="input resize-y leading-6"
-          placeholder="Optional; type @ to link a person"
+          placeholder={t("common.notesPlaceholder")}
         />
         {menu && suggestions(menu).length > 0 && (
           <div class="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-lg border border-line bg-surface shadow-pop">
@@ -257,10 +257,10 @@ export function EventForm({ groups, people, saveUrl, onSaved, onCancel }: Props)
       )}
       <div class="grid grid-cols-2 gap-2">
         <button type="button" class="btn btn-ghost" onClick={onCancel}>
-          Cancel
+          {t("common.cancel")}
         </button>
         <button type="submit" class="btn btn-primary" disabled={saving}>
-          {saving ? "Saving…" : "Add event"}
+          {saving ? t("common.saving") : t("eventForm.submit")}
         </button>
       </div>
     </form>

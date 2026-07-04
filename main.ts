@@ -1,5 +1,7 @@
 import "@/lib/otel.ts";
 import { ErrorPage } from "@/components/ErrorPage.tsx";
+import { cookieValue } from "@/lib/auth_cookies.ts";
+import { LANG_COOKIE, parseLocale, setLocale, t } from "@/lib/i18n.ts";
 import type { State } from "@/utils.ts";
 import { App, HttpError, page, staticFiles } from "fresh";
 import { h } from "preact";
@@ -31,13 +33,18 @@ export const app = new App<State>()
     return res;
   })
   .use(staticFiles())
+  .use((ctx) => {
+    ctx.state.locale = parseLocale(cookieValue(ctx.req, LANG_COOKIE));
+    setLocale(ctx.state.locale); // covers handler-time strings; _app.tsx re-asserts at render time
+    return ctx.next();
+  })
   .notFound({
     handler: () => page(null, { status: 404 }),
     component: () =>
       h(ErrorPage, {
         status: 404,
-        title: "Page not found",
-        message: "This page does not exist, or the link is no longer available.",
+        title: t("error.notFound.title"),
+        message: t("error.notFound.message"),
       }),
   })
   .onError("*", {
@@ -51,17 +58,17 @@ export const app = new App<State>()
       return h(ErrorPage, {
         status,
         title: expired
-          ? "Link expired"
+          ? t("error.expired.title")
           : status === 404
-          ? "Page not found"
-          : "Something went wrong",
+          ? t("error.notFound.title")
+          : t("error.generic.title"),
         message: expired && error instanceof Error
           ? error.message
           : status === 404 && error instanceof Error && error.message
           ? error.message
           : status === 404
-          ? "This page does not exist, or the link is no longer available."
-          : "The family calendar could not complete this request. Please try again.",
+          ? t("error.notFound.message")
+          : t("error.generic.message"),
       });
     },
   })

@@ -694,7 +694,9 @@ routeTest("expired capabilities return a specific expired response", async () =>
 });
 
 routeTest("unknown pages use the shared 404 template", async () => {
-  const response = await main.app.handler()(new Request("http://localhost/does-not-exist"));
+  const response = await main.app.handler()(
+    new Request("http://localhost/does-not-exist", { headers: { cookie: "family_lang=en" } }),
+  );
   assertEquals(response.status, 404);
   const body = await response.text();
   assertStringIncludes(body, "Page not found");

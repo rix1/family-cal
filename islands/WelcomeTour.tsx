@@ -1,4 +1,5 @@
 import { groupBadgeClass } from "@/lib/group_colors.ts";
+import { t } from "@/lib/i18n.ts";
 import type { ViewGroup } from "@/lib/view_data.ts";
 import type { ComponentChildren } from "preact";
 import { useEffect, useMemo, useState } from "preact/hooks";
@@ -85,7 +86,7 @@ export function WelcomeTour({
       if (!res.ok) throw new Error(await res.text());
       setSubscribed(true);
     } catch {
-      setSubscribeError("Could not subscribe right now — you can do it later from your profile.");
+      setSubscribeError(t("tour.email.error"));
     } finally {
       setSubscribing(false);
     }
@@ -97,16 +98,16 @@ export function WelcomeTour({
       .filter((entry) => entry.group);
     const out: TourStep[] = [
       {
-        kicker: "Welcome",
-        title: `Good to have you, ${firstName}`,
+        kicker: t("tour.welcome.kicker"),
+        title: t("tour.welcome.title", { name: firstName }),
         body: (
           <>
             <p>
-              This calendar keeps the family's birthdays, remembrances, weddings, and other
-              celebrations in one place — alongside the public holidays.
+              {t("tour.welcome.body")}
             </p>
             <p class="mt-3">
-              You see the people in the groups you follow{followed.length ? ":" : "."}
+              {t("tour.welcome.groupsIntro")}
+              {followed.length ? ":" : "."}
             </p>
             {followed.length
               ? (
@@ -120,26 +121,25 @@ export function WelcomeTour({
               )
               : (
                 <p class="mt-2 text-sm text-ink-3">
-                  You don't follow any groups yet, so the calendar is empty for now.
+                  {t("tour.welcome.noGroups")}
                 </p>
               )}
             <p class="mt-3 text-sm text-ink-3">
-              Groups are the branches of the family. Change which ones you follow anytime on{" "}
+              {t("tour.welcome.groupsHint")}{" "}
               <a href="/profile/" class="font-medium text-accent-2 underline underline-offset-2">
-                your profile
+                {t("about.profileLink")}
               </a>.
             </p>
           </>
         ),
       },
       {
-        kicker: "Your calendar app",
-        title: "Take it with you",
+        kicker: t("tour.feed.kicker"),
+        title: t("tour.feed.title"),
         body: (
           <>
             <p>
-              Add the family's dates to the calendar you already use. The feed follows the groups
-              you chose and updates on its own — set it up once and forget it.
+              {t("tour.feed.body")}
             </p>
             <div class="mt-4 flex flex-wrap gap-2">
               <a
@@ -148,32 +148,40 @@ export function WelcomeTour({
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                Add to Google Calendar
+                {t("profile.feed.google")}
               </a>
               <a class="btn btn-ghost btn-sm" href={webcalUrl}>
-                Apple Calendar or Outlook
+                {t("profile.feed.apple")}
               </a>
             </div>
             <p class="mt-3 text-sm text-ink-3">
-              The link is private to you — it also lives on your profile if you'd rather do this
-              later.
+              {t("tour.feed.note")}
             </p>
           </>
         ),
       },
       {
-        kicker: "Monthly email",
-        title: "A short note, once a month",
+        kicker: t("profile.newsletter.title"),
+        title: t("tour.email.title"),
         body: (
           <>
             <p>
-              At the end of each month you can get a short email (in Norwegian) with the coming
-              birthdays for your groups. No noise — one email, once a month.
+              {t("tour.email.body")}
+            </p>
+            <p class="mt-3">
+              <a
+                href="/newsletter/example"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="font-medium text-accent-2 underline underline-offset-2"
+              >
+                {t("newsletter.example.link")}
+              </a>
             </p>
             {subscribed
               ? (
                 <p class="mt-4 rounded-lg border border-accent/40 bg-accent-soft px-3.5 py-2.5 text-sm font-medium text-accent-2">
-                  You're subscribed. Unsubscribe anytime from your profile or the email itself.
+                  {t("tour.email.subscribed")}
                 </p>
               )
               : hasEmail
@@ -185,15 +193,14 @@ export function WelcomeTour({
                     disabled={subscribing}
                     onClick={subscribe}
                   >
-                    {subscribing ? "Subscribing…" : "Subscribe me"}
+                    {subscribing ? t("tour.email.subscribing") : t("tour.email.subscribe")}
                   </button>
                   {subscribeError && <p class="mt-2 text-sm text-ink-3">{subscribeError}</p>}
                 </div>
               )
               : (
                 <p class="mt-4 text-sm text-ink-3">
-                  Your link has no email attached — add one via a family editor, then subscribe from
-                  your profile.
+                  {t("tour.email.noEmail")}
                 </p>
               )}
           </>
@@ -202,17 +209,16 @@ export function WelcomeTour({
     ];
     if (canEdit) {
       out.push({
-        kicker: "You're an editor",
-        title: "Help keep it alive",
+        kicker: t("tour.editor.kicker"),
+        title: t("tour.editor.title"),
         body: (
           <>
             <p>
-              Your link can edit the family data. From the menu in the top-right corner you can add
-              people and events — a new baby, a wedding, a grandparent who's missing.
+              {t("tour.editor.body")}
             </p>
             <p class="mt-3 text-sm text-ink-3">
-              Tip: in a person's notes, type <span class="font-mono text-ink-2">@</span>{" "}
-              to link relatives together — that's how the family tree grows.
+              {t("tour.editor.tip.before")} <span class="font-mono text-ink-2">@</span>{" "}
+              {t("tour.editor.tip.after")}
             </p>
           </>
         ),
@@ -240,7 +246,7 @@ export function WelcomeTour({
             class="text-sm font-medium text-ink-3 hover:text-ink"
             onClick={finish}
           >
-            Skip tour
+            {t("tour.skip")}
           </button>
         </div>
         <h2 id="welcome-tour-title" class="mt-2 text-xl font-semibold tracking-tight">
@@ -250,11 +256,11 @@ export function WelcomeTour({
 
         {last && (
           <p class="mt-5 text-sm text-ink-3">
-            Questions later? The{" "}
+            {t("tour.questions.before")}{" "}
             <a href="/about" class="font-medium text-accent-2 underline underline-offset-2">
-              about page
+              {t("tour.questions.link")}
             </a>{" "}
-            explains how it all works.
+            {t("tour.questions.after")}
           </p>
         )}
 
@@ -274,7 +280,7 @@ export function WelcomeTour({
                 class="btn btn-ghost"
                 onClick={() => setStep(step - 1)}
               >
-                Back
+                {t("tour.back")}
               </button>
             )}
             <button
@@ -282,12 +288,12 @@ export function WelcomeTour({
               class="btn btn-primary"
               onClick={() => (last ? finish() : setStep(step + 1))}
             >
-              {last ? "Start exploring" : "Next"}
+              {last ? t("tour.start") : t("tour.next")}
             </button>
           </div>
         </div>
         <p class="sr-only" aria-live="polite">
-          Step {step + 1} of {steps.length}
+          {t("tour.stepOf", { current: step + 1, total: steps.length })}
         </p>
       </section>
     </div>

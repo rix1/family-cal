@@ -1,4 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
+import { t } from "@/lib/i18n.ts";
 
 type Theme = "light" | "dark";
 
@@ -24,8 +25,8 @@ export function ThemeToggle() {
     <button
       type="button"
       onClick={toggleTheme}
-      aria-label={`Use ${dark ? "light" : "dark"} theme`}
-      title={`Use ${dark ? "light" : "dark"} theme`}
+      aria-label={dark ? t("theme.useLight") : t("theme.useDark")}
+      title={dark ? t("theme.useLight") : t("theme.useDark")}
     >
       {dark
         ? (
@@ -39,7 +40,7 @@ export function ThemeToggle() {
             <path d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5 8.5 8.5 0 1 0 20.5 14.2Z" />
           </svg>
         )}
-      <span>{dark ? "Light theme" : "Dark theme"}</span>
+      <span>{dark ? t("theme.light") : t("theme.dark")}</span>
     </button>
   );
 }

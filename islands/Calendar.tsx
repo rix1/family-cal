@@ -1,9 +1,10 @@
 import { AppHeader, MenuIcon } from "@/components/AppHeader.tsx";
 import { EventForm } from "@/islands/EventForm.tsx";
 import { PersonForm } from "@/islands/PersonForm.tsx";
-import { ageAtDate, MONTH_NAMES_SHORT } from "@/lib/dates.ts";
+import { ageAtDate, localizedMonthNames } from "@/lib/dates.ts";
 import { retainAvailable, toggleSelection } from "@/lib/filter_selection.ts";
 import { groupBadgeClass } from "@/lib/group_colors.ts";
+import { dateLocale, t } from "@/lib/i18n.ts";
 import type { CalendarViewData, ViewEvent, ViewPerson } from "@/lib/view_data.ts";
 import type { ComponentChildren } from "preact";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
@@ -100,8 +101,23 @@ function addDays(date: Date, days: number): Date {
   return next;
 }
 
+// Locale-aware "15. jan." / "15 Jan" formatter, cached because shortDate runs in
+// loops (heatmap tooltips, table rows).
+const shortDateFormatters = new Map<string, Intl.DateTimeFormat>();
+function shortDateFormat(): Intl.DateTimeFormat {
+  const locale = dateLocale();
+  let format = shortDateFormatters.get(locale);
+  if (!format) {
+    format = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short" });
+    shortDateFormatters.set(locale, format);
+  }
+  return format;
+}
+
 function shortDate(date: string): string {
-  return `${MONTH_NAMES_SHORT[Number(date.slice(5, 7)) - 1]} ${Number(date.slice(8, 10))}`;
+  return shortDateFormat().format(
+    new Date(Number(date.slice(0, 4)), Number(date.slice(5, 7)) - 1, Number(date.slice(8, 10))),
+  );
 }
 
 function monthDayOf(person: ViewPerson): string {
@@ -171,7 +187,7 @@ function weekCells(
     }
     events.sort((a, b) => a.date.localeCompare(b.date));
     const label = firstInYear
-      ? `Week of ${MONTH_NAMES_SHORT[firstInYear.getMonth()]} ${firstInYear.getDate()}`
+      ? t("calendar.weekOf", { date: shortDateFormat().format(firstInYear) })
       : "";
     cells.push({ label, events, isCurrentWeek });
   }
@@ -300,23 +316,27 @@ function exportIcon(type: string): string {
   return "🎂";
 }
 
+const TYPE_LABEL_KEYS: Record<string, string> = {
+  birthday: "calendar.type.birthday",
+  memorial: "calendar.type.memorial",
+  anniversary: "calendar.type.anniversary",
+  holiday: "calendar.type.holiday",
+  wedding: "calendar.type.wedding",
+  baptism: "calendar.type.baptism",
+  confirmation: "calendar.type.confirmation",
+  other: "calendar.type.other",
+};
+
 function typeLabel(type: string): string {
-  if (type === "birthday") return "Birthdays";
-  if (type === "memorial") return "Remembrances";
-  if (type === "anniversary") return "Anniversaries";
-  if (type === "holiday") return "Public holidays";
-  if (type === "wedding") return "Weddings";
-  if (type === "baptism") return "Baptisms";
-  if (type === "confirmation") return "Confirmations";
-  if (type === "other") return "Other events";
-  return type;
+  const key = TYPE_LABEL_KEYS[type];
+  return key ? t(key) : type;
 }
 
 function occasionLabel(kind: string): string {
-  if (kind === "wedding") return "Wedding";
-  if (kind === "baptism") return "Baptism";
-  if (kind === "confirmation") return "Confirmation";
-  return "Event";
+  if (kind === "wedding" || kind === "baptism" || kind === "confirmation") {
+    return t(`eventKind.${kind}`);
+  }
+  return t("eventKind.generic");
 }
 
 function csvDateForMonthOffset(today: Date, offset: number): Date {
@@ -481,13 +501,15 @@ export function Calendar({
   const today = useMemo(() => new Date(), []);
   const todayKey = toKey(today);
   const currentYear = today.getFullYear();
+  // Locale is fixed for the lifetime of a page load (the language toggle does a
+  // full reload), so the empty dependency arrays stay correct.
   const dayFormatter = useMemo(
-    () => new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric" }),
+    () => new Intl.DateTimeFormat(dateLocale(), { weekday: "short", day: "numeric" }),
     [],
   );
   const longDateFormatter = useMemo(
     () =>
-      new Intl.DateTimeFormat("en-GB", {
+      new Intl.DateTimeFormat(dateLocale(), {
         weekday: "long",
         day: "numeric",
         month: "long",
@@ -496,25 +518,27 @@ export function Calendar({
     [],
   );
   const monthFormatter = useMemo(
-    () => new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric" }),
+    () => new Intl.DateTimeFormat(dateLocale(), { month: "long", year: "numeric" }),
     [],
   );
   const fullDateFormatter = useMemo(
-    () => new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric" }),
+    () => new Intl.DateTimeFormat(dateLocale(), { day: "numeric", month: "long", year: "numeric" }),
     [],
   );
   const dayMonthFormatter = useMemo(
-    () => new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long" }),
+    () => new Intl.DateTimeFormat(dateLocale(), { day: "numeric", month: "long" }),
     [],
   );
   const tableDateFormatter = useMemo(
-    () => new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" }),
+    () =>
+      new Intl.DateTimeFormat(dateLocale(), { day: "numeric", month: "short", year: "numeric" }),
     [],
   );
 
   /** Render a stored date (YYYY-MM-DD, or MM-DD when the year is unknown) for reading. */
   function formatPersonDate(value: string | null | undefined): string {
-    if (!value || value === "Unknown") return "Unknown";
+    // "Unknown" is a stored data sentinel — compare literally, translate only the display.
+    if (!value || value === "Unknown") return t("common.unknown");
     const parts = value.split("-").map(Number);
     if (parts.length === 3) {
       const [year, month, day] = parts;
@@ -542,7 +566,7 @@ export function Calendar({
     class?: string;
     children?: ComponentChildren;
   }) {
-    if (!value || value === "Unknown") return <>{children ?? "Unknown"}</>;
+    if (!value || value === "Unknown") return <>{children ?? t("common.unknown")}</>;
     return (
       <time dateTime={value} title={value} class={cls}>
         {children ?? (short ? shortDate(value) : formatPersonDate(value))}
@@ -597,7 +621,7 @@ export function Calendar({
             out.push({
               date: memorialDate,
               type: "memorial",
-              name: `In memory of ${person.name}`,
+              name: t("calendar.inMemoryOf", { name: person.name }),
               person,
             });
           }
@@ -716,7 +740,7 @@ export function Calendar({
           note: "",
           person: null,
           affiliation: null,
-          badge: "Holiday",
+          badge: t("calendar.holiday"),
         });
       }
     }
@@ -843,19 +867,21 @@ export function Calendar({
     const days = Math.round(
       (parseDate(dateKey).getTime() - parseDate(todayKey).getTime()) / dayMs,
     );
-    if (days === 0) return "today";
-    if (days === 1) return "tomorrow";
-    if (days === -1) return "yesterday";
-    if (days > 0) return `in ${days} days`;
-    return `${Math.abs(days)} days ago`;
+    if (days === 0) return t("calendar.rel.today");
+    if (days === 1) return t("calendar.rel.tomorrow");
+    if (days === -1) return t("calendar.rel.yesterday");
+    if (days > 0) return t("calendar.rel.inDays", { days });
+    return t("calendar.rel.daysAgo", { days: Math.abs(days) });
   }
 
-  function ageText(event: Extract<CalendarEvent, { type: "birthday" }>) {
+  // `dropToday` skips the "… today" variant where a relative label already says it.
+  function ageText(event: Extract<CalendarEvent, { type: "birthday" }>, dropToday = false) {
     if (event.age == null) return "";
-    if (event.person.died) return `would have turned ${event.age}`;
-    if (event.date < todayKey) return `turned ${event.age}`;
-    if (event.date === todayKey) return `turns ${event.age} today`;
-    return `turns ${event.age}`;
+    const age = event.age;
+    if (event.person.died) return t("calendar.age.wouldHaveTurned", { age });
+    if (event.date < todayKey) return t("calendar.age.turned", { age });
+    if (event.date === todayKey && !dropToday) return t("calendar.age.turnsToday", { age });
+    return t("calendar.age.turns", { age });
   }
 
   const upcoming = events.filter(
@@ -926,7 +952,7 @@ export function Calendar({
       if (person.died) {
         const diedMd = person.died.slice(5);
         const date = `${currentYear}-${diedMd}`;
-        if (date >= person.died) add(date, `In memory of ${person.name}`);
+        if (date >= person.died) add(date, t("calendar.inMemoryOf", { name: person.name }));
       }
     }
     for (const occasion of occasions) {
@@ -1040,12 +1066,12 @@ export function Calendar({
     setEditing(false);
     setAdding(false);
     setSelectedPerson(saved); // sheet stays open; body swaps back to the detail view
-    setToast(`Saved ${saved.name}.`);
+    setToast(t("calendar.toast.saved", { name: saved.name }));
   }
 
   function onEventSaved(saved: ViewEvent) {
     setOccasions((current) => [...current, saved]);
-    setToast(`Added ${saved.title}.`);
+    setToast(t("calendar.toast.added", { title: saved.title }));
     closeSheet();
   }
 
@@ -1174,7 +1200,7 @@ export function Calendar({
 
   function downloadIcs() {
     const { ics, count } = buildIcs();
-    if (!count) return setToast("No dated events match the current filters.");
+    if (!count) return setToast(t("calendar.toast.nothingToExport"));
     const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -1183,7 +1209,9 @@ export function Calendar({
     link.click();
     URL.revokeObjectURL(url);
     setToast(
-      `Downloaded ${count} recurring ${count === 1 ? "event" : "events"}.`,
+      count === 1
+        ? t("calendar.toast.downloaded.one")
+        : t("calendar.toast.downloaded.other", { count }),
     );
   }
 
@@ -1195,7 +1223,7 @@ export function Calendar({
     highlight?: boolean;
   }) {
     // "today" is already carried by the relative label, so drop ageText's suffix.
-    const age = ageText(event).replace(/ today$/, "");
+    const age = ageText(event, true);
     const relative = relativeLabel(event.date);
     const when = `${relative.charAt(0).toUpperCase()}${relative.slice(1)}`;
     return (
@@ -1224,7 +1252,7 @@ export function Calendar({
             >
               {event.name}
             </button>
-            {highlight && <span class="badge bg-accent text-on-accent">Next</span>}
+            {highlight && <span class="badge bg-accent text-on-accent">{t("calendar.next")}</span>}
           </p>
           <p class="text-sm tabular-nums">
             <span class={`${highlight ? "text-accent-2" : "text-ink"}`}>
@@ -1251,7 +1279,7 @@ export function Calendar({
     }
     if (event.type === "occasion") {
       const yearsText = event.years && event.years > 0
-        ? `${event.years} ${event.years === 1 ? "year" : "years"}`
+        ? (event.years === 1 ? t("calendar.oneYear") : t("calendar.nYears", { count: event.years }))
         : "";
       return (
         <div
@@ -1294,7 +1322,7 @@ export function Calendar({
                 class="font-semibold hover:underline"
                 onClick={() => openPerson(event.person)}
               >
-                In memory of {event.person.name}
+                {t("calendar.inMemoryOf", { name: event.person.name })}
               </button>
               {group && (
                 <span class={`badge ml-auto ${groupBadgeClass(group.color)}`}>
@@ -1303,7 +1331,7 @@ export function Calendar({
               )}
             </div>
             <p class="mt-0.5 text-sm text-ink-2">
-              Anniversary of their death
+              {t("calendar.deathAnniversary")}
               {event.person.notes && <>{" · "}{linkedNotes(event.person.notes)}</>}
             </p>
           </div>
@@ -1348,7 +1376,7 @@ export function Calendar({
           <p class="mt-0.5 text-sm text-ink-2">
             {age}
             {age && notes && " · "}
-            {notes ? linkedNotes(notes) : !age && "Birthday"}
+            {notes ? linkedNotes(notes) : !age && t("calendar.birthday")}
           </p>
         </div>
       </div>
@@ -1444,7 +1472,7 @@ export function Calendar({
           </span>
           {isToday && (
             <span class="badge bg-accent text-on-accent sm:mt-1">
-              Today
+              {t("calendar.today")}
             </span>
           )}
         </PersonDate>
@@ -1460,7 +1488,7 @@ export function Calendar({
             )
             : (
               <div class="rounded-lg border border-dashed border-line-2 px-3.5 py-3 text-sm text-ink-3">
-                Nothing planned today
+                {t("calendar.nothingToday")}
               </div>
             )}
         </div>
@@ -1556,7 +1584,7 @@ export function Calendar({
                   <circle cx="9" cy="8" r="3.5" />
                   <path d="M3 19v-1a3.5 3.5 0 0 1 3.5-3.5h5A3.5 3.5 0 0 1 15 18v1M18 8v6M21 11h-6" />
                 </MenuIcon>
-                Add person
+                {t("personForm.add")}
               </button>
             )}
             {eventsSaveUrl && (
@@ -1564,14 +1592,14 @@ export function Calendar({
                 <MenuIcon>
                   <path d="M4 5h16v15H4zM4 9h16M8 3v4M16 3v4M12 12v5M9.5 14.5h5" />
                 </MenuIcon>
-                Add event
+                {t("eventForm.submit")}
               </button>
             )}
             <button type="button" onClick={downloadIcs}>
               <MenuIcon>
                 <path d="M12 4v11M8 11l4 4 4-4M5 20h14" />
               </MenuIcon>
-              Export .ics
+              {t("calendar.exportIcs")}
             </button>
           </>
         }
@@ -1581,7 +1609,7 @@ export function Calendar({
           class="btn btn-primary"
           onClick={scrollToToday}
         >
-          Today
+          {t("calendar.today")}
         </button>
       </AppHeader>
 
@@ -1602,22 +1630,22 @@ export function Calendar({
               <path d="M12 8v5M12 16v.01" />
             </svg>
             <p class="leading-relaxed">
-              <span class="font-semibold">No groups selected.</span>{" "}
-              Your calendar is empty until you follow at least one group — set this on{" "}
+              <span class="font-semibold">{t("calendar.noGroups.title")}</span>{" "}
+              {t("calendar.noGroups.before")}{" "}
               <a href="/profile/" class="font-semibold underline underline-offset-2">
-                your profile
+                {t("about.profileLink")}
               </a>.
             </p>
           </div>
         )}
         <section class="mb-4 grid gap-3 sm:grid-cols-3">
           <article class="card p-5">
-            <p class="kicker">This year</p>
+            <p class="kicker">{t("calendar.thisYear")}</p>
             <p class="mt-3 text-3xl font-semibold tabular-nums tracking-tight">
               {birthdaysCelebratedThisYear}
               <span class="font-normal text-ink-3">/{birthdayPeopleThisYear.length}</span>
             </p>
-            <p class="mt-1 text-sm text-ink-2">birthdays celebrated</p>
+            <p class="mt-1 text-sm text-ink-2">{t("calendar.birthdaysCelebrated")}</p>
             <div
               class="mt-4 h-1 overflow-hidden rounded-full bg-inset"
               aria-hidden="true"
@@ -1629,8 +1657,8 @@ export function Calendar({
             </div>
             <p class="mt-3 text-sm text-ink-3">
               {birthdaysRemainingThisYear === 0
-                ? "All known birthdays are behind us."
-                : `${birthdaysRemainingThisYear} still ahead this year.`}
+                ? t("calendar.allBehind")
+                : t("calendar.stillAhead", { count: birthdaysRemainingThisYear })}
             </p>
 
             {
@@ -1639,8 +1667,12 @@ export function Calendar({
             }
             <div class="mt-6 flex gap-1.5">
               <div class="flex flex-col justify-between">
-                <span class="text-[0.625rem] text-ink-3">Jan</span>
-                <span class="text-[0.625rem] text-ink-3">Dec</span>
+                <span class="text-[0.625rem] text-ink-3">
+                  {localizedMonthNames(dateLocale(), "short")[0]}
+                </span>
+                <span class="text-[0.625rem] text-ink-3">
+                  {localizedMonthNames(dateLocale(), "short")[11]}
+                </span>
               </div>
               <div ref={heatmapWrap} class="relative">
                 <div
@@ -1655,8 +1687,10 @@ export function Calendar({
                       key={i}
                       tabIndex={0}
                       aria-label={cell.events.length
-                        ? `${cell.label}: ${cell.events.length} event${
-                          cell.events.length === 1 ? "" : "s"
+                        ? `${cell.label}: ${cell.events.length} ${
+                          cell.events.length === 1
+                            ? t("calendar.eventOne")
+                            : t("calendar.eventOther")
                         }, ${cell.events.map((event) => event.text).join(", ")}`
                         : cell.label}
                       onMouseEnter={(e) => showHeatmapTip(e.currentTarget, cell)}
@@ -1691,12 +1725,12 @@ export function Calendar({
                             ))}
                           </ul>
                         )
-                        : <p class="mt-0.5">No events</p>}
+                        : <p class="mt-0.5">{t("calendar.noEvents")}</p>}
                     </>
                   )}
                 </div>
                 <div class="mt-1.5 flex items-center justify-end gap-1 text-[0.625rem] text-ink-3">
-                  <span>Less</span>
+                  <span>{t("calendar.less")}</span>
                   {heatmapLevelClasses.map((cls, level) => (
                     <span
                       key={level}
@@ -1704,15 +1738,15 @@ export function Calendar({
                       style={{ width: "9px", height: "9px" }}
                     />
                   ))}
-                  <span>More</span>
+                  <span>{t("calendar.more")}</span>
                 </div>
               </div>
             </div>
           </article>
           <article class="card p-5 sm:col-span-2">
             <div class="flex items-baseline justify-between gap-3">
-              <p class="kicker">Next up</p>
-              <p class="text-xs text-ink-3">next 120 days</p>
+              <p class="kicker">{t("calendar.nextUp")}</p>
+              <p class="text-xs text-ink-3">{t("calendar.next120")}</p>
             </div>
             <div class="mt-3 grid gap-1 sm:grid-cols-2">
               {nextWindow.length
@@ -1727,7 +1761,7 @@ export function Calendar({
                 )
                 : (
                   <p class="text-sm text-ink-2">
-                    Nothing in the next 120 days for this filter.
+                    {t("calendar.emptyNext120")}
                   </p>
                 )}
             </div>
@@ -1736,7 +1770,7 @@ export function Calendar({
 
         <section class="mb-6 grid gap-3 lg:grid-cols-[1fr_0.72fr]">
           <article class="card p-5">
-            <p class="kicker">Recently celebrated</p>
+            <p class="kicker">{t("calendar.recentlyCelebrated")}</p>
             <div class="mt-3 grid gap-1">
               {recent.length
                 ? (
@@ -1749,13 +1783,13 @@ export function Calendar({
                 )
                 : (
                   <p class="text-sm text-ink-2">
-                    Nothing in the last 90 days for this filter.
+                    {t("calendar.emptyLast90")}
                   </p>
                 )}
             </div>
           </article>
           <article class="card flex flex-col gap-4 p-5">
-            <p class="kicker">In focus</p>
+            <p class="kicker">{t("calendar.inFocus")}</p>
             {birthdaysToday.map((p) => {
               const gone = Boolean(p.died);
               const age = ageOn(p, currentYear);
@@ -1765,15 +1799,19 @@ export function Calendar({
                   class="rounded-lg border border-accent/30 bg-accent-soft px-3.5 py-3"
                 >
                   <p class="text-sm font-medium text-accent-2">
-                    {gone ? `Remembering ${p.name}` : `Today is ${p.name}'s birthday`}
+                    {gone
+                      ? t("calendar.remembering", { name: p.name })
+                      : t("calendar.todayBirthday", { name: p.name })}
                     {!gone && age != null && (
-                      <span class="font-normal text-ink-3">{` · turns ${age}`}</span>
+                      <span class="font-normal text-ink-3">
+                        {` · ${t("calendar.age.turns", { age })}`}
+                      </span>
                     )}
                   </p>
                   <p class="mt-1 text-xs leading-relaxed text-ink-2">
                     {gone
-                      ? "Today would have been their birthday. Hold onto a favourite memory."
-                      : `What's a favourite moment you've shared with ${p.name}?`}
+                      ? t("calendar.rememberingHint")
+                      : t("calendar.birthdayPrompt", { name: p.name })}
                   </p>
                 </div>
               );
@@ -1781,10 +1819,12 @@ export function Calendar({
             {missing.length > 0 && (
               <div>
                 <p class="text-sm font-medium">
-                  {missing.length} missing {missing.length === 1 ? "date" : "dates"}
+                  {missing.length === 1
+                    ? t("calendar.missingDates.one")
+                    : t("calendar.missingDates.other", { count: missing.length })}
                 </p>
                 <p class="mt-0.5 text-xs text-ink-3">
-                  Tap a name to add a birthday or fill in a missing year.
+                  {t("calendar.missingHint")}
                 </p>
                 <div class="mt-2.5 flex flex-wrap gap-1.5">
                   {missing.map((p) => (
@@ -1805,13 +1845,12 @@ export function Calendar({
             {checklistDismissed && (
               <>
                 <div>
-                  <p class="text-sm font-medium">Family roots</p>
+                  <p class="text-sm font-medium">{t("calendar.familyRoots")}</p>
                   {familyRoots.length
                     ? (
                       <>
                         <p class="mt-0.5 text-xs text-ink-3">
-                          Not linked to anyone yet — open a card to @mention a relative in their
-                          notes.
+                          {t("calendar.rootsHint")}
                         </p>
                         <div class="mt-2.5 flex flex-wrap gap-1.5">
                           {familyRoots.map((p) => (
@@ -1830,7 +1869,7 @@ export function Calendar({
                     )
                     : (
                       <p class="mt-0.5 text-xs text-ink-3">
-                        Everyone is linked into the family tree.
+                        {t("calendar.allLinked")}
                       </p>
                     )}
                 </div>
@@ -1842,9 +1881,9 @@ export function Calendar({
                     <SparkIcon class="size-4" />
                   </span>
                   <span class="min-w-0 flex-1">
-                    <span class="block font-medium">Recall the family</span>
+                    <span class="block font-medium">{t("calendar.recall")}</span>
                     <span class="mt-0.5 block text-xs text-ink-3">
-                      A few quick questions to keep birthdays fresh
+                      {t("calendar.recallHint")}
                     </span>
                   </span>
                   <span
@@ -1865,7 +1904,9 @@ export function Calendar({
                 ? (
                   <div class="rounded-lg border border-accent/30 bg-accent-soft px-3.5 py-3">
                     <div class="flex items-baseline justify-between gap-2">
-                      <p class="text-sm font-medium text-accent-2">Getting started</p>
+                      <p class="text-sm font-medium text-accent-2">
+                        {t("calendar.checklist.title")}
+                      </p>
                       <button
                         type="button"
                         class="text-xs font-medium text-ink-3 hover:text-ink"
@@ -1878,21 +1919,21 @@ export function Calendar({
                           }).catch(() => {/* worst case: the card shows again */});
                         }}
                       >
-                        I'll do this later
+                        {t("calendar.checklist.later")}
                       </button>
                     </div>
                     <ul class="mt-2 grid gap-1">
                       {[
                         {
-                          label: "Follow your groups",
+                          label: t("calendar.checklist.groups"),
                           done: followedGroups.length > 0,
                         },
                         {
-                          label: "Add to your calendar app",
+                          label: t("calendar.checklist.feed"),
                           done: false,
                         },
                         {
-                          label: "Get the monthly email",
+                          label: t("calendar.checklist.email"),
                           done: subscribed,
                         },
                       ].map((item) => (
@@ -1936,7 +1977,7 @@ export function Calendar({
                     href="/profile/"
                     class="group inline-flex items-center gap-1 text-xs font-medium text-ink-3 hover:text-ink"
                   >
-                    Groups, monthly email, and calendar feed on your profile
+                    {t("calendar.profileSummary")}
                     <span
                       class="transition-transform group-hover:translate-x-0.5"
                       aria-hidden="true"
@@ -1967,22 +2008,22 @@ export function Calendar({
               type="search"
               value={query}
               onInput={(e) => setQuery((e.currentTarget as HTMLInputElement).value)}
-              placeholder="Search by name or note…"
+              placeholder={t("calendar.searchPlaceholder")}
               class="input pl-9"
             />
           </label>
           <div class="flex flex-wrap items-center gap-2">
             <FilterDropdown
-              label="Show"
+              label={t("calendar.show")}
               sections={[
                 {
-                  heading: "Events",
+                  heading: t("calendar.filter.events"),
                   options: allTypes.map((type) => ({ key: type, label: typeLabel(type) })),
                   active: activeTypes,
                   onToggle: (type) => setActiveTypes((current) => toggleSelection(current, type)),
                 },
                 {
-                  heading: "Groups",
+                  heading: t("calendar.filter.groups"),
                   options: Object.entries(groups).map(([key, group]) => ({
                     key,
                     label: group.label,
@@ -1992,13 +2033,12 @@ export function Calendar({
                   onToggle: (key) => setActiveGroups((current) => toggleSelection(current, key)),
                   footer: (
                     <p class="text-xs leading-relaxed text-ink-3">
-                      Groups are the branches of the family — you see the people in the groups you
-                      follow. Change yours in{" "}
+                      {t("calendar.filter.groupsFooter")}{" "}
                       <a
                         href="/profile/"
                         class="font-medium text-accent-2 underline underline-offset-2"
                       >
-                        your profile
+                        {t("about.profileLink")}
                       </a>.
                     </p>
                   ),
@@ -2007,12 +2047,12 @@ export function Calendar({
             />
             <div
               role="group"
-              aria-label="Switch between timeline and table view"
+              aria-label={t("calendar.viewSwitch")}
               class="flex items-center gap-0.5 rounded-lg border border-line bg-surface p-0.5"
             >
               <button
                 type="button"
-                title="Timeline view"
+                title={t("calendar.viewTimeline")}
                 aria-pressed={viewMode === "timeline"}
                 onClick={() => switchViewMode("timeline")}
                 class={`grid size-8 place-items-center rounded-md ${
@@ -2023,7 +2063,7 @@ export function Calendar({
               </button>
               <button
                 type="button"
-                title="Table view"
+                title={t("calendar.viewTable")}
                 aria-pressed={viewMode === "table"}
                 onClick={() => switchViewMode("table")}
                 class={`grid size-8 place-items-center rounded-md ${
@@ -2037,14 +2077,14 @@ export function Calendar({
         </section>
 
         {viewMode === "table" && (
-          <section class="card overflow-x-auto" aria-label="Upcoming events">
+          <section class="card overflow-x-auto" aria-label={t("calendar.upcoming")}>
             <table class="w-full min-w-[34rem] text-sm">
               <thead>
                 <tr class="border-b border-line">
-                  <SortHeader label="Name" sortKey="name" />
-                  <SortHeader label="Birthdate" sortKey="date" />
-                  <SortHeader label="Next birthday" sortKey="next" />
-                  <SortHeader label="Age" sortKey="age" align="right" />
+                  <SortHeader label={t("personForm.name")} sortKey="name" />
+                  <SortHeader label={t("calendar.table.birthdate")} sortKey="date" />
+                  <SortHeader label={t("calendar.nextBirthday")} sortKey="next" />
+                  <SortHeader label={t("calendar.table.age")} sortKey="age" align="right" />
                 </tr>
               </thead>
               <tbody>
@@ -2096,7 +2136,7 @@ export function Calendar({
             </table>
             {!sortedTableRows.length && (
               <p class="p-6 text-center text-sm text-ink-3">
-                No upcoming events match the current filters.
+                {t("calendar.emptyTable")}
               </p>
             )}
           </section>
@@ -2109,7 +2149,7 @@ export function Calendar({
             disabled={firstMonthOffset <= -maxPastMonths}
             class="btn btn-ghost btn-sm"
           >
-            {firstMonthOffset <= -maxPastMonths ? "No more past years to load" : "Load past year"}
+            {firstMonthOffset <= -maxPastMonths ? t("calendar.noMorePast") : t("calendar.loadPast")}
           </button>
         </div>
 
@@ -2128,7 +2168,8 @@ export function Calendar({
                         {monthFormatter.format(m.date)}
                       </h2>
                       <span class="text-xs tabular-nums text-ink-3">
-                        {m.events.length} {m.events.length === 1 ? "event" : "events"}
+                        {m.events.length}{" "}
+                        {m.events.length === 1 ? t("calendar.eventOne") : t("calendar.eventOther")}
                       </span>
                     </div>
                   </div>
@@ -2142,11 +2183,11 @@ export function Calendar({
             )
             : (
               <p class="rounded-xl border border-dashed border-line-2 p-6 text-center text-sm text-ink-3">
-                No events match the current filters.
+                {t("calendar.emptyTimeline")}
               </p>
             )}
           <div class="py-6 text-center text-sm text-ink-3">
-            Scroll for more months…
+            {t("calendar.scrollMore")}
           </div>
         </section>
       </main>
@@ -2172,15 +2213,19 @@ export function Calendar({
               <div>
                 <p class="kicker">
                   {addingEvent
-                    ? "Add event"
+                    ? t("eventForm.submit")
                     : adding
-                    ? "Add person"
+                    ? t("personForm.add")
                     : editing
-                    ? "Edit person"
-                    : "Person"}
+                    ? t("calendar.editPerson")
+                    : t("calendar.person")}
                 </p>
                 <h2 id="person-detail-title" class="mt-1 text-xl font-semibold tracking-tight">
-                  {addingEvent ? "New event" : adding ? "New person" : selectedPerson?.name}
+                  {addingEvent
+                    ? t("calendar.newEvent")
+                    : adding
+                    ? t("calendar.newPerson")
+                    : selectedPerson?.name}
                 </h2>
                 {!adding && !addingEvent && !editing && selectedDetail?.group && (
                   <span class={`badge mt-1.5 ${groupBadgeClass(selectedDetail.group.color)}`}>
@@ -2193,7 +2238,7 @@ export function Calendar({
                 type="button"
                 class="grid size-8 shrink-0 place-items-center rounded-full border border-line-2 bg-surface text-ink-2 hover:bg-inset hover:text-ink"
                 onClick={closeSheet}
-                aria-label="Close"
+                aria-label={t("common.close")}
               >
                 <svg
                   class="size-3.5"
@@ -2235,37 +2280,39 @@ export function Calendar({
                 <>
                   <dl class="mt-6 grid grid-cols-2 gap-2 text-sm">
                     <div class="rounded-lg bg-inset p-3">
-                      <dt class="kicker">Born</dt>
+                      <dt class="kicker">{t("personForm.born")}</dt>
                       <dd class="mt-1 font-medium tabular-nums">
                         <PersonDate value={selectedDetail.born} />
                       </dd>
                     </div>
                     <div class="rounded-lg bg-inset p-3">
                       <dt class="kicker">
-                        {selectedPerson.died ? "Would be this year" : "Age this year"}
+                        {selectedPerson.died
+                          ? t("calendar.wouldBeThisYear")
+                          : t("calendar.ageThisYear")}
                       </dt>
                       <dd class="mt-1 font-medium tabular-nums">
-                        {selectedDetail.age ?? "Unknown"}
+                        {selectedDetail.age ?? t("common.unknown")}
                       </dd>
                     </div>
                     {selectedPerson.died && (
                       <>
                         <div class="rounded-lg bg-inset p-3">
-                          <dt class="kicker">Died</dt>
+                          <dt class="kicker">{t("personForm.died")}</dt>
                           <dd class="mt-1 font-medium tabular-nums">
                             <PersonDate value={selectedPerson.died} />
                           </dd>
                         </div>
                         <div class="rounded-lg bg-inset p-3">
-                          <dt class="kicker">Age at death</dt>
+                          <dt class="kicker">{t("calendar.ageAtDeath")}</dt>
                           <dd class="mt-1 font-medium tabular-nums">
-                            {selectedDetail.ageAtDeath ?? "Unknown"}
+                            {selectedDetail.ageAtDeath ?? t("common.unknown")}
                           </dd>
                         </div>
                       </>
                     )}
                     <div class="col-span-2 rounded-lg bg-inset p-3">
-                      <dt class="kicker">Next birthday</dt>
+                      <dt class="kicker">{t("calendar.nextBirthday")}</dt>
                       <dd class="mt-1 font-medium tabular-nums">
                         {selectedDetail.next
                           ? (
@@ -2274,12 +2321,12 @@ export function Calendar({
                               {relativeLabel(selectedDetail.next)}
                             </>
                           )
-                          : "Unknown"}
+                          : t("common.unknown")}
                       </dd>
                     </div>
                     {selectedDetail.nextMemorial && (
                       <div class="col-span-2 rounded-lg bg-inset p-3">
-                        <dt class="kicker">Next remembrance</dt>
+                        <dt class="kicker">{t("calendar.nextRemembrance")}</dt>
                         <dd class="mt-1 font-medium tabular-nums">
                           <PersonDate value={selectedDetail.nextMemorial} /> ·{" "}
                           {relativeLabel(selectedDetail.nextMemorial)}
@@ -2289,16 +2336,18 @@ export function Calendar({
                   </dl>
 
                   <div class="mt-2 rounded-lg bg-inset p-3">
-                    <p class="kicker">Notes</p>
+                    <p class="kicker">{t("common.notes")}</p>
                     <p class="mt-1.5 whitespace-pre-wrap text-sm leading-6 text-ink-2">
-                      {selectedPerson.notes ? linkedNotes(selectedPerson.notes) : "No notes yet."}
+                      {selectedPerson.notes
+                        ? linkedNotes(selectedPerson.notes)
+                        : t("calendar.noNotes")}
                     </p>
                   </div>
 
                   {selectedDetail.mentionedBy.length > 0 && (
                     <div class="mt-4">
                       <p class="kicker">
-                        Mentioned by {selectedDetail.mentionedBy.length}
+                        {t("calendar.mentionedBy", { count: selectedDetail.mentionedBy.length })}
                       </p>
                       <ul class="mt-2 grid gap-0.5">
                         {selectedDetail.mentionedBy.map(({ person, age }) => (
@@ -2311,7 +2360,11 @@ export function Calendar({
                             >
                               <span class="font-medium">{person.name}</span>
                               <span class="tabular-nums text-ink-3">
-                                {age === null ? "—" : `${age} ${age === 1 ? "year" : "years"}`}
+                                {age === null
+                                  ? "—"
+                                  : age === 1
+                                  ? t("calendar.oneYear")
+                                  : t("calendar.nYears", { count: age })}
                               </span>
                             </button>
                           </li>
@@ -2328,7 +2381,7 @@ export function Calendar({
                           class="btn btn-ghost w-full"
                           onClick={openEditPerson}
                         >
-                          Edit person
+                          {t("calendar.editPerson")}
                         </button>
                       )}
                       {!saveUrl && editUrl && (
@@ -2336,7 +2389,7 @@ export function Calendar({
                           class="btn btn-ghost w-full"
                           href={`${editUrl}?person=${encodeURIComponent(selectedPerson.id)}`}
                         >
-                          Edit person
+                          {t("calendar.editPerson")}
                         </a>
                       )}
                       {selectedDetail.next && (
@@ -2345,7 +2398,7 @@ export function Calendar({
                           class="btn btn-primary w-full"
                           onClick={() => showPersonInTimeline(selectedPerson)}
                         >
-                          Show next birthday in timeline
+                          {t("calendar.showInTimeline")}
                         </button>
                       )}
                     </div>

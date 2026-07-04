@@ -2,6 +2,7 @@ import { AppHeader } from "@/components/AppHeader.tsx";
 import { CopyButton } from "@/islands/CopyButton.tsx";
 import { ensureFeedToken, setViewerGroups } from "@/lib/access_links.ts";
 import { getStore } from "@/lib/db.ts";
+import { t } from "@/lib/i18n.ts";
 import { clearNewsletterPreference, setNewsletterPreference } from "@/lib/newsletter.ts";
 import { ValidationError } from "@/lib/people.ts";
 import { sessionViewer } from "@/lib/viewer_auth.ts";
@@ -12,7 +13,7 @@ export const handlers = define.handlers({
   async GET(ctx) {
     const store = await getStore();
     const viewer = await sessionViewer(ctx.req, store);
-    if (!viewer) throw new HttpError(404, "This page requires a family access link.");
+    if (!viewer) throw new HttpError(404, t("error.requiresLink"));
     const baseUrl = Deno.env.get("BASE_URL") ?? ctx.url.origin;
     const feedUrl = `${baseUrl}/cal/${await ensureFeedToken(store, viewer)}.ics`;
     return page({
@@ -29,7 +30,7 @@ export const handlers = define.handlers({
   async POST(ctx) {
     const store = await getStore();
     const viewer = await sessionViewer(ctx.req, store);
-    if (!viewer) throw new HttpError(404, "This page requires a family access link.");
+    if (!viewer) throw new HttpError(404, t("error.requiresLink"));
     const form = await ctx.req.formData();
     const action = form.get("action");
     try {
@@ -49,7 +50,7 @@ export const handlers = define.handlers({
       if (error instanceof ValidationError) throw new HttpError(400, error.message);
       throw error;
     }
-    throw new HttpError(400, "Unknown action.");
+    throw new HttpError(400, t("profile.error.unknownAction"));
   },
 });
 
@@ -57,10 +58,12 @@ function redirect(saved: string): Response {
   return new Response(null, { status: 303, headers: { location: `/profile/?saved=${saved}` } });
 }
 
+// Translation keys, resolved with t() at render time (module consts are shared
+// across requests with different locales).
 const FLASH: Record<string, string> = {
-  groups: "Your groups are saved.",
-  subscribed: "You're subscribed to the monthly email.",
-  unsubscribed: "You're unsubscribed from the monthly email.",
+  groups: "profile.flash.groups",
+  subscribed: "profile.flash.subscribed",
+  unsubscribed: "profile.flash.unsubscribed",
 };
 
 export default define.page<typeof handlers>(({ data }) => {
@@ -68,22 +71,23 @@ export default define.page<typeof handlers>(({ data }) => {
   const googleUrl = `https://calendar.google.com/calendar/r?cid=${
     encodeURIComponent(data.feedUrl)
   }`;
-  const flash = data.saved ? FLASH[data.saved] : "";
+  const flashKey = data.saved ? FLASH[data.saved] : undefined;
+  const flash = flashKey ? t(flashKey) : "";
   return (
     <>
-      <title>Profile | Family Calendar</title>
+      <title>{`${t("profile.title")} | ${t("app.name")}`}</title>
       <div class="min-h-screen">
         <AppHeader
-          title="Profile"
+          title={t("profile.title")}
           viewerName={data.viewerName}
           current="profile"
           adminUrl={data.adminUrl}
           logoutUrl="/logout"
         />
         <main class="mx-auto max-w-2xl px-4 pb-20 pt-8">
-          <h1 class="text-2xl font-semibold tracking-tight">Profile</h1>
+          <h1 class="text-2xl font-semibold tracking-tight">{t("profile.title")}</h1>
           <p class="mt-2 leading-relaxed text-ink-2">
-            Your account, the groups you follow, and how you keep up with the family's dates.
+            {t("profile.intro")}
           </p>
 
           {flash && (
@@ -95,29 +99,32 @@ export default define.page<typeof handlers>(({ data }) => {
           {/* Profile + group affiliation */}
           <section class="card mt-8 grid gap-6 p-6">
             <div>
-              <h2 class="font-semibold">You</h2>
+              <h2 class="font-semibold">{t("profile.you")}</h2>
               <dl class="mt-3 grid gap-3 sm:grid-cols-2">
                 <div>
-                  <dt class="text-xs font-medium uppercase tracking-wide text-ink-3">Name</dt>
+                  <dt class="text-xs font-medium uppercase tracking-wide text-ink-3">
+                    {t("profile.name")}
+                  </dt>
                   <dd class="mt-0.5 text-sm">{data.viewerName}</dd>
                 </div>
                 <div>
-                  <dt class="text-xs font-medium uppercase tracking-wide text-ink-3">Email</dt>
+                  <dt class="text-xs font-medium uppercase tracking-wide text-ink-3">
+                    {t("profile.email")}
+                  </dt>
                   <dd class="mt-0.5 text-sm">{data.email ?? "—"}</dd>
                 </div>
               </dl>
               <p class="mt-2 text-xs text-ink-3">
-                Ask a family editor if your name or email needs to change.
+                {t("profile.contactEditor")}
               </p>
             </div>
 
             <form method="post" class="grid gap-3 border-t border-line pt-5">
               <input type="hidden" name="action" value="groups" />
               <div>
-                <h3 class="text-sm font-medium">Groups you follow</h3>
+                <h3 class="text-sm font-medium">{t("profile.groups.title")}</h3>
                 <p class="mt-1 text-xs text-ink-3">
-                  Drives your calendar, your monthly email, and your calendar feed. No selection
-                  means you won't see anyone.
+                  {t("profile.groups.hint")}
                 </p>
               </div>
               <div class="grid gap-2 sm:grid-cols-2">
@@ -142,7 +149,7 @@ export default define.page<typeof handlers>(({ data }) => {
                 ))}
               </div>
               <button type="submit" class="btn btn-primary justify-self-start">
-                Save groups
+                {t("profile.groups.save")}
               </button>
             </form>
           </section>
@@ -150,10 +157,20 @@ export default define.page<typeof handlers>(({ data }) => {
           {/* Monthly email */}
           <section class="card mt-4 flex items-center justify-between gap-4 p-6">
             <div class="min-w-0">
-              <h2 class="font-semibold">Monthly email</h2>
+              <h2 class="font-semibold">{t("profile.newsletter.title")}</h2>
               <p class="mt-1 text-sm leading-relaxed text-ink-2">
-                A short note once a month with the coming birthdays for the groups you follow,
-                written in Norwegian. {data.email ? `Sent to ${data.email}.` : ""}
+                {t("profile.newsletter.body")}{" "}
+                {data.email ? t("profile.newsletter.sentTo", { email: data.email }) : ""}
+              </p>
+              <p class="mt-2 text-sm">
+                <a
+                  href="/newsletter/example"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="font-medium text-accent-2 underline underline-offset-2"
+                >
+                  {t("newsletter.example.link")}
+                </a>
               </p>
             </div>
             {data.email
@@ -168,7 +185,7 @@ export default define.page<typeof handlers>(({ data }) => {
                     type="submit"
                     role="switch"
                     aria-checked={data.subscribed}
-                    aria-label="Monthly email subscription"
+                    aria-label={t("profile.newsletter.switchLabel")}
                     class={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                       data.subscribed ? "bg-accent" : "bg-line-2"
                     }`}
@@ -181,17 +198,19 @@ export default define.page<typeof handlers>(({ data }) => {
                   </button>
                 </form>
               )
-              : <span class="shrink-0 text-xs text-ink-3">Needs an email</span>}
+              : (
+                <span class="shrink-0 text-xs text-ink-3">
+                  {t("profile.newsletter.needsEmail")}
+                </span>
+              )}
           </section>
 
           {/* Calendar subscription */}
           <section class="card mt-4 grid gap-5 p-6">
             <div>
-              <h2 class="font-semibold">Subscribe in your calendar app</h2>
+              <h2 class="font-semibold">{t("profile.feed.title")}</h2>
               <p class="mt-1 text-sm leading-relaxed text-ink-2">
-                Add the family's birthdays, remembrances, and holidays to Google Calendar, Apple
-                Calendar, or Outlook. The feed follows the groups you choose above and updates on
-                its own.
+                {t("profile.feed.body")}
               </p>
             </div>
 
@@ -199,10 +218,10 @@ export default define.page<typeof handlers>(({ data }) => {
               <input
                 readonly
                 value={data.feedUrl}
-                aria-label="Your calendar feed URL"
+                aria-label={t("profile.feed.urlLabel")}
                 class="input font-mono text-xs"
               />
-              <CopyButton value={data.feedUrl} label="Copy" />
+              <CopyButton value={data.feedUrl} label={t("profile.feed.copy")} />
             </div>
 
             <div class="flex flex-wrap gap-2">
@@ -212,16 +231,15 @@ export default define.page<typeof handlers>(({ data }) => {
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                Add to Google Calendar
+                {t("profile.feed.google")}
               </a>
               <a class="btn btn-ghost btn-sm" href={webcalUrl}>
-                Apple Calendar or Outlook
+                {t("profile.feed.apple")}
               </a>
             </div>
 
             <p class="text-xs text-ink-3">
-              This feed link is private to you. Anyone who has it can see the family calendar, so
-              keep it to yourself.
+              {t("profile.feed.private")}
             </p>
           </section>
         </main>

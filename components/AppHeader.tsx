@@ -1,6 +1,8 @@
 import type { ComponentChildren } from "preact";
+import { LanguageToggle } from "@/islands/LanguageToggle.tsx";
 import { PopoverBehavior } from "@/islands/PopoverBehavior.tsx";
 import { ThemeToggle } from "@/islands/ThemeToggle.tsx";
+import { t } from "@/lib/i18n.ts";
 
 interface Props {
   title: string;
@@ -58,7 +60,7 @@ export function BrandMark({ class: className = "size-8" }: { class?: string }) {
 
 export function AppHeader({
   title,
-  eyebrow = "Family Calendar",
+  eyebrow,
   viewerName,
   current,
   calendarUrl = "/calendar/",
@@ -82,18 +84,19 @@ export function AppHeader({
         <a href="/calendar/" class="flex min-w-0 items-center gap-3">
           <BrandMark />
           <div class="min-w-0">
-            <p class="kicker">{eyebrow}</p>
+            <p class="kicker">{eyebrow ?? t("app.name")}</p>
             <h1 class="truncate text-[15px] font-semibold leading-snug">{title}</h1>
           </div>
         </a>
         <div class="flex shrink-0 items-center gap-2">
+          <LanguageToggle />
           {children}
           {viewerName
             ? (
               <details data-popover class="relative">
                 <summary
                   class="flex h-9 cursor-pointer list-none items-center gap-2 rounded-full border border-line-2 bg-surface pl-1 pr-2.5 hover:bg-inset [&::-webkit-details-marker]:hidden"
-                  aria-label={`Open menu for ${viewerName}`}
+                  aria-label={t("nav.openMenuFor", { name: viewerName })}
                 >
                   <span
                     class="grid size-7 place-items-center rounded-full bg-accent-soft text-[11px] font-semibold text-accent-2"
@@ -120,7 +123,7 @@ export function AppHeader({
                     <MenuIcon>
                       <path d="M4 5h16v15H4zM4 9h16M8 3v4M16 3v4" />
                     </MenuIcon>
-                    Calendar
+                    {t("nav.calendar")}
                   </a>
                   {adminUrl && (
                     <a href={adminUrl} aria-current={current === "admin" ? "page" : undefined}>
@@ -129,7 +132,7 @@ export function AppHeader({
                         <circle cx="9" cy="8" r="2" />
                         <circle cx="15" cy="16" r="2" />
                       </MenuIcon>
-                      Administration
+                      {t("nav.admin")}
                     </a>
                   )}
                   <a href={profileUrl} aria-current={current === "profile" ? "page" : undefined}>
@@ -137,20 +140,20 @@ export function AppHeader({
                       <circle cx="12" cy="8" r="3.5" />
                       <path d="M5 20v-1a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v1" />
                     </MenuIcon>
-                    Profile
+                    {t("nav.profile")}
                   </a>
                   <a href={aboutUrl} aria-current={current === "about" ? "page" : undefined}>
                     <MenuIcon>
                       <circle cx="12" cy="12" r="9" />
                       <path d="M12 11v5M12 7.5v.01" />
                     </MenuIcon>
-                    About
+                    {t("nav.about")}
                   </a>
 
                   {menuChildren && (
                     <>
                       <hr />
-                      <p class="menu-label">On this page</p>
+                      <p class="menu-label">{t("nav.onThisPage")}</p>
                       {menuChildren}
                     </>
                   )}
@@ -166,7 +169,7 @@ export function AppHeader({
                           <MenuIcon>
                             <path d="M15 17l5-5-5-5M20 12H9M9 20H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h4" />
                           </MenuIcon>
-                          Log out
+                          {t("nav.logout")}
                         </button>
                       </form>
                     </>
@@ -176,7 +179,7 @@ export function AppHeader({
             )
             : (
               <a class="btn btn-ghost" href="/">
-                Access
+                {t("nav.access")}
               </a>
             )}
         </div>

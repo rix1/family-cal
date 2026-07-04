@@ -1,8 +1,10 @@
+import { setLocale } from "@/lib/i18n.ts";
 import { define } from "@/utils.ts";
 
-export default define.page(function App({ Component }) {
+export default define.page(function App({ Component, state }) {
+  setLocale(state.locale);
   return (
-    <html lang="en">
+    <html lang={state.locale}>
       <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />

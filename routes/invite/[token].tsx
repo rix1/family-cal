@@ -158,6 +158,14 @@ export default define.page<typeof handlers>(({ data }) => (
             Join and open calendar
           </button>
         </form>
+
+        <p class="mt-6 text-center text-xs text-ink-3">
+          Curious first?{" "}
+          <a href="/about" class="font-medium text-accent-2 underline underline-offset-2">
+            Read how it all works
+          </a>{" "}
+          — no sign-up needed.
+        </p>
       </section>
     </main>
   </>

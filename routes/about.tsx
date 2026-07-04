@@ -146,10 +146,27 @@ export default define.page<typeof handlers>(function About({ data }) {
               one-time link to sign that device in. Signing in somewhere new ends the previous
               session, so if you switch back later you may just need a fresh link.
             </Faq>
+            <Faq question="What are groups?">
+              Groups are the branches of the family — for example each side of it. Every person
+              belongs to one, and you choose which groups to follow from{" "}
+              <ProfileLink signedIn={signedIn} />. Your calendar, monthly email, and calendar-app
+              feed all show the people in the groups you follow, and nothing else.
+            </Faq>
+            <Faq question="How do I get this into Google or Apple Calendar?">
+              On <ProfileLink signedIn={signedIn} />{" "}
+              you'll find an "Add to Google Calendar" button and one for Apple Calendar or Outlook.
+              Set it up once and the family's dates appear alongside your own — new birthdays and
+              changes show up on their own, no updating needed.
+            </Faq>
+            <Faq question="What is the monthly email?">
+              A short note, once a month, with the coming birthdays for the groups you follow —
+              written in Norwegian. Switch it on or off anytime from{" "}
+              <ProfileLink signedIn={signedIn} />, or with the unsubscribe link in the email itself.
+            </Faq>
             <Faq question="Can I add or change people?">
               Only some links can make changes. If yours can, you can add people and their dates,
-              sort the family into groups, and link relatives by typing{" "}
-              <span class="font-medium text-ink">@</span>{" "}
+              record events like weddings and baptisms, sort the family into groups, and link
+              relatives by typing <span class="font-medium text-ink">@</span>{" "}
               in a note. If yours can't and something looks wrong or missing, just ask whoever set
               things up.
             </Faq>

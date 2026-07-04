@@ -107,6 +107,8 @@ export interface Viewer {
   newsletter?: NewsletterPreference;
   /** Set once the welcome tour was finished or skipped; it never shows again. */
   welcomedAt?: string;
+  /** Set when the getting-started checklist is dismissed ("I'll do this later"). */
+  checklistDismissedAt?: string;
 }
 
 export function viewerIsActive(viewer: Viewer): boolean {

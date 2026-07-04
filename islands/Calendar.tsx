@@ -231,16 +231,6 @@ function TableIcon({ class: cls = "size-4" }: { class?: string }) {
   );
 }
 
-/* Envelope for the newsletter call to action. */
-function MailIcon({ class: cls = "size-4" }: { class?: string }) {
-  return (
-    <svg class={cls} {...iconProps}>
-      <rect x="2.5" y="4" width="11" height="8" rx="1.4" />
-      <path d="M3 5l5 3.4L13 5" />
-    </svg>
-  );
-}
-
 /* Check mark for confirmed states. */
 function CheckIcon({ class: cls = "size-4" }: { class?: string }) {
   return (
@@ -344,6 +334,8 @@ interface CalendarProps extends CalendarViewData {
   subscribed?: boolean;
   /** Groups this viewer follows; groups outside this set show disabled in the filter. */
   followedGroups: string[];
+  /** Whether the getting-started checklist was dismissed ("I'll do this later"). */
+  checklistDismissed?: boolean;
 }
 
 function FilterDropdown({
@@ -418,8 +410,10 @@ export function Calendar({
   logoutUrl,
   subscribed = false,
   followedGroups,
+  checklistDismissed: initialChecklistDismissed = false,
 }: CalendarProps) {
   const [people, setPeople] = useState(initialPeople);
+  const [checklistDismissed, setChecklistDismissed] = useState(initialChecklistDismissed);
   const [occasions, setOccasions] = useState(initialOccasions);
   const [query, setQuery] = useState("");
   const allTypes = useMemo(
@@ -1787,95 +1781,144 @@ export function Calendar({
                 </div>
               </div>
             )}
-            <div>
-              <p class="text-sm font-medium">Family roots</p>
-              {familyRoots.length
+            {/* While the getting-started checklist is up, keep the card focused on it. */}
+            {checklistDismissed && (
+              <>
+                <div>
+                  <p class="text-sm font-medium">Family roots</p>
+                  {familyRoots.length
+                    ? (
+                      <>
+                        <p class="mt-0.5 text-xs text-ink-3">
+                          Not linked to anyone yet — open a card to @mention a relative in their
+                          notes.
+                        </p>
+                        <div class="mt-2.5 flex flex-wrap gap-1.5">
+                          {familyRoots.map((p) => (
+                            <button
+                              key={p.id}
+                              type="button"
+                              onClick={() => openPerson(p)}
+                              class="rounded-full border border-line bg-surface px-2.5 py-1 text-xs font-medium text-ink-2 hover:border-line-2 hover:text-ink"
+                              title={p.notes}
+                            >
+                              {p.name}
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )
+                    : (
+                      <p class="mt-0.5 text-xs text-ink-3">
+                        Everyone is linked into the family tree.
+                      </p>
+                    )}
+                </div>
+                <a
+                  href="/recall/"
+                  class="group flex items-center gap-3 rounded-lg border border-line-2 px-3.5 py-3 text-sm transition-colors hover:bg-inset"
+                >
+                  <span class="grid size-9 shrink-0 place-items-center rounded-lg bg-accent-soft text-accent-2">
+                    <SparkIcon class="size-4" />
+                  </span>
+                  <span class="min-w-0 flex-1">
+                    <span class="block font-medium">Recall the family</span>
+                    <span class="mt-0.5 block text-xs text-ink-3">
+                      A few quick questions to keep birthdays fresh
+                    </span>
+                  </span>
+                  <span
+                    class="text-ink-3 transition-transform group-hover:translate-x-0.5"
+                    aria-hidden="true"
+                  >
+                    →
+                  </span>
+                </a>
+              </>
+            )}
+            {
+              /* mt-auto pins the small profile link to the card bottom once dismissed;
+               the checklist itself sits right under the content above it. */
+            }
+            <div class={checklistDismissed ? "mt-auto" : ""}>
+              {!checklistDismissed
                 ? (
-                  <>
-                    <p class="mt-0.5 text-xs text-ink-3">
-                      Not linked to anyone yet — open a card to @mention a relative in their notes.
-                    </p>
-                    <div class="mt-2.5 flex flex-wrap gap-1.5">
-                      {familyRoots.map((p) => (
-                        <button
-                          key={p.id}
-                          type="button"
-                          onClick={() => openPerson(p)}
-                          class="rounded-full border border-line bg-surface px-2.5 py-1 text-xs font-medium text-ink-2 hover:border-line-2 hover:text-ink"
-                          title={p.notes}
-                        >
-                          {p.name}
-                        </button>
-                      ))}
+                  <div class="rounded-lg border border-accent/30 bg-accent-soft px-3.5 py-3">
+                    <div class="flex items-baseline justify-between gap-2">
+                      <p class="text-sm font-medium text-accent-2">Getting started</p>
+                      <button
+                        type="button"
+                        class="text-xs font-medium text-ink-3 hover:text-ink"
+                        onClick={() => {
+                          setChecklistDismissed(true);
+                          fetch("/api/welcome", {
+                            method: "POST",
+                            headers: { "content-type": "application/json" },
+                            body: JSON.stringify({ action: "dismiss-checklist" }),
+                          }).catch(() => {/* worst case: the card shows again */});
+                        }}
+                      >
+                        I'll do this later
+                      </button>
                     </div>
-                  </>
+                    <ul class="mt-2 grid gap-1">
+                      {[
+                        {
+                          label: "Follow your groups",
+                          done: followedGroups.length > 0,
+                        },
+                        {
+                          label: "Add to your calendar app",
+                          done: false,
+                        },
+                        {
+                          label: "Get the monthly email",
+                          done: subscribed,
+                        },
+                      ].map((item) => (
+                        <li key={item.label}>
+                          <a
+                            href="/profile/"
+                            class="group flex items-center gap-2.5 rounded-md px-1.5 py-1 text-sm hover:bg-surface/60"
+                          >
+                            {item.done
+                              ? (
+                                <span class="grid size-5 shrink-0 place-items-center rounded-full bg-accent text-on-accent">
+                                  <CheckIcon class="size-3" />
+                                </span>
+                              )
+                              : (
+                                <span class="size-5 shrink-0 rounded-full border-2 border-accent/40" />
+                              )}
+                            <span
+                              class={item.done
+                                ? "text-ink-3 line-through decoration-ink-3/50"
+                                : "font-medium text-ink"}
+                            >
+                              {item.label}
+                            </span>
+                            {!item.done && (
+                              <span
+                                class="ml-auto text-ink-3 transition-transform group-hover:translate-x-0.5"
+                                aria-hidden="true"
+                              >
+                                →
+                              </span>
+                            )}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 )
                 : (
-                  <p class="mt-0.5 text-xs text-ink-3">
-                    Everyone is linked into the family tree.
-                  </p>
-                )}
-            </div>
-            <a
-              href="/recall/"
-              class="group flex items-center gap-3 rounded-lg border border-line-2 px-3.5 py-3 text-sm transition-colors hover:bg-inset"
-            >
-              <span class="grid size-9 shrink-0 place-items-center rounded-lg bg-accent-soft text-accent-2">
-                <SparkIcon class="size-4" />
-              </span>
-              <span class="min-w-0 flex-1">
-                <span class="block font-medium">Recall the family</span>
-                <span class="mt-0.5 block text-xs text-ink-3">
-                  A few quick questions to keep birthdays fresh
-                </span>
-              </span>
-              <span
-                class="text-ink-3 transition-transform group-hover:translate-x-0.5"
-                aria-hidden="true"
-              >
-                →
-              </span>
-            </a>
-            <div class="mt-auto">
-              {subscribed
-                ? (
                   <a
                     href="/profile/"
-                    class="group flex items-center gap-3 rounded-lg border border-line-2 px-3.5 py-3 text-sm transition-colors hover:bg-inset"
+                    class="group inline-flex items-center gap-1 text-xs font-medium text-ink-3 hover:text-ink"
                   >
-                    <span class="grid size-9 shrink-0 place-items-center rounded-lg bg-accent-soft text-accent-2">
-                      <CheckIcon />
-                    </span>
-                    <span class="min-w-0 flex-1">
-                      <span class="block font-medium">Your profile</span>
-                      <span class="mt-0.5 block text-xs text-ink-3">
-                        Monthly email is on — manage groups and subscriptions
-                      </span>
-                    </span>
+                    Groups, monthly email, and calendar feed on your profile
                     <span
-                      class="text-ink-3 transition-transform group-hover:translate-x-0.5"
-                      aria-hidden="true"
-                    >
-                      →
-                    </span>
-                  </a>
-                )
-                : (
-                  <a
-                    href="/profile/"
-                    class="group flex items-center gap-3 rounded-lg border border-accent/30 bg-accent-soft px-3.5 py-3 text-sm transition-colors hover:border-accent/60"
-                  >
-                    <span class="grid size-9 shrink-0 place-items-center rounded-lg bg-accent text-on-accent">
-                      <MailIcon />
-                    </span>
-                    <span class="min-w-0 flex-1">
-                      <span class="block font-medium text-accent-2">Set up your profile</span>
-                      <span class="mt-0.5 block text-xs text-ink-3">
-                        Get the monthly email and add the calendar to your own app
-                      </span>
-                    </span>
-                    <span
-                      class="text-accent-2 transition-transform group-hover:translate-x-0.5"
+                      class="transition-transform group-hover:translate-x-0.5"
                       aria-hidden="true"
                     >
                       →

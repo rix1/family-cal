@@ -25,6 +25,7 @@ export const handlers = define.handlers({
       eventsSaveUrl: viewer.canEdit ? `/api/events/${viewer.token}` : undefined,
       subscribed: Boolean(viewer.newsletter),
       followedGroups: viewer.groups,
+      checklistDismissed: Boolean(viewer.checklistDismissedAt),
       welcome: showWelcome
         ? {
           feedUrl: `${baseUrl}/cal/${await ensureFeedToken(store, viewer)}.ics`,
@@ -47,6 +48,7 @@ export default define.page<typeof handlers>(({ data }) => (
       eventsSaveUrl={data.eventsSaveUrl}
       subscribed={data.subscribed}
       followedGroups={data.followedGroups}
+      checklistDismissed={data.checklistDismissed}
       logoutUrl="/logout"
     />
     {data.welcome && (

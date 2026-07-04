@@ -248,6 +248,16 @@ export function WelcomeTour({
         </h2>
         <div class="mt-3 text-sm leading-relaxed text-ink-2">{current.body}</div>
 
+        {last && (
+          <p class="mt-5 text-sm text-ink-3">
+            Questions later? The{" "}
+            <a href="/about" class="font-medium text-accent-2 underline underline-offset-2">
+              about page
+            </a>{" "}
+            explains how it all works.
+          </p>
+        )}
+
         <div class="mt-8 flex items-center justify-between gap-3">
           <div class="flex gap-1.5" aria-hidden="true">
             {steps.map((_, i) => (

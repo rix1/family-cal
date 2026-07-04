@@ -515,6 +515,23 @@ routeTest("welcome tour shows once and can subscribe to the monthly email", asyn
   );
   assert(!(again instanceof Response));
   assertEquals(again.data.welcome, null);
+
+  // Dismissing the getting-started checklist sticks on the viewer record.
+  assertEquals(again.data.checklistDismissed, false);
+  const dismiss = await welcomeRoute.handler.POST(
+    ctx("http://localhost/api/welcome", {
+      method: "POST",
+      headers: { cookie, "content-type": "application/json" },
+      body: JSON.stringify({ action: "dismiss-checklist" }),
+    }),
+  );
+  assertEquals(dismiss.status, 200);
+  await dismiss.text();
+  const afterDismiss = await calendarPageRoute.handlers.GET(
+    ctx("http://localhost/calendar/", { headers: { cookie } }),
+  );
+  assert(!(afterDismiss instanceof Response));
+  assertEquals(afterDismiss.data.checklistDismissed, true);
 });
 
 routeTest("invite signup requires a valid email", async () => {

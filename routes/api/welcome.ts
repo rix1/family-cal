@@ -6,10 +6,10 @@ import { sessionViewer } from "@/lib/viewer_auth.ts";
 import { define } from "@/utils.ts";
 
 /**
- * Backs the one-time welcome tour: `subscribe` opts into the monthly email
- * without leaving the tour, `done` records that the tour was finished (or
- * skipped) so it never shows again — on any device, since it lives on the
- * viewer record.
+ * Backs the onboarding UI: `subscribe` opts into the monthly email without
+ * leaving the welcome tour, `done` records that the tour was finished (or
+ * skipped), and `dismiss-checklist` hides the getting-started card. All three
+ * stamp the viewer record, so they stick across devices.
  */
 export const handler = define.handlers({
   async POST(ctx) {
@@ -38,6 +38,12 @@ export const handler = define.handlers({
         await store.upsertViewer({ ...viewer, welcomedAt: new Date().toISOString() });
       }
       return json({ done: true });
+    }
+    if (payload.action === "dismiss-checklist") {
+      if (!viewer.checklistDismissedAt) {
+        await store.upsertViewer({ ...viewer, checklistDismissedAt: new Date().toISOString() });
+      }
+      return json({ dismissed: true });
     }
     return json({ error: "unknown action" }, 400);
   },

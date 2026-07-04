@@ -62,7 +62,10 @@
         }
       ],
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "graphMode": "none" },
-      "fieldConfig": { "defaults": { "unit": "short", "decimals": 0, "noValue": "0" }, "overrides": [] }
+      "fieldConfig": {
+        "defaults": { "unit": "short", "decimals": 0, "noValue": "0" },
+        "overrides": []
+      }
     },
     {
       "id": 2,
@@ -143,7 +146,10 @@
         }
       ],
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "graphMode": "area" },
-      "fieldConfig": { "defaults": { "unit": "short", "decimals": 0, "noValue": "0" }, "overrides": [] }
+      "fieldConfig": {
+        "defaults": { "unit": "short", "decimals": 0, "noValue": "0" },
+        "overrides": []
+      }
     },
     {
       "id": 5,

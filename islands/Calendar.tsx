@@ -338,20 +338,26 @@ interface CalendarProps extends CalendarViewData {
   checklistDismissed?: boolean;
 }
 
-function FilterDropdown({
-  label,
-  options,
-  active,
-  onToggle,
-  footer,
-}: {
+interface FilterOption {
+  key: string;
   label: string;
-  options: Array<{ key: string; label: string; disabled?: boolean }>;
+  disabled?: boolean;
+}
+
+interface FilterSection {
+  heading: string;
+  options: FilterOption[];
   active: Set<string>;
   onToggle: (key: string) => void;
   footer?: ComponentChildren;
-}) {
-  const selectable = options.filter((option) => !option.disabled).length;
+}
+
+function FilterDropdown({ label, sections }: { label: string; sections: FilterSection[] }) {
+  const selectable = sections.reduce(
+    (sum, section) => sum + section.options.filter((option) => !option.disabled).length,
+    0,
+  );
+  const active = sections.reduce((sum, section) => sum + section.active.size, 0);
   // Outside-click / Escape close is handled globally by PopoverBehavior (see the
   // `data-popover` attribute below).
   return (
@@ -359,7 +365,7 @@ function FilterDropdown({
       <summary class="btn btn-ghost cursor-pointer list-none [&::-webkit-details-marker]:hidden">
         <span>{label}</span>
         <span class="text-xs font-medium tabular-nums text-ink-3">
-          {active.size}/{selectable}
+          {active}/{selectable}
         </span>
         <svg
           class="size-3 text-ink-3"
@@ -374,25 +380,39 @@ function FilterDropdown({
           <path d="M2.5 4.5L6 8l3.5-3.5" />
         </svg>
       </summary>
-      <div class="absolute right-0 z-30 mt-2 min-w-56 rounded-xl border border-line bg-surface p-1.5 shadow-pop">
-        {options.map((option) => (
-          <label
-            key={option.key}
-            class={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium ${
-              option.disabled ? "cursor-not-allowed text-ink-3" : "cursor-pointer hover:bg-inset"
-            }`}
+      <div class="absolute right-0 z-30 mt-2 min-w-60 rounded-xl border border-line bg-surface p-1.5 shadow-pop">
+        {sections.map((section, index) => (
+          <div
+            key={section.heading}
+            class={index === 0 ? "" : "mt-1 border-t border-line pt-1"}
           >
-            <input
-              type="checkbox"
-              checked={active.has(option.key)}
-              disabled={option.disabled}
-              onChange={() => onToggle(option.key)}
-              class="size-4 accent-accent"
-            />
-            <span>{option.label}</span>
-          </label>
+            <div class="px-2.5 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-3">
+              {section.heading}
+            </div>
+            {section.options.map((option) => (
+              <label
+                key={option.key}
+                class={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium ${
+                  option.disabled
+                    ? "cursor-not-allowed text-ink-3"
+                    : "cursor-pointer hover:bg-inset"
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={section.active.has(option.key)}
+                  disabled={option.disabled}
+                  onChange={() => section.onToggle(option.key)}
+                  class="size-4 accent-accent"
+                />
+                <span>{option.label}</span>
+              </label>
+            ))}
+            {section.footer && (
+              <div class="mt-1 border-t border-line px-2.5 pb-1 pt-2">{section.footer}</div>
+            )}
+          </div>
         ))}
-        {footer && <div class="mt-1 border-t border-line px-2.5 pb-1 pt-2">{footer}</div>}
       </div>
     </details>
   );
@@ -1953,31 +1973,37 @@ export function Calendar({
           </label>
           <div class="flex flex-wrap items-center gap-2">
             <FilterDropdown
-              label="Groups"
-              options={Object.entries(groups).map(([key, group]) => ({
-                key,
-                label: group.label,
-                disabled: !followed.has(key),
-              }))}
-              active={activeGroups}
-              onToggle={(key) => setActiveGroups((current) => toggleSelection(current, key))}
-              footer={
-                <p class="text-xs leading-relaxed text-ink-3">
-                  Change which groups you follow in{" "}
-                  <a
-                    href="/profile/"
-                    class="font-medium text-accent-2 underline underline-offset-2"
-                  >
-                    your profile
-                  </a>.
-                </p>
-              }
-            />
-            <FilterDropdown
-              label="Events"
-              options={allTypes.map((type) => ({ key: type, label: typeLabel(type) }))}
-              active={activeTypes}
-              onToggle={(type) => setActiveTypes((current) => toggleSelection(current, type))}
+              label="Show"
+              sections={[
+                {
+                  heading: "Events",
+                  options: allTypes.map((type) => ({ key: type, label: typeLabel(type) })),
+                  active: activeTypes,
+                  onToggle: (type) => setActiveTypes((current) => toggleSelection(current, type)),
+                },
+                {
+                  heading: "Groups",
+                  options: Object.entries(groups).map(([key, group]) => ({
+                    key,
+                    label: group.label,
+                    disabled: !followed.has(key),
+                  })),
+                  active: activeGroups,
+                  onToggle: (key) => setActiveGroups((current) => toggleSelection(current, key)),
+                  footer: (
+                    <p class="text-xs leading-relaxed text-ink-3">
+                      Groups are the branches of the family — you see the people in the groups you
+                      follow. Change yours in{" "}
+                      <a
+                        href="/profile/"
+                        class="font-medium text-accent-2 underline underline-offset-2"
+                      >
+                        your profile
+                      </a>.
+                    </p>
+                  ),
+                },
+              ]}
             />
             <div
               role="group"

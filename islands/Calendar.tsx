@@ -37,11 +37,12 @@ type CalendarEvent =
     years: number | null;
   };
 
-/** One table-view row: the next upcoming occurrence of an item. */
+/** One table-view row, selected by next upcoming occurrence and dated by stored date. */
 interface TableRow {
   key: string;
   name: string;
   date: string;
+  nextDate: string;
   age: number | null;
   note: string;
   person: ViewPerson | null;
@@ -51,7 +52,7 @@ interface TableRow {
   badge: string | null;
 }
 
-type TableSortKey = "age" | "date" | "name";
+type TableSortKey = "age" | "date" | "name" | "next";
 
 const dayMs = 86_400_000;
 const monthBatchSize = 12;
@@ -67,6 +68,30 @@ function toKey(date: Date): string {
 function parseDate(key: string): Date {
   const [year, month, day] = key.split("-").map(Number);
   return new Date(year, month - 1, day);
+}
+
+function compareDateKeys(a: string, b: string): number {
+  const partsA = a.split("-").map(Number);
+  const partsB = b.split("-").map(Number);
+  const fullA = partsA.length === 3;
+  const fullB = partsB.length === 3;
+  const timeA = fullA
+    ? new Date(partsA[0], partsA[1] - 1, partsA[2]).getTime()
+    : new Date(9999, partsA[0] - 1, partsA[1]).getTime();
+  const timeB = fullB
+    ? new Date(partsB[0], partsB[1] - 1, partsB[2]).getTime()
+    : new Date(9999, partsB[0] - 1, partsB[1]).getTime();
+  return timeA - timeB;
+}
+
+function compareMonthDayKeys(a: string, b: string): number {
+  const partsA = a.split("-").map(Number);
+  const partsB = b.split("-").map(Number);
+  const monthA = partsA.length === 3 ? partsA[1] : partsA[0];
+  const dayA = partsA.length === 3 ? partsA[2] : partsA[1];
+  const monthB = partsB.length === 3 ? partsB[1] : partsB[0];
+  const dayB = partsB.length === 3 ? partsB[2] : partsB[1];
+  return monthA - monthB || dayA - dayB;
 }
 
 function addDays(date: Date, days: number): Date {
@@ -485,6 +510,12 @@ export function Calendar({
     return dayMonthFormatter.format(new Date(2000, month - 1, day));
   }
 
+  function formatTableDate(value: string): string {
+    return value.length === 10
+      ? tableDateFormatter.format(parseDate(value))
+      : formatPersonDate(value);
+  }
+
   /**
    * Human-readable date in a semantic <time>, keeping the machine value
    * reachable via datetime/title. `short` renders the compact "Jul 12" form;
@@ -627,8 +658,11 @@ export function Calendar({
         rows.push({
           key,
           name: event.name,
-          date: event.date,
-          age: event.age,
+          date: event.person.date,
+          nextDate: event.date,
+          age: event.person.died
+            ? ageAtDate(event.person.date, event.person.died)
+            : ageAtDate(event.person.date, todayKey),
           note: event.person.notes || "",
           person: event.person,
           affiliation: event.person.affiliation,
@@ -638,7 +672,8 @@ export function Calendar({
         rows.push({
           key,
           name: event.name,
-          date: event.date,
+          date: event.person.died,
+          nextDate: event.date,
           age: null,
           note: event.person.notes || "",
           person: event.person,
@@ -649,7 +684,8 @@ export function Calendar({
         rows.push({
           key,
           name: event.name,
-          date: event.date,
+          date: event.occasion.date,
+          nextDate: event.date,
           age: event.years,
           note: event.occasion.notes || "",
           person: null,
@@ -661,6 +697,7 @@ export function Calendar({
           key,
           name: event.name,
           date: event.date,
+          nextDate: event.date,
           age: null,
           note: "",
           person: null,
@@ -677,13 +714,18 @@ export function Calendar({
     const byName = (a: TableRow, b: TableRow) => a.name.localeCompare(b.name, "nb");
     return [...tableRows].sort((a, b) => {
       if (tableSort.key === "name") return dir * byName(a, b);
-      if (tableSort.key === "date") return dir * a.date.localeCompare(b.date) || byName(a, b);
+      if (tableSort.key === "date") {
+        return dir * compareMonthDayKeys(a.date, b.date) || byName(a, b);
+      }
+      if (tableSort.key === "next") {
+        return dir * compareDateKeys(a.nextDate, b.nextDate) || byName(a, b);
+      }
       // Ageless rows (holidays, remembrances) sink to the bottom either direction.
       if (a.age === null || b.age === null) {
         if (a.age === b.age) return byName(a, b);
         return a.age === null ? 1 : -1;
       }
-      return dir * (a.age - b.age) || byName(a, b);
+      return dir * (a.age - b.age) || -dir * compareDateKeys(a.date, b.date) || byName(a, b);
     });
   }, [tableRows, tableSort]);
 
@@ -1927,11 +1969,12 @@ export function Calendar({
 
         {viewMode === "table" && (
           <section class="card overflow-x-auto" aria-label="Upcoming events">
-            <table class="w-full min-w-[28rem] text-sm">
+            <table class="w-full min-w-[34rem] text-sm">
               <thead>
                 <tr class="border-b border-line">
                   <SortHeader label="Name" sortKey="name" />
-                  <SortHeader label="Date" sortKey="date" />
+                  <SortHeader label="Birthdate" sortKey="date" />
+                  <SortHeader label="Next birthday" sortKey="next" />
                   <SortHeader label="Age" sortKey="age" align="right" />
                 </tr>
               </thead>
@@ -1966,7 +2009,12 @@ export function Calendar({
                       </td>
                       <td class="whitespace-nowrap px-4 py-2.5 align-top tabular-nums text-ink-2">
                         <PersonDate value={row.date}>
-                          {tableDateFormatter.format(parseDate(row.date))}
+                          {formatTableDate(row.date)}
+                        </PersonDate>
+                      </td>
+                      <td class="whitespace-nowrap px-4 py-2.5 align-top tabular-nums text-ink-2">
+                        <PersonDate value={row.nextDate}>
+                          {formatTableDate(row.nextDate)}
                         </PersonDate>
                       </td>
                       <td class="px-4 py-2.5 text-right align-top tabular-nums">

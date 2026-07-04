@@ -13,7 +13,9 @@ export const handlers = define.handlers({
     if (!viewerIsActive(viewer)) {
       throw new HttpError(410, "This family access link has expired. Ask for a new one.");
     }
-    const headers = new Headers({ location: "/calendar/" });
+    // Fresh signups arrive with ?welcome=1; hand it on so the calendar shows the tour.
+    const welcome = ctx.url.searchParams.get("welcome") === "1";
+    const headers = new Headers({ location: welcome ? "/calendar/?welcome=1" : "/calendar/" });
     headers.append("set-cookie", viewerCookie(viewer.token));
     if (viewer.canEdit) headers.append("set-cookie", adminCookie(viewer.token));
     return new Response(null, { status: 303, headers });

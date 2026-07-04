@@ -21,6 +21,7 @@ const dataRoute = await import("../routes/api/data/[token].ts");
 const peopleRoute = await import("../routes/api/people/[token].ts");
 const eventsRoute = await import("../routes/api/events/[token].ts");
 const auditRoute = await import("../routes/api/audit/[token].ts");
+const welcomeRoute = await import("../routes/api/welcome.ts");
 const calRoute = await import("../routes/cal/[token].ics.ts");
 const main = await import("../main.ts");
 
@@ -439,7 +440,8 @@ routeTest("family members can redeem an active invite and sign in as editors", a
   assertEquals(signup.status, 303);
   const location = signup.headers.get("location") ?? "";
   assertStringIncludes(location, "/view/");
-  const viewerToken = location.split("/").at(-1);
+  assertStringIncludes(location, "welcome=1");
+  const viewerToken = new URL(location, "http://localhost").pathname.split("/").at(-1);
   assert(viewerToken);
   const viewer = await store.getViewer(viewerToken);
   assertEquals(viewer?.name, "New family member");
@@ -451,9 +453,68 @@ routeTest("family members can redeem an active invite and sign in as editors", a
     ctx(`http://localhost${location}`, {}, { token: viewerToken }),
   );
   assertEquals(login.status, 303);
+  assertEquals(login.headers.get("location"), "/calendar/?welcome=1");
   const cookies = responseCookies(login);
   assertStringIncludes(cookies, `family_viewer=${viewerToken}`);
   assertStringIncludes(cookies, `family_admin=${viewerToken}`);
+});
+
+routeTest("welcome tour shows once and can subscribe to the monthly email", async () => {
+  const store = await getStore();
+  await store.upsertViewer({
+    token: "fresh-member",
+    name: "Fresh Member",
+    email: "fresh@example.com",
+    groups: ["no"],
+    canEdit: false,
+  });
+  const cookie = "family_viewer=fresh-member";
+
+  // ?welcome=1 + no welcomedAt stamp = tour data present, with the feed URL ready.
+  const withTour = await calendarPageRoute.handlers.GET(
+    ctx("http://localhost/calendar/?welcome=1", { headers: { cookie } }),
+  );
+  assert(!(withTour instanceof Response));
+  assert(withTour.data.welcome);
+  assertStringIncludes(withTour.data.welcome.feedUrl, ".ics");
+  assertEquals(withTour.data.welcome.hasEmail, true);
+
+  // A plain visit never triggers the tour.
+  const plain = await calendarPageRoute.handlers.GET(
+    ctx("http://localhost/calendar/", { headers: { cookie } }),
+  );
+  assert(!(plain instanceof Response));
+  assertEquals(plain.data.welcome, null);
+
+  // Subscribing from the tour records the newsletter opt-in.
+  const subscribe = await welcomeRoute.handler.POST(
+    ctx("http://localhost/api/welcome", {
+      method: "POST",
+      headers: { cookie, "content-type": "application/json" },
+      body: JSON.stringify({ action: "subscribe" }),
+    }),
+  );
+  assertEquals(subscribe.status, 200);
+  await subscribe.text();
+  assertEquals((await store.getViewer("fresh-member"))?.newsletter?.email, "fresh@example.com");
+
+  // Finishing stamps welcomedAt, so the tour never comes back — even with ?welcome=1.
+  const done = await welcomeRoute.handler.POST(
+    ctx("http://localhost/api/welcome", {
+      method: "POST",
+      headers: { cookie, "content-type": "application/json" },
+      body: JSON.stringify({ action: "done" }),
+    }),
+  );
+  assertEquals(done.status, 200);
+  await done.text();
+  assert((await store.getViewer("fresh-member"))?.welcomedAt);
+
+  const again = await calendarPageRoute.handlers.GET(
+    ctx("http://localhost/calendar/?welcome=1", { headers: { cookie } }),
+  );
+  assert(!(again instanceof Response));
+  assertEquals(again.data.welcome, null);
 });
 
 routeTest("invite signup requires a valid email", async () => {

@@ -1,5 +1,6 @@
 import { adminCookie } from "@/lib/admin_auth.ts";
 import { getStore } from "@/lib/db.ts";
+import { t } from "@/lib/i18n.ts";
 import { completeLogin } from "@/lib/login.ts";
 import { ValidationError } from "@/lib/people.ts";
 import { viewerCookie } from "@/lib/viewer_auth.ts";
@@ -10,14 +11,14 @@ export const handlers = define.handlers({
   async GET(ctx) {
     const store = await getStore();
     const loginToken = await store.getLoginToken(ctx.params.token);
-    if (!loginToken) throw new HttpError(404, "This sign-in link was not found.");
+    if (!loginToken) throw new HttpError(404, t("login.error.linkNotFound"));
 
     let viewer;
     try {
       viewer = await completeLogin(store, loginToken);
     } catch (error) {
       if (error instanceof ValidationError) {
-        throw new HttpError(410, "This sign-in link has expired or already been used.");
+        throw new HttpError(410, t("login.error.linkUsed"));
       }
       throw error;
     }

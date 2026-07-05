@@ -1,4 +1,5 @@
 import { type Viewer, viewerIsActive } from "./model.ts";
+import { normalizeEmail } from "./newsletter.ts";
 import { ValidationError } from "./people.ts";
 import type { Store } from "./store.ts";
 
@@ -7,8 +8,8 @@ export interface AccessLinkOptions {
   groups: string[];
   canEdit: boolean;
   token?: string;
-  /** Profile email for magic-link login; omitted for admin-issued links. */
-  email?: string;
+  /** Profile email for magic-link login. */
+  email: string;
 }
 
 export function randomToken(): string {
@@ -25,15 +26,14 @@ function encodeBase64Url(bytes: Uint8Array): string {
 export function createViewer(options: AccessLinkOptions): Viewer {
   const name = options.name.trim();
   if (!name) throw new Error("--name is required");
-  const viewer: Viewer = {
+  return {
     token: options.token ?? randomToken(),
     name,
+    email: normalizeEmail(options.email),
     groups: options.groups,
     canEdit: options.canEdit,
     feedToken: randomToken(),
   };
-  if (options.email) viewer.email = options.email;
-  return viewer;
 }
 
 /**
@@ -108,11 +108,6 @@ export async function expirePreviousViewerLinks(
     .filter((pref) => pref !== undefined)
     .sort((a, b) => b!.updatedAt.localeCompare(a!.updatedAt))[0];
   if (inherited && !viewer.newsletter) viewer.newsletter = inherited;
-  // Likewise carry the login email forward so re-issued links stay sign-in-able.
-  if (!viewer.email) {
-    const inheritedEmail = matching.find((existing) => existing.email)?.email;
-    if (inheritedEmail) viewer.email = inheritedEmail;
-  }
   // Carry the feed token too, so an existing calendar subscription keeps working.
   const inheritedFeedToken = matching.find((existing) => existing.feedToken)?.feedToken;
   if (inheritedFeedToken) viewer.feedToken = inheritedFeedToken;

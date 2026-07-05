@@ -1,4 +1,5 @@
 import { closeStoreForTests, getStore } from "../lib/db.ts";
+import { t } from "../lib/i18n.ts";
 import { assert, assertEquals, assertRejects, assertStringIncludes } from "./asserts.ts";
 import { populateTestStore, TEST_GROUPS } from "./fixtures.ts";
 
@@ -66,6 +67,7 @@ routeTest("GET /cal/<feedToken>.ics resolves via the stable feed token", async (
     token: "sess-x",
     feedToken: "feed-x",
     name: "Feed User",
+    email: "feed@example.com",
     groups: [],
     canEdit: false,
   });
@@ -355,6 +357,7 @@ routeTest("remembered viewer sessions redirect home and logout clears access", a
 routeTest("admin can issue a new viewer link", async () => {
   const form = new FormData();
   form.set("name", "New relative");
+  form.set("email", "new.relative@example.com");
   form.append("groups", "dk");
   form.set("canEdit", "on");
   const response = await adminViewersRoute.handlers.POST(
@@ -372,6 +375,7 @@ routeTest("admin can issue a new viewer link", async () => {
 
   const created = await (await getStore()).getViewer(token);
   assertEquals(created?.name, "New relative");
+  assertEquals(created?.email, "new.relative@example.com");
   assertEquals(created?.groups, ["dk"]);
   assertEquals(created?.canEdit, true);
 
@@ -656,6 +660,7 @@ routeTest("expired capabilities return a specific expired response", async () =>
   await store.upsertViewer({
     token: "expired",
     name: "Expired viewer",
+    email: "expired@example.com",
     groups: [],
     canEdit: true,
     expiredAt: "2026-06-06T12:00:00Z",
@@ -680,8 +685,9 @@ routeTest("expired capabilities return a specific expired response", async () =>
     (error) => error,
   );
   assertEquals((pageError as Error & { status: number }).status, 410);
-  assertStringIncludes((pageError as Error).message, "Ask for a new one");
+  assertEquals((pageError as Error).message, t("error.linkExpired"));
 
+  // Expired cookies mean signed out (404 via adminDenied), never a 410 wall.
   const adminError = await adminPeopleRoute.handlers.GET(
     ctx("http://localhost/admin/people/", {
       headers: { cookie: "family_admin=expired" },
@@ -690,7 +696,35 @@ routeTest("expired capabilities return a specific expired response", async () =>
     () => null,
     (error) => error,
   );
-  assertEquals((adminError as Error & { status: number }).status, 410);
+  assertEquals((adminError as Error & { status: number }).status, 404);
+});
+
+routeTest("an expired session cookie is signed out, not locked out", async () => {
+  const store = await getStore();
+  await store.upsertViewer({
+    token: "stale",
+    name: "Stale viewer",
+    email: "stale@example.com",
+    groups: [],
+    canEdit: false,
+    expiredAt: "2026-06-06T12:00:00Z",
+  });
+
+  // The landing page renders instead of throwing 410, so the holder of a stale
+  // cookie can always reach the login form again.
+  const landing = await indexRoute.handlers.GET(
+    ctx("http://localhost/", { headers: { cookie: "family_viewer=stale" } }),
+  );
+  assert(!(landing instanceof Response));
+
+  // Protected pages report a missing link (404), not an expired-link wall.
+  const calendar = await calendarPageRoute.handlers.GET(
+    ctx("http://localhost/calendar/", { headers: { cookie: "family_viewer=stale" } }),
+  ).then(
+    () => null,
+    (error) => error,
+  );
+  assertEquals((calendar as Error & { status: number }).status, 404);
 });
 
 routeTest("unknown pages use the shared 404 template", async () => {

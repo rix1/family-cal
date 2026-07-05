@@ -23,6 +23,7 @@ function viewer(v: Partial<Viewer> & { name: string }): Viewer {
   return {
     token: v.token ?? v.name.toLowerCase(),
     name: v.name,
+    email: v.email ?? `${v.name.toLowerCase().replaceAll(" ", ".")}@example.com`,
     groups: v.groups ?? [],
     canEdit: v.canEdit ?? false,
     expiredAt: v.expiredAt,

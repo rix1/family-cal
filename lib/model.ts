@@ -86,11 +86,10 @@ export interface Viewer {
   /**
    * Profile email, collected at onboarding. Identifies the viewer for magic-link
    * login and seeds the newsletter. Distinct from `newsletter.email`, which is an
-   * opt-in and whose absence means unsubscribed. Optional so admin-issued links
-   * (and legacy viewers) stay valid without one.
+   * opt-in and whose absence means unsubscribed.
    */
-  email?: string;
-  /** Group tags this viewer's feed includes. Empty = everyone. */
+  email: string;
+  /** Explicit follow list of group tags. Empty = follows nothing. */
   groups: string[];
   /** Whether this capability may load the editor and mutate family data. */
   canEdit: boolean;

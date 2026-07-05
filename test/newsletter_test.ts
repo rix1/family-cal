@@ -270,7 +270,13 @@ Deno.test("segments derive from active subscribers and their followed groups", (
     ...subscriber("x1", "Gone", "gone@example.com", ["berg-siden"]),
     expiredAt: "2026-01-02T00:00:00.000Z",
   };
-  const plain: Viewer = { token: "p1", name: "No mail", groups: ["berg-siden"], canEdit: false };
+  const plain: Viewer = {
+    token: "p1",
+    name: "No mail",
+    email: "nomail@example.com",
+    groups: ["berg-siden"],
+    canEdit: false,
+  };
   const viewers = [
     subscriber("a1", "Anna", "anna@example.com", ["berg-siden"]),
     subscriber("b1", "Bo", "bo@example.com", ["dahl-siden"]),
@@ -462,7 +468,15 @@ Deno.test("subscribing uses the profile email, toggles, and audits", async () =>
     groups: ["berg-siden"],
     canEdit: false,
   };
-  const noEmail: Viewer = { token: "n1", name: "No Email", groups: ["berg-siden"], canEdit: false };
+  // Empty email models a viewer record whose email was lost; the runtime guard
+  // must still reject the subscription.
+  const noEmail: Viewer = {
+    token: "n1",
+    name: "No Email",
+    email: "",
+    groups: ["berg-siden"],
+    canEdit: false,
+  };
   const store = new SeedStore(PEOPLE, GROUPS, [anna, noEmail]);
 
   // Cannot subscribe without a profile email.
@@ -589,7 +603,12 @@ Deno.test("link rotation carries the latest newsletter preference forward", asyn
   newer.newsletter!.updatedAt = "2026-05-01T00:00:00.000Z";
   const store = new SeedStore([], GROUPS, [older, newer]);
 
-  const replacement = createViewer({ name: "anna berg", groups: [], canEdit: false });
+  const replacement = createViewer({
+    name: "anna berg",
+    email: "anna3@example.com",
+    groups: [],
+    canEdit: false,
+  });
   const expired = await expirePreviousViewerLinks(store, replacement);
   assertEquals(expired.length, 2);
   assertEquals(replacement.newsletter?.email, "anna2@example.com");

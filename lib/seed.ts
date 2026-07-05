@@ -70,6 +70,7 @@ export function loadSeedData(root: string): {
   const viewers: Viewer[] = readSeedCsv(normalizedRoot, "viewers.csv").map((row) => ({
     token: row.token,
     name: row.name,
+    email: row.email ?? "",
     groups: row.groups ? row.groups.split("|").filter(Boolean) : [],
     canEdit: row.canEdit === "true",
   }));

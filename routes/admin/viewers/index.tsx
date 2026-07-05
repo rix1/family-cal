@@ -5,7 +5,10 @@ import { Toast } from "@/islands/Toast.tsx";
 import { accessUrls, createViewer, expirePreviousViewerLinks } from "@/lib/access_links.ts";
 import { adminDenied, adminViewer } from "@/lib/admin_auth.ts";
 import { getStore } from "@/lib/db.ts";
+import { emailInUse } from "@/lib/login.ts";
 import { viewerIsActive } from "@/lib/model.ts";
+import { normalizeEmail } from "@/lib/newsletter.ts";
+import { ValidationError } from "@/lib/people.ts";
 import { define } from "@/utils.ts";
 import { HttpError } from "fresh";
 import { page } from "fresh";
@@ -28,7 +31,7 @@ export const handlers = define.handlers({
       const matchesPermission = permission === "all" ||
         (permission === "admin" ? item.canEdit : !item.canEdit);
       const matchesGroup = group === "all" ||
-        (group === "all-groups" ? item.groups.length === 0 : item.groups.includes(group));
+        (group === "none" ? item.groups.length === 0 : item.groups.includes(group));
       return matchesQuery && matchesStatus && matchesPermission && matchesGroup;
     });
     const createdToken = ctx.url.searchParams.get("created");
@@ -76,6 +79,18 @@ export const handlers = define.handlers({
     const name = String(form.get("name") ?? "").trim();
     if (!name) throw new HttpError(400, "Viewer name is required.");
 
+    let email: string;
+    try {
+      email = normalizeEmail(form.get("email"));
+    } catch (error) {
+      if (error instanceof ValidationError) throw new HttpError(400, "A valid email is required.");
+      throw error;
+    }
+    // Email identifies the viewer for magic-link sign-in, so it must be unique.
+    if (await emailInUse(store, email)) {
+      throw new HttpError(400, "That email already belongs to an active viewer.");
+    }
+
     const knownGroups = new Set((await store.listGroups()).map((group) => group.key));
     const groups = form.getAll("groups").map(String);
     if (groups.some((group) => !knownGroups.has(group))) {
@@ -84,6 +99,7 @@ export const handlers = define.handlers({
 
     const viewer = createViewer({
       name,
+      email,
       groups,
       canEdit: form.get("canEdit") === "on",
     });
@@ -126,9 +142,21 @@ export default define.page<typeof handlers>(({ data }) => (
                 placeholder="Family member"
               />
             </label>
+            <label class="grid gap-1.5 text-sm font-medium">
+              Email
+              <input
+                type="email"
+                name="email"
+                required
+                class="input"
+                placeholder="who@example.com"
+              />
+            </label>
             <fieldset>
               <legend class="text-sm font-medium">Calendar groups</legend>
-              <p class="mt-1 text-xs text-ink-3">No selection means all groups.</p>
+              <p class="mt-1 text-xs text-ink-3">
+                Followed groups; they can change these on their profile.
+              </p>
               <div class="mt-2 grid gap-2 sm:grid-cols-2">
                 {data.groups.map((group) => (
                   <label class="flex items-center gap-2 text-sm">
@@ -208,8 +236,8 @@ export default define.page<typeof handlers>(({ data }) => (
           <span class="kicker">Group</span>
           <select name="group" class="input">
             <option value="all" selected={data.filters.group === "all"}>All</option>
-            <option value="all-groups" selected={data.filters.group === "all-groups"}>
-              All groups
+            <option value="none" selected={data.filters.group === "none"}>
+              Follows nothing
             </option>
             {data.groups.map((item) => (
               <option value={item.key} selected={data.filters.group === item.key}>
@@ -245,7 +273,7 @@ export default define.page<typeof handlers>(({ data }) => (
               <tr>
                 <td class="font-medium">{item.name}</td>
                 <td class="font-mono text-xs text-ink-2">{item.token}</td>
-                <td class="text-ink-2">{item.groups.join(", ") || "All"}</td>
+                <td class="text-ink-2">{item.groups.join(", ") || "—"}</td>
                 <td>
                   {item.canEdit
                     ? <span class="badge bg-gold-soft text-gold">Admin</span>

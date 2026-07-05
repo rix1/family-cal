@@ -9,7 +9,7 @@ function option(name: string): string | undefined {
 
 function usage(): never {
   console.error(
-    'Usage: deno task issue-link --name "Person" [--groups no,dk] [--edit] [--base-url URL]',
+    'Usage: deno task issue-link --name "Person" --email who@example.com [--groups no,dk] [--edit] [--base-url URL]',
   );
   Deno.exit(1);
 }
@@ -17,7 +17,8 @@ function usage(): never {
 if (Deno.args.includes("--help")) usage();
 
 const name = option("--name");
-if (!name) usage();
+const email = option("--email");
+if (!name || !email) usage();
 
 const groups = (option("--groups") ?? "")
   .split(",")
@@ -26,6 +27,7 @@ const groups = (option("--groups") ?? "")
 const baseUrl = option("--base-url") ?? Deno.env.get("BASE_URL") ?? "http://localhost:8000";
 const viewer = createViewer({
   name,
+  email,
   groups,
   canEdit: Deno.args.includes("--edit"),
 });

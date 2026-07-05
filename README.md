@@ -71,14 +71,17 @@ capability:
 ```sh
 KV_PATH=/path/to/famcal.db deno task issue-link \
   --name "Solveig" \
+  --email solveig@example.com \
   --groups no \
   --base-url https://family.example
 ```
 
-The command prints private calendar and iCal URLs. Use `--groups no,dk` for selected
-groups, or omit `--groups` for all groups. Add `--edit` to make the viewer an editor
-and print an admin URL. On an empty database, create the first editor without
-`--groups`, then add groups at `/admin/groups/`.
+The command prints private calendar and iCal URLs. `--email` is required — it is the
+viewer's magic-link login identity. Use `--groups no,dk` for the groups the viewer
+follows; omitting `--groups` means they follow nothing until they pick groups on
+their profile. Add `--edit` to make the viewer an editor and print an admin URL. On
+an empty database, create the first editor without `--groups`, then add groups at
+`/admin/groups/`.
 
 There is no username/password form. Opening a private capability URL stores the
 token in an HttpOnly cookie and redirects to the clean `/calendar/` URL. The

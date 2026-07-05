@@ -90,12 +90,14 @@ Deno.test("KvStore upsertViewer persists issued capabilities", async () => {
     await store.upsertViewer({
       token: "issued-token",
       name: "Issued viewer",
+      email: "issued@example.com",
       groups: ["no"],
       canEdit: false,
     });
     assertEquals(await store.getViewer("issued-token"), {
       token: "issued-token",
       name: "Issued viewer",
+      email: "issued@example.com",
       groups: ["no"],
       canEdit: false,
     });

@@ -16,11 +16,18 @@ export const handlers = define.handlers({
     if (!viewer) throw new HttpError(404, t("error.requiresLink"));
     const baseUrl = Deno.env.get("BASE_URL") ?? ctx.url.origin;
     const feedUrl = `${baseUrl}/cal/${await ensureFeedToken(store, viewer)}.ics`;
+    const [groups, people] = await Promise.all([store.listGroups(), store.listPeople()]);
+    const members: Record<string, string[]> = {};
+    for (const person of people) {
+      (members[person.affiliation] ??= []).push(person.name);
+    }
+    for (const names of Object.values(members)) names.sort((a, b) => a.localeCompare(b, "nb"));
     return page({
       viewerName: viewer.name,
-      email: viewer.email ?? null,
+      email: viewer.email,
       adminUrl: viewer.canEdit ? "/admin/" : undefined,
-      groups: await store.listGroups(),
+      groups,
+      members,
       followedGroups: viewer.groups,
       subscribed: Boolean(viewer.newsletter),
       feedUrl,
@@ -111,7 +118,7 @@ export default define.page<typeof handlers>(({ data }) => {
                   <dt class="text-xs font-medium uppercase tracking-wide text-ink-3">
                     {t("profile.email")}
                   </dt>
-                  <dd class="mt-0.5 text-sm">{data.email ?? "—"}</dd>
+                  <dd class="mt-0.5 text-sm">{data.email}</dd>
                 </div>
               </dl>
               <p class="mt-2 text-xs text-ink-3">
@@ -128,25 +135,48 @@ export default define.page<typeof handlers>(({ data }) => {
                 </p>
               </div>
               <div class="grid gap-2 sm:grid-cols-2">
-                {data.groups.map((group) => (
-                  <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-line-2 px-3 py-2.5 text-sm font-medium hover:bg-inset has-checked:border-accent has-checked:bg-accent-soft has-checked:text-accent-2">
-                    <input
-                      type="checkbox"
-                      name="groups"
-                      value={group.key}
-                      checked={data.followedGroups.includes(group.key)}
-                      class="mt-0.5 accent-accent"
-                    />
-                    <span class="min-w-0">
-                      <span class="block">{group.label}</span>
-                      {group.description && (
-                        <span class="mt-0.5 block text-xs font-normal leading-relaxed text-ink-3">
-                          {group.description}
+                {data.groups.map((group) => {
+                  const names = data.members[group.key] ?? [];
+                  return (
+                    <div class="rounded-lg border border-line-2 text-sm has-checked:border-accent has-checked:bg-accent-soft">
+                      <label class="flex cursor-pointer items-start gap-3 rounded-t-lg px-3 py-2.5 font-medium hover:bg-inset has-checked:text-accent-2">
+                        <input
+                          type="checkbox"
+                          name="groups"
+                          value={group.key}
+                          checked={data.followedGroups.includes(group.key)}
+                          class="mt-0.5 accent-accent"
+                        />
+                        <span class="min-w-0">
+                          <span class="block">{group.label}</span>
+                          {group.description && (
+                            <span class="mt-0.5 block text-xs font-normal leading-relaxed text-ink-3">
+                              {group.description}
+                            </span>
+                          )}
                         </span>
-                      )}
-                    </span>
-                  </label>
-                ))}
+                      </label>
+                      {names.length
+                        ? (
+                          <details class="border-t border-line-2/60 px-3 py-2">
+                            <summary class="cursor-pointer text-xs font-medium text-ink-3 hover:text-ink-2">
+                              {names.length === 1
+                                ? t("profile.groups.memberOne")
+                                : t("profile.groups.memberCount", { count: names.length })}
+                            </summary>
+                            <p class="mt-1.5 text-xs font-normal leading-relaxed text-ink-2">
+                              {names.join(", ")}
+                            </p>
+                          </details>
+                        )
+                        : (
+                          <p class="border-t border-line-2/60 px-3 py-2 text-xs text-ink-3">
+                            {t("profile.groups.membersNone")}
+                          </p>
+                        )}
+                    </div>
+                  );
+                })}
               </div>
               <button type="submit" class="btn btn-primary justify-self-start">
                 {t("profile.groups.save")}
@@ -160,7 +190,7 @@ export default define.page<typeof handlers>(({ data }) => {
               <h2 class="font-semibold">{t("profile.newsletter.title")}</h2>
               <p class="mt-1 text-sm leading-relaxed text-ink-2">
                 {t("profile.newsletter.body")}{" "}
-                {data.email ? t("profile.newsletter.sentTo", { email: data.email }) : ""}
+                {t("profile.newsletter.sentTo", { email: data.email })}
               </p>
               <p class="mt-2 text-sm">
                 <a
@@ -173,36 +203,28 @@ export default define.page<typeof handlers>(({ data }) => {
                 </a>
               </p>
             </div>
-            {data.email
-              ? (
-                <form method="post" class="shrink-0">
-                  <input
-                    type="hidden"
-                    name="action"
-                    value={data.subscribed ? "unsubscribe" : "subscribe"}
-                  />
-                  <button
-                    type="submit"
-                    role="switch"
-                    aria-checked={data.subscribed}
-                    aria-label={t("profile.newsletter.switchLabel")}
-                    class={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      data.subscribed ? "bg-accent" : "bg-line-2"
-                    }`}
-                  >
-                    <span
-                      class={`inline-block size-5 rounded-full bg-surface shadow transition-transform ${
-                        data.subscribed ? "translate-x-[1.375rem]" : "translate-x-0.5"
-                      }`}
-                    />
-                  </button>
-                </form>
-              )
-              : (
-                <span class="shrink-0 text-xs text-ink-3">
-                  {t("profile.newsletter.needsEmail")}
-                </span>
-              )}
+            <form method="post" class="shrink-0">
+              <input
+                type="hidden"
+                name="action"
+                value={data.subscribed ? "unsubscribe" : "subscribe"}
+              />
+              <button
+                type="submit"
+                role="switch"
+                aria-checked={data.subscribed}
+                aria-label={t("profile.newsletter.switchLabel")}
+                class={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  data.subscribed ? "bg-accent" : "bg-line-2"
+                }`}
+              >
+                <span
+                  class={`inline-block size-5 rounded-full bg-surface shadow transition-transform ${
+                    data.subscribed ? "translate-x-[1.375rem]" : "translate-x-0.5"
+                  }`}
+                />
+              </button>
+            </form>
           </section>
 
           {/* Calendar subscription */}

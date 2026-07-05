@@ -17,7 +17,13 @@ const GROUPS: GroupInfo[] = [
 ];
 
 Deno.test("setViewerGroups normalizes, validates and audits the follow-list", async () => {
-  const viewer = createViewer({ name: "Solveig", groups: ["no"], canEdit: false, token: "solveig" });
+  const viewer = createViewer({
+    name: "Solveig",
+    email: "solveig@example.com",
+    groups: ["no"],
+    canEdit: false,
+    token: "solveig",
+  });
   const store = new SeedStore([], GROUPS, [viewer]);
 
   const updated = await setViewerGroups(store, viewer, [" dk ", "no", "dk", ""]);
@@ -40,6 +46,7 @@ Deno.test("randomToken creates URL-safe high-entropy capabilities", () => {
 Deno.test("issuing a replacement expires active links for the same viewer name", async () => {
   const oldViewer = createViewer({
     name: "Solveig",
+    email: "solveig@example.com",
     groups: ["no"],
     canEdit: false,
     token: "old-token",
@@ -64,6 +71,7 @@ Deno.test("issuing a replacement expires active links for the same viewer name",
 Deno.test("accessUrls returns viewer URLs and editor URL only for editors", () => {
   const readOnly = createViewer({
     name: "Solveig",
+    email: "solveig@example.com",
     groups: ["no"],
     canEdit: false,
     token: "test-token",
@@ -82,15 +90,33 @@ Deno.test("accessUrls returns viewer URLs and editor URL only for editors", () =
 });
 
 Deno.test("createViewer assigns a distinct, stable feed token", () => {
-  const a = createViewer({ name: "A", groups: [], canEdit: false, token: "a" });
-  const b = createViewer({ name: "B", groups: [], canEdit: false, token: "b" });
+  const a = createViewer({
+    name: "A",
+    email: "a@example.com",
+    groups: [],
+    canEdit: false,
+    token: "a",
+  });
+  const b = createViewer({
+    name: "B",
+    email: "b@example.com",
+    groups: [],
+    canEdit: false,
+    token: "b",
+  });
   assert(a.feedToken && /^[A-Za-z0-9_-]{32}$/.test(a.feedToken));
   assert(a.feedToken !== a.token);
   assert(a.feedToken !== b.feedToken);
 });
 
 Deno.test("ensureFeedToken backfills a legacy viewer once, then is stable", async () => {
-  const legacy: Viewer = { token: "legacy", name: "Old", groups: [], canEdit: false };
+  const legacy: Viewer = {
+    token: "legacy",
+    name: "Old",
+    email: "old@example.com",
+    groups: [],
+    canEdit: false,
+  };
   const store = new SeedStore([], [], [legacy]);
 
   const first = await ensureFeedToken(store, legacy);
@@ -103,9 +129,15 @@ Deno.test("ensureFeedToken backfills a legacy viewer once, then is stable", asyn
 });
 
 Deno.test("viewerByFeedToken resolves only the active owner", async () => {
-  const active = createViewer({ name: "A", groups: [], canEdit: false, token: "a" });
+  const active = createViewer({
+    name: "A",
+    email: "a@example.com",
+    groups: [],
+    canEdit: false,
+    token: "a",
+  });
   const expired: Viewer = {
-    ...createViewer({ name: "B", groups: [], canEdit: false, token: "b" }),
+    ...createViewer({ name: "B", email: "b@example.com", groups: [], canEdit: false, token: "b" }),
     expiredAt: "2025-01-01T00:00:00Z",
   };
   const store = new SeedStore([], [], [active, expired]);
@@ -116,9 +148,21 @@ Deno.test("viewerByFeedToken resolves only the active owner", async () => {
 });
 
 Deno.test("re-issuing a link carries the feed token forward", async () => {
-  const old = createViewer({ name: "Solveig", groups: ["no"], canEdit: false, token: "old" });
+  const old = createViewer({
+    name: "Solveig",
+    email: "solveig@example.com",
+    groups: ["no"],
+    canEdit: false,
+    token: "old",
+  });
   const store = new SeedStore([], [], [old]);
-  const replacement = createViewer({ name: "Solveig", groups: ["no"], canEdit: false, token: "new" });
+  const replacement = createViewer({
+    name: "Solveig",
+    email: "solveig@example.com",
+    groups: ["no"],
+    canEdit: false,
+    token: "new",
+  });
 
   await expirePreviousViewerLinks(store, replacement);
 

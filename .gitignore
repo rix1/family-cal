@@ -10,6 +10,7 @@ seed/people.csv
 
 # Generated / dependency output
 _fresh/
+_prod/
 node_modules/
 .deploy-commit
 

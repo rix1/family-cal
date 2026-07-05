@@ -12,7 +12,7 @@
     "prepare-newsletter": "deno run --env-file --allow-net --allow-env --allow-read --allow-write scripts/prepare_newsletter.ts",
     "test": "deno test --allow-net --allow-env --allow-read --allow-write --allow-run",
     "check": "deno check main.ts && deno test --allow-net --allow-env --allow-read --allow-write --allow-run",
-    "deploy": "deno task check && deno task build && git describe --always --dirty > .deploy-commit && git tag -f deployed && launchctl kickstart -k gui/$(id -u)/dev.rix1.family-cal && sleep 1 && curl -sf http://localhost:8000/health > /dev/null && echo Deployed $(cat .deploy-commit)"
+    "deploy": "deno task check && deno task build --outDir _prod && git describe --always --dirty > .deploy-commit && git tag -f deployed && launchctl kickstart -k gui/$(id -u)/dev.rix1.family-cal && sleep 1 && curl -sf http://localhost:8000/health > /dev/null && echo Deployed $(cat .deploy-commit)"
   },
   "imports": {
     "@/": "./",

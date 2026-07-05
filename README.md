@@ -168,4 +168,5 @@ deno lint
 deno task build
 ```
 
-Generated Fresh output lives in `_fresh/` and is git-ignored.
+Generated Fresh output lives in `_fresh/` (scratch builds) and `_prod/` (what
+production serves; written only by `deno task deploy`) — both git-ignored.

@@ -770,8 +770,9 @@ routeTest("unknown pages use the shared 404 template", async () => {
   assertStringIncludes(body, "Family Calendar");
 });
 
-routeTest("GET /health pings KV and returns ok", async () => {
+routeTest("GET /health pings KV and reports the running commit", async () => {
   const response = await healthRoute.handler.GET();
   assertEquals(response.status, 200);
-  assertEquals(await response.text(), "ok");
+  // "dev" outside a deployed bundle; deploys bake the commit in via vite define.
+  assertEquals(await response.text(), "ok dev");
 });

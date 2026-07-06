@@ -12,7 +12,7 @@
     "prepare-newsletter": "deno run --env-file --allow-net --allow-env --allow-read --allow-write scripts/prepare_newsletter.ts",
     "test": "deno test --allow-net --allow-env --allow-read --allow-write --allow-run",
     "check": "deno check main.ts && deno test --allow-net --allow-env --allow-read --allow-write --allow-run",
-    "deploy": "deno task check && deno task build --outDir _prod && git describe --always --dirty > .deploy-commit && git tag -f deployed && launchctl kickstart -k gui/$(id -u)/dev.rix1.family-cal && sleep 1 && curl -sf http://localhost:8000/health > /dev/null && echo Deployed $(cat .deploy-commit)"
+    "deploy": "deno task check && git describe --always --dirty > .deploy-commit && DEPLOY_COMMIT=$(cat .deploy-commit) deno task build --outDir _prod && git tag -f deployed && launchctl kickstart -k gui/$(id -u)/dev.rix1.family-cal && deno run --allow-read=.deploy-commit --allow-net=localhost:8000 scripts/verify_deploy.ts"
   },
   "imports": {
     "@/": "./",
@@ -58,9 +58,9 @@
   "fmt": {
     "useTabs": false,
     "lineWidth": 100,
-    "exclude": ["**/*.md", "_fresh", "node_modules"]
+    "exclude": ["**/*.md", "_fresh", "_prod", "node_modules"]
   },
   "lint": {
-    "exclude": ["_fresh", "node_modules"]
+    "exclude": ["_fresh", "_prod", "node_modules"]
   }
 }

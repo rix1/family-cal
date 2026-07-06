@@ -1,8 +1,11 @@
 # Design: personal groups — "add family members" and "my people"
 
-Status: **designed, not implemented.** Decisions below were made in two working
-sessions (2026-06-23 and 2026-07-05) and are written down here so they stop
-living only in chat transcripts.
+Status: **implemented in `d7d8454`** (2026-07-06) — phases 0–2, including the
+tour graphic (`components/HowItWorks.tsx`) and the typeahead affiliation
+picker. Phase 3 (recent-activity list) and per-viewer grants remain unbuilt;
+the "what are events?" UI clarification is tracked in `nitpick.md`. Decisions
+below were made in two working sessions (2026-06-23 and 2026-07-05) and are
+written down here so they stop living only in chat transcripts.
 
 ## The need, in two halves
 
@@ -200,12 +203,12 @@ prose today.
 
 ## Phasing
 
-| Phase | Scope | Size |
+| Phase | Scope | Status |
 |---|---|---|
-| 0 | `AuditEntry.groups` on all new audit writes | XS, do immediately |
-| 1 | Model (`kind`/`owner`/`listed`), the two-path affiliation picker in add-person — existing branch / new branch (with near-match suggestion) / "Mine folk" — and owner-only (unlisted) lists end-to-end: calendar, feed, profile | M |
-| 2 | Share toggle + "Delte lister" section in GroupPicker + first-share/first-friend teachable-moment copy + tour sentence | S |
-| 3 | Recent-activity list | M |
+| 0 | `AuditEntry.groups` on all new audit writes | ✅ `d7d8454` |
+| 1 | Model (`kind`/`owner`/`listed`), the two-path affiliation picker in add-person — existing branch / new branch (with near-match suggestion) / "Mine folk" — and owner-only (unlisted) lists end-to-end: calendar, feed, profile | ✅ `d7d8454` |
+| 2 | Share toggle + "Delte lister" section in GroupPicker + first-share/first-friend teachable-moment copy + tour sentence & graphic | ✅ `d7d8454` |
+| 3 | Recent-activity list | Not built |
 | — | Per-viewer grants ("only my partner") | Deferred until someone actually asks |
 
 ## Knock-on decisions (made)

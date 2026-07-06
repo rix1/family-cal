@@ -9,7 +9,7 @@ export async function adminViewer(request: Request, store: Store): Promise<Viewe
   if (!token) return null;
   const viewer = await store.getViewer(token);
   if (!viewer || !viewerIsActive(viewer)) return null;
-  return viewer.canEdit ? viewer : null;
+  return viewer.isAdmin ? viewer : null;
 }
 
 export function adminCookie(token: string): string {
@@ -17,5 +17,5 @@ export function adminCookie(token: string): string {
 }
 
 export function adminDenied(): never {
-  throw new HttpError(404, "Admin access requires a current editor link.");
+  throw new HttpError(404, "Admin access requires a current admin link.");
 }

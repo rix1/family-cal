@@ -11,7 +11,7 @@ export const handlers = define.handlers({
     const viewer = await sessionViewer(ctx.req, await getStore());
     return page({
       viewerName: viewer?.name,
-      adminUrl: viewer?.canEdit ? "/admin/" : undefined,
+      adminUrl: viewer?.isAdmin ? "/admin/" : undefined,
     });
   },
 });

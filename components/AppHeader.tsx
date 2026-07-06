@@ -11,7 +11,7 @@ interface Props {
   /** Marks the matching destination as the current page in the account menu. */
   current?: "calendar" | "admin" | "profile" | "about";
   calendarUrl?: string;
-  /** Present only for editors; gates the Administration link (stable per viewer). */
+  /** Present only for admins; gates the Administration link (stable per viewer). */
   adminUrl?: string;
   profileUrl?: string;
   aboutUrl?: string;

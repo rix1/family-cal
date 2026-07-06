@@ -9,7 +9,7 @@ function option(name: string): string | undefined {
 
 function usage(): never {
   console.error(
-    'Usage: deno task issue-link --name "Person" --email who@example.com [--groups no,dk] [--edit] [--base-url URL]',
+    'Usage: deno task issue-link --name "Person" --email who@example.com [--groups no,dk] [--admin] [--base-url URL]',
   );
   Deno.exit(1);
 }
@@ -29,7 +29,7 @@ const viewer = createViewer({
   name,
   email,
   groups,
-  canEdit: Deno.args.includes("--edit"),
+  isAdmin: Deno.args.includes("--admin"),
 });
 
 const store = await KvStore.create(await resolveKvPath());
@@ -50,7 +50,7 @@ try {
   }
   console.log(`Calendar: ${urls.calendar}`);
   console.log(`iCal: ${urls.ical}`);
-  if (urls.editor) console.log(`Editor: ${urls.editor}`);
+  if (urls.admin) console.log(`Admin: ${urls.admin}`);
 } finally {
   store.close();
 }

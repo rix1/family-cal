@@ -91,8 +91,12 @@ export interface Viewer {
   email: string;
   /** Explicit follow list of group tags. Empty = follows nothing. */
   groups: string[];
-  /** Whether this capability may load the editor and mutate family data. */
-  canEdit: boolean;
+  /**
+   * Whether this capability may administer the family: manage members and
+   * invites, delete events, send the newsletter, read the audit log. Adding
+   * and editing people/events is open to every active viewer.
+   */
+  isAdmin: boolean;
   /** Set when a newer capability is issued for the same named viewer. */
   expiredAt?: string;
   /**
@@ -141,8 +145,8 @@ export interface Invite {
   token: string;
   createdAt: string;
   expiresAt: string;
-  /** Permission inherited by every viewer created through this invite. */
-  canEdit: boolean;
+  /** Admin permission inherited by every viewer created through this invite. */
+  isAdmin: boolean;
   /** Max redemptions allowed. null/undefined = unlimited until expiry. */
   maxUses?: number | null;
   /** Redemptions so far. Absent on legacy invites = 0. */
@@ -197,7 +201,7 @@ export interface NewsletterDraft {
 export interface AuditEntry {
   /** ISO timestamp. */
   at: string;
-  /** Display name of the actor (from the editor identity). */
+  /** Display name of the acting viewer. */
   actor: string;
   action: string;
   /** Affected person id, when applicable. */

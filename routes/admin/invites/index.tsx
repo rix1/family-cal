@@ -80,7 +80,7 @@ export const handlers = define.handlers({
     }
     const invite = createInvite(expiresAt, {
       createdAt: now.toISOString(),
-      canEdit: form.get("canEdit") === "on",
+      isAdmin: form.get("isAdmin") === "on",
       maxUses,
     });
     await store.upsertInvite(invite);
@@ -103,8 +103,8 @@ export default define.page<typeof handlers>(({ data }) => (
         <div>
           <h1 class="text-2xl font-semibold tracking-tight">Invites</h1>
           <p class="mt-1 max-w-2xl text-sm text-ink-2">
-            Create a temporary signup link with the permission you choose. Each person receives
-            their own private viewer link.
+            Create a temporary signup link. Each person receives their own private link and can add
+            and edit people and events right away.
           </p>
         </div>
         <details data-popover class="relative">
@@ -138,13 +138,14 @@ export default define.page<typeof handlers>(({ data }) => (
               </span>
             </label>
             <label class="flex items-center gap-2 text-sm font-medium">
-              <input type="checkbox" name="canEdit" class="accent-accent" />
+              <input type="checkbox" name="isAdmin" class="accent-accent" />
               Grant administrator access
             </label>
             <p class="text-xs text-ink-3">
-              Invites are view-only unless you check the box above. The invite can be used by
-              multiple people until it expires; each person inherits this permission. Only grant
-              administrator access on links you share with full care.
+              Everyone who joins can add and edit family data. Administrators can additionally
+              manage members and invites, delete events, and send the newsletter — every signup
+              through this link inherits it, so leave the box unchecked unless you are inviting an
+              admin specifically.
             </p>
             <button type="submit" class="btn btn-primary">
               Create invite link
@@ -198,9 +199,9 @@ export default define.page<typeof handlers>(({ data }) => (
                     {new Date(invite.expiresAt).toLocaleString()}
                   </td>
                   <td>
-                    {invite.canEdit
+                    {invite.isAdmin
                       ? <span class="badge bg-gold-soft text-gold">Admin</span>
-                      : <span class="badge bg-inset text-ink-2">View</span>}
+                      : <span class="badge bg-inset text-ink-2">Member</span>}
                   </td>
                   <td class="tabular-nums">
                     {invite.uses ?? 0}

@@ -2,7 +2,7 @@
  * Monthly "prepare + notify" job (run by the launchd calendar job — see DEPLOY.md).
  *
  * Idempotently generates next month's newsletter draft(s) — with the intro
- * drafted by the local model — then emails every editor a link to review and
+ * drafted by the local model — then emails every admin a link to review and
  * send. It never sends to the family; a human clicks Send in /admin/newsletters.
  * Safe to re-run: only segments without a draft for the month are created.
  */
@@ -24,17 +24,15 @@ if (!created.length) Deno.exit(0);
 
 const baseUrl = (Deno.env.get("BASE_URL") ?? "").replace(/\/+$/, "");
 const link = `${baseUrl}/admin/newsletters/`;
-const editors = (await store.listViewers()).filter((v) =>
-  v.canEdit && v.email && viewerIsActive(v)
-);
+const admins = (await store.listViewers()).filter((v) => v.isAdmin && v.email && viewerIsActive(v));
 const sender = getEmailSender();
 
-for (const editor of editors) {
+for (const admin of admins) {
   await sender.send({
-    to: editor.email!,
+    to: admin.email!,
     subject: `Nyhetsbrev klart til gjennomgang (${month})`,
     text: [
-      `Hei ${editor.name.split(" ")[0] || editor.name},`,
+      `Hei ${admin.name.split(" ")[0] || admin.name},`,
       "",
       `Nyhetsbrevet for ${month} er klart med ${created.length} utkast.`,
       "Se gjennom, rediger om nødvendig, og send det herfra:",
@@ -42,4 +40,4 @@ for (const editor of editors) {
     ].join("\n"),
   });
 }
-console.log(`Notified ${editors.length} editor(s).`);
+console.log(`Notified ${admins.length} admin(s).`);

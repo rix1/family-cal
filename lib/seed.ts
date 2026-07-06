@@ -72,7 +72,7 @@ export function loadSeedData(root: string): {
     name: row.name,
     email: row.email ?? "",
     groups: row.groups ? row.groups.split("|").filter(Boolean) : [],
-    canEdit: row.canEdit === "true",
+    isAdmin: row.isAdmin === "true",
   }));
   return { groups, people, viewers };
 }

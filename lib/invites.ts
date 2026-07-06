@@ -6,7 +6,7 @@ export function createInvite(
   options: {
     token?: string;
     createdAt?: string;
-    canEdit?: boolean;
+    isAdmin?: boolean;
     maxUses?: number | null;
   } = {},
 ): Invite {
@@ -21,7 +21,7 @@ export function createInvite(
     token: options.token ?? randomToken(),
     createdAt,
     expiresAt: expiry.toISOString(),
-    canEdit: options.canEdit ?? false,
+    isAdmin: options.isAdmin ?? false,
     maxUses,
     uses: 0,
   };

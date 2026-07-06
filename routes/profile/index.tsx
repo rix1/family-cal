@@ -25,7 +25,7 @@ export const handlers = define.handlers({
     return page({
       viewerName: viewer.name,
       email: viewer.email,
-      adminUrl: viewer.canEdit ? "/admin/" : undefined,
+      adminUrl: viewer.isAdmin ? "/admin/" : undefined,
       groups,
       members,
       followedGroups: viewer.groups,
@@ -122,7 +122,7 @@ export default define.page<typeof handlers>(({ data }) => {
                 </div>
               </dl>
               <p class="mt-2 text-xs text-ink-3">
-                {t("profile.contactEditor")}
+                {t("profile.contactAdmin")}
               </p>
             </div>
 

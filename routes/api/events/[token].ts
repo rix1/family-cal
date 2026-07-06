@@ -9,9 +9,8 @@ export const handler = define.handlers({
   async PUT(ctx) {
     const store = await getStore();
     const viewer = await store.getViewer(ctx.params.token);
-    if (!viewer) return json({ error: "unknown editor link" }, 404);
-    if (!viewerIsActive(viewer)) return json({ error: "editor link expired" }, 410);
-    if (!viewer.canEdit) return json({ error: "unknown editor link" }, 404);
+    if (!viewer) return json({ error: "unknown link" }, 404);
+    if (!viewerIsActive(viewer)) return json({ error: "link expired" }, 410);
 
     let payload: { event?: FamilyEventInput };
     try {

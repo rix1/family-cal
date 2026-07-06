@@ -9,7 +9,6 @@ interface WelcomeTourProps {
   /** Personal iCal feed URL, ready for the Google/Apple buttons. */
   feedUrl: string;
   hasEmail: boolean;
-  canEdit: boolean;
   subscribed: boolean;
   groups: Record<string, ViewGroup>;
   followedGroups: string[];
@@ -39,7 +38,6 @@ export function WelcomeTour({
   viewerName,
   feedUrl,
   hasEmail,
-  canEdit,
   subscribed: initialSubscribed,
   groups,
   followedGroups,
@@ -206,26 +204,24 @@ export function WelcomeTour({
           </>
         ),
       },
-    ];
-    if (canEdit) {
-      out.push({
-        kicker: t("tour.editor.kicker"),
-        title: t("tour.editor.title"),
+      {
+        kicker: t("tour.contribute.kicker"),
+        title: t("tour.contribute.title"),
         body: (
           <>
             <p>
-              {t("tour.editor.body")}
+              {t("tour.contribute.body")}
             </p>
             <p class="mt-3 text-sm text-ink-3">
-              {t("tour.editor.tip.before")} <span class="font-mono text-ink-2">@</span>{" "}
-              {t("tour.editor.tip.after")}
+              {t("tour.contribute.tip.before")} <span class="font-mono text-ink-2">@</span>{" "}
+              {t("tour.contribute.tip.after")}
             </p>
           </>
         ),
-      });
-    }
+      },
+    ];
     return out;
-  }, [firstName, followedGroups, groups, canEdit, subscribed, subscribing, subscribeError]);
+  }, [firstName, followedGroups, groups, subscribed, subscribing, subscribeError]);
 
   if (!open) return null;
   const last = step === steps.length - 1;

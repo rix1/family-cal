@@ -15,21 +15,21 @@ export const TEST_VIEWERS: Viewer[] = [
     name: "Everyone",
     email: "everyone@example.com",
     groups: ALL_GROUPS,
-    canEdit: false,
+    isAdmin: false,
   },
   {
     token: "view-dk",
     name: "Danish family",
     email: "dk@example.com",
     groups: ["dk"],
-    canEdit: false,
+    isAdmin: false,
   },
   {
-    token: "editor",
-    name: "Family editor",
-    email: "editor@example.com",
+    token: "admin",
+    name: "Family admin",
+    email: "admin@example.com",
     groups: ALL_GROUPS,
-    canEdit: true,
+    isAdmin: true,
   },
 ];
 

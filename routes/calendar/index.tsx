@@ -21,9 +21,9 @@ export const handlers = define.handlers({
     return page({
       calendar,
       viewerName: viewer.name,
-      editUrl: viewer.canEdit ? "/admin/" : undefined,
-      saveUrl: viewer.canEdit ? `/api/people/${viewer.token}` : undefined,
-      eventsSaveUrl: viewer.canEdit ? `/api/events/${viewer.token}` : undefined,
+      editUrl: viewer.isAdmin ? "/admin/" : undefined,
+      saveUrl: `/api/people/${viewer.token}`,
+      eventsSaveUrl: `/api/events/${viewer.token}`,
       subscribed: Boolean(viewer.newsletter),
       followedGroups: viewer.groups,
       checklistDismissed: Boolean(viewer.checklistDismissedAt),
@@ -31,7 +31,6 @@ export const handlers = define.handlers({
         ? {
           feedUrl: `${baseUrl}/cal/${await ensureFeedToken(store, viewer)}.ics`,
           hasEmail: Boolean(viewer.email),
-          canEdit: viewer.canEdit,
         }
         : null,
     });
@@ -57,7 +56,6 @@ export default define.page<typeof handlers>(({ data }) => (
         viewerName={data.viewerName}
         feedUrl={data.welcome.feedUrl}
         hasEmail={data.welcome.hasEmail}
-        canEdit={data.welcome.canEdit}
         subscribed={data.subscribed}
         groups={data.calendar.groups}
         followedGroups={data.followedGroups}

@@ -6,7 +6,7 @@ import type { Store } from "./store.ts";
 export interface AccessLinkOptions {
   name: string;
   groups: string[];
-  canEdit: boolean;
+  isAdmin: boolean;
   token?: string;
   /** Profile email for magic-link login. */
   email: string;
@@ -31,7 +31,7 @@ export function createViewer(options: AccessLinkOptions): Viewer {
     name,
     email: normalizeEmail(options.email),
     groups: options.groups,
-    canEdit: options.canEdit,
+    isAdmin: options.isAdmin,
     feedToken: randomToken(),
   };
 }
@@ -85,7 +85,7 @@ export function accessUrls(viewer: Viewer, baseUrl: string) {
   const base = baseUrl.replace(/\/+$/, "");
   return {
     calendar: `${base}/view/${viewer.token}`,
-    editor: viewer.canEdit ? `${base}/admin/?token=${viewer.token}` : null,
+    admin: viewer.isAdmin ? `${base}/admin/?token=${viewer.token}` : null,
     // Feed token, not the session token, so the subscription survives rotation.
     ical: `${base}/cal/${viewer.feedToken ?? viewer.token}.ics`,
   };

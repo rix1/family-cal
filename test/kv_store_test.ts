@@ -92,14 +92,14 @@ Deno.test("KvStore upsertViewer persists issued capabilities", async () => {
       name: "Issued viewer",
       email: "issued@example.com",
       groups: ["no"],
-      canEdit: false,
+      isAdmin: false,
     });
     assertEquals(await store.getViewer("issued-token"), {
       token: "issued-token",
       name: "Issued viewer",
       email: "issued@example.com",
       groups: ["no"],
-      canEdit: false,
+      isAdmin: false,
     });
     await store.deleteViewer("issued-token");
     assertEquals(await store.getViewer("issued-token"), null);
@@ -141,7 +141,7 @@ Deno.test("KvStore persists invite capabilities", async () => {
       token: "family-invite",
       createdAt: "2026-06-08T12:00:00Z",
       expiresAt: "2026-06-15T12:00:00Z",
-      canEdit: true,
+      isAdmin: true,
     };
     await store.upsertInvite(invite);
     assertEquals(await store.getInvite(invite.token), invite);

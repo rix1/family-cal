@@ -21,7 +21,7 @@ Deno.test("setViewerGroups normalizes, validates and audits the follow-list", as
     name: "Solveig",
     email: "solveig@example.com",
     groups: ["no"],
-    canEdit: false,
+    isAdmin: false,
     token: "solveig",
   });
   const store = new SeedStore([], GROUPS, [viewer]);
@@ -48,7 +48,7 @@ Deno.test("issuing a replacement expires active links for the same viewer name",
     name: "Solveig",
     email: "solveig@example.com",
     groups: ["no"],
-    canEdit: false,
+    isAdmin: false,
     token: "old-token",
   });
   const alreadyExpired = { ...oldViewer, token: "older-token", expiredAt: "2025-01-01T00:00:00Z" };
@@ -68,23 +68,23 @@ Deno.test("issuing a replacement expires active links for the same viewer name",
   assertEquals((await store.getViewer("other-token"))?.expiredAt, undefined);
 });
 
-Deno.test("accessUrls returns viewer URLs and editor URL only for editors", () => {
-  const readOnly = createViewer({
+Deno.test("accessUrls returns viewer URLs and admin URL only for admins", () => {
+  const member = createViewer({
     name: "Solveig",
     email: "solveig@example.com",
     groups: ["no"],
-    canEdit: false,
+    isAdmin: false,
     token: "test-token",
   });
-  assertEquals(accessUrls(readOnly, "https://family.example/"), {
+  assertEquals(accessUrls(member, "https://family.example/"), {
     calendar: "https://family.example/view/test-token",
-    editor: null,
+    admin: null,
     // iCal uses the stable feed token, not the rotating session token.
-    ical: `https://family.example/cal/${readOnly.feedToken}.ics`,
+    ical: `https://family.example/cal/${member.feedToken}.ics`,
   });
 
   assertEquals(
-    accessUrls({ ...readOnly, canEdit: true }, "https://family.example").editor,
+    accessUrls({ ...member, isAdmin: true }, "https://family.example").admin,
     "https://family.example/admin/?token=test-token",
   );
 });
@@ -94,14 +94,14 @@ Deno.test("createViewer assigns a distinct, stable feed token", () => {
     name: "A",
     email: "a@example.com",
     groups: [],
-    canEdit: false,
+    isAdmin: false,
     token: "a",
   });
   const b = createViewer({
     name: "B",
     email: "b@example.com",
     groups: [],
-    canEdit: false,
+    isAdmin: false,
     token: "b",
   });
   assert(a.feedToken && /^[A-Za-z0-9_-]{32}$/.test(a.feedToken));
@@ -115,7 +115,7 @@ Deno.test("ensureFeedToken backfills a legacy viewer once, then is stable", asyn
     name: "Old",
     email: "old@example.com",
     groups: [],
-    canEdit: false,
+    isAdmin: false,
   };
   const store = new SeedStore([], [], [legacy]);
 
@@ -133,11 +133,11 @@ Deno.test("viewerByFeedToken resolves only the active owner", async () => {
     name: "A",
     email: "a@example.com",
     groups: [],
-    canEdit: false,
+    isAdmin: false,
     token: "a",
   });
   const expired: Viewer = {
-    ...createViewer({ name: "B", email: "b@example.com", groups: [], canEdit: false, token: "b" }),
+    ...createViewer({ name: "B", email: "b@example.com", groups: [], isAdmin: false, token: "b" }),
     expiredAt: "2025-01-01T00:00:00Z",
   };
   const store = new SeedStore([], [], [active, expired]);
@@ -152,7 +152,7 @@ Deno.test("re-issuing a link carries the feed token forward", async () => {
     name: "Solveig",
     email: "solveig@example.com",
     groups: ["no"],
-    canEdit: false,
+    isAdmin: false,
     token: "old",
   });
   const store = new SeedStore([], [], [old]);
@@ -160,7 +160,7 @@ Deno.test("re-issuing a link carries the feed token forward", async () => {
     name: "Solveig",
     email: "solveig@example.com",
     groups: ["no"],
-    canEdit: false,
+    isAdmin: false,
     token: "new",
   });
 

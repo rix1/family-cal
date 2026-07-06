@@ -7,9 +7,9 @@ export const handler = define.handlers({
   async GET(ctx) {
     const store = await getStore();
     const viewer = await store.getViewer(ctx.params.token);
-    if (!viewer) return json({ error: "unknown editor link" }, 404);
-    if (!viewerIsActive(viewer)) return json({ error: "editor link expired" }, 410);
-    if (!viewer.canEdit) return json({ error: "unknown editor link" }, 404);
+    if (!viewer) return json({ error: "unknown admin link" }, 404);
+    if (!viewerIsActive(viewer)) return json({ error: "admin link expired" }, 410);
+    if (!viewer.isAdmin) return json({ error: "unknown admin link" }, 404);
     const requested = Number(ctx.url.searchParams.get("limit") ?? "100");
     // Clamp to a sane window so a huge ?limit can't pull the whole audit log.
     const limit = Number.isFinite(requested)

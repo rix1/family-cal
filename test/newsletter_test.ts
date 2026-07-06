@@ -104,7 +104,7 @@ function subscriber(token: string, name: string, email: string, groups: string[]
     name,
     email,
     groups,
-    canEdit: false,
+    isAdmin: false,
     newsletter: {
       email,
       subscribedAt: "2026-01-01T00:00:00.000Z",
@@ -275,7 +275,7 @@ Deno.test("segments derive from active subscribers and their followed groups", (
     name: "No mail",
     email: "nomail@example.com",
     groups: ["berg-siden"],
-    canEdit: false,
+    isAdmin: false,
   };
   const viewers = [
     subscriber("a1", "Anna", "anna@example.com", ["berg-siden"]),
@@ -466,7 +466,7 @@ Deno.test("subscribing uses the profile email, toggles, and audits", async () =>
     name: "Anna",
     email: "anna@example.com",
     groups: ["berg-siden"],
-    canEdit: false,
+    isAdmin: false,
   };
   // Empty email models a viewer record whose email was lost; the runtime guard
   // must still reject the subscription.
@@ -475,7 +475,7 @@ Deno.test("subscribing uses the profile email, toggles, and audits", async () =>
     name: "No Email",
     email: "",
     groups: ["berg-siden"],
-    canEdit: false,
+    isAdmin: false,
   };
   const store = new SeedStore(PEOPLE, GROUPS, [anna, noEmail]);
 
@@ -607,7 +607,7 @@ Deno.test("link rotation carries the latest newsletter preference forward", asyn
     name: "anna berg",
     email: "anna3@example.com",
     groups: [],
-    canEdit: false,
+    isAdmin: false,
   });
   const expired = await expirePreviousViewerLinks(store, replacement);
   assertEquals(expired.length, 2);

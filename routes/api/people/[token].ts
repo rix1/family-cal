@@ -11,12 +11,14 @@ import {
 import { define } from "@/utils.ts";
 
 export const handler = define.handlers({
+  // Bulk replacement (the admin editor): it deletes removed people, so unlike
+  // PUT/PATCH below it stays admin-only.
   async POST(ctx) {
     const store = await getStore();
     const viewer = await store.getViewer(ctx.params.token);
-    if (!viewer) return json({ error: "unknown editor link" }, 404);
-    if (!viewerIsActive(viewer)) return json({ error: "editor link expired" }, 410);
-    if (!viewer.canEdit) return json({ error: "unknown editor link" }, 404);
+    if (!viewer) return json({ error: "unknown link" }, 404);
+    if (!viewerIsActive(viewer)) return json({ error: "link expired" }, 410);
+    if (!viewer.isAdmin) return json({ error: "unknown link" }, 404);
 
     let payload: { people?: PersonInput[] };
     try {
@@ -36,9 +38,8 @@ export const handler = define.handlers({
   async PUT(ctx) {
     const store = await getStore();
     const viewer = await store.getViewer(ctx.params.token);
-    if (!viewer) return json({ error: "unknown editor link" }, 404);
-    if (!viewerIsActive(viewer)) return json({ error: "editor link expired" }, 410);
-    if (!viewer.canEdit) return json({ error: "unknown editor link" }, 404);
+    if (!viewer) return json({ error: "unknown link" }, 404);
+    if (!viewerIsActive(viewer)) return json({ error: "link expired" }, 410);
 
     let payload: { person?: PersonInput };
     try {
@@ -57,9 +58,8 @@ export const handler = define.handlers({
   async PATCH(ctx) {
     const store = await getStore();
     const viewer = await store.getViewer(ctx.params.token);
-    if (!viewer) return json({ error: "unknown editor link" }, 404);
-    if (!viewerIsActive(viewer)) return json({ error: "editor link expired" }, 410);
-    if (!viewer.canEdit) return json({ error: "unknown editor link" }, 404);
+    if (!viewer) return json({ error: "unknown link" }, 404);
+    if (!viewerIsActive(viewer)) return json({ error: "link expired" }, 410);
 
     let payload: { id?: string; person?: PersonInput };
     try {

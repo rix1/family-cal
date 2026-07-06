@@ -19,14 +19,14 @@ const VIEWERS: Viewer[] = [
     name: "Kari Berg",
     email: "kari@example.com",
     groups: ["no"],
-    canEdit: false,
+    isAdmin: false,
   },
   {
     token: "old-token",
     name: "Old Link",
     email: "old@example.com",
     groups: [],
-    canEdit: false,
+    isAdmin: false,
     expiredAt: "2026-01-01T00:00:00Z",
   },
 ];

@@ -69,7 +69,7 @@ routeTest("GET /cal/<feedToken>.ics resolves via the stable feed token", async (
     name: "Feed User",
     email: "feed@example.com",
     groups: [],
-    canEdit: false,
+    isAdmin: false,
   });
   const res = await calRoute.handler.GET(
     ctx("http://localhost/cal/feed-x.ics", {}, { token: "feed-x" }),
@@ -116,7 +116,7 @@ routeTest("GET /api/data/<token> scopes data and rejects unknown tokens", async 
 });
 
 routeTest(
-  "editor token persists and attributes changes, read token cannot write",
+  "admin token persists and attributes changes, member token cannot bulk-replace",
   async () => {
     const denied = await peopleRoute.handler.POST(
       ctx(
@@ -133,7 +133,7 @@ routeTest(
 
     const res = await peopleRoute.handler.POST(
       ctx(
-        "http://localhost/api/people/editor",
+        "http://localhost/api/people/admin",
         {
           method: "POST",
           headers: { "content-type": "application/json" },
@@ -149,7 +149,7 @@ routeTest(
             ],
           }),
         },
-        { token: "editor" },
+        { token: "admin" },
       ),
     );
     assertEquals(res.status, 200);
@@ -158,19 +158,19 @@ routeTest(
 
     const audit = await (
       await auditRoute.handler.GET(
-        ctx("http://localhost/api/audit/editor", {}, { token: "editor" }),
+        ctx("http://localhost/api/audit/admin", {}, { token: "admin" }),
       )
     ).json();
     assert(audit.audit.length > 0, "changes should be audited");
     assert(audit.audit.some((a: { action: string }) => a.action === "delete"));
-    assert(audit.audit.every((a: { actor: string }) => a.actor === "Family editor"));
+    assert(audit.audit.every((a: { actor: string }) => a.actor === "Family admin"));
   },
 );
 
 routeTest("POST /api/people rejects invalid dates with 400", async () => {
   const res = await peopleRoute.handler.POST(
     ctx(
-      "http://localhost/api/people/editor",
+      "http://localhost/api/people/admin",
       {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -178,7 +178,7 @@ routeTest("POST /api/people rejects invalid dates with 400", async () => {
           people: [{ name: "Bad", born: "13-40-99", affiliation: "no" }],
         }),
       },
-      { token: "editor" },
+      { token: "admin" },
     ),
   );
   assertEquals(res.status, 400);
@@ -186,10 +186,10 @@ routeTest("POST /api/people rejects invalid dates with 400", async () => {
   assert(typeof body.error === "string");
 });
 
-routeTest("PATCH /api/people updates one person for editor tokens", async () => {
+routeTest("PATCH /api/people updates one person for admin tokens", async () => {
   const res = await peopleRoute.handler.PATCH(
     ctx(
-      "http://localhost/api/people/editor",
+      "http://localhost/api/people/admin",
       {
         method: "PATCH",
         headers: { "content-type": "application/json" },
@@ -204,7 +204,7 @@ routeTest("PATCH /api/people updates one person for editor tokens", async () => 
           },
         }),
       },
-      { token: "editor" },
+      { token: "admin" },
     ),
   );
   assertEquals(res.status, 200);
@@ -215,18 +215,18 @@ routeTest("/about uses the current viewer session in shared navigation", async (
   assertEquals(typeof aboutRoute.default, "function");
   const result = await aboutRoute.handlers.GET(
     ctx("http://localhost/about", {
-      headers: { cookie: "family_viewer=editor" },
+      headers: { cookie: "family_viewer=admin" },
     }),
   );
   assert(!(result instanceof Response));
-  assertEquals(result.data.viewerName, "Family editor");
+  assertEquals(result.data.viewerName, "Family admin");
   assertEquals(result.data.adminUrl, "/admin/");
 });
 
-routeTest("PUT /api/events adds an event for editor tokens", async () => {
+routeTest("PUT /api/events adds an event for admin tokens", async () => {
   const res = await eventsRoute.handler.PUT(
     ctx(
-      "http://localhost/api/events/editor",
+      "http://localhost/api/events/admin",
       {
         method: "PUT",
         headers: { "content-type": "application/json" },
@@ -234,7 +234,7 @@ routeTest("PUT /api/events adds an event for editor tokens", async () => {
           event: { kind: "wedding", title: "Bryllup", date: "06-04", groups: ["no"] },
         }),
       },
-      { token: "editor" },
+      { token: "admin" },
     ),
   );
   assertEquals(res.status, 200);
@@ -243,20 +243,50 @@ routeTest("PUT /api/events adds an event for editor tokens", async () => {
   assert((await (await getStore()).listEvents()).some((e) => e.id === event.id));
 });
 
-routeTest("PUT /api/events rejects view-only tokens", async () => {
+routeTest("PUT /api/events lets any member add an event", async () => {
   const res = await eventsRoute.handler.PUT(
     ctx(
       "http://localhost/api/events/view-all",
       {
         method: "PUT",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ event: {} }),
+        body: JSON.stringify({
+          event: { kind: "wedding", title: "Medlemsbryllup", date: "07-12", groups: ["no"] },
+        }),
       },
       { token: "view-all" },
     ),
   );
-  assertEquals(res.status, 404);
-  await res.text();
+  assertEquals(res.status, 200);
+  const { event } = await res.json();
+  assertEquals(event.title, "Medlemsbryllup");
+  const audit = await (await getStore()).listAudit();
+  assert(audit.some((entry) => entry.actor === "Everyone" && entry.action === "create_event"));
+});
+
+routeTest("PATCH /api/people lets any member edit a person", async () => {
+  const res = await peopleRoute.handler.PATCH(
+    ctx(
+      "http://localhost/api/people/view-all",
+      {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          id: "solveig",
+          person: {
+            name: "Solveig Member-Edited",
+            born: "1992-05-13",
+            died: null,
+            affiliation: "no",
+            notes: "",
+          },
+        }),
+      },
+      { token: "view-all" },
+    ),
+  );
+  assertEquals(res.status, 200);
+  assertEquals((await res.json()).person.name, "Solveig Member-Edited");
 });
 
 routeTest("private calendar and admin pages enforce viewer capabilities", async () => {
@@ -276,15 +306,18 @@ routeTest("private calendar and admin pages enforce viewer capabilities", async 
   assert(calendar.data.calendar.people.every((person) => person.affiliation === "dk"));
   assertEquals(calendar.data.viewerName, "Danish family");
   assertEquals(calendar.data.editUrl, undefined);
+  // Members don't get the admin link, but adding people/events is open to them.
+  assertEquals(calendar.data.saveUrl, "/api/people/view-dk");
+  assertEquals(calendar.data.eventsSaveUrl, "/api/events/view-dk");
 
   const entry = await adminRoute.handlers.GET(
-    ctx("http://localhost/admin/?token=editor"),
+    ctx("http://localhost/admin/?token=admin"),
   );
   assert(entry instanceof Response);
   assertEquals(entry.status, 303);
   const cookie = responseCookies(entry);
-  assertStringIncludes(cookie, "family_admin=editor");
-  assertStringIncludes(cookie, "family_viewer=editor");
+  assertStringIncludes(cookie, "family_admin=admin");
+  assertStringIncludes(cookie, "family_viewer=admin");
 
   const result = await adminPeopleRoute.handlers.GET(
     ctx("http://localhost/admin/people/", { headers: { cookie } }),
@@ -292,7 +325,7 @@ routeTest("private calendar and admin pages enforce viewer capabilities", async 
   assert(!(result instanceof Response));
   assert(Array.isArray(result.data.people) && result.data.people.length > 0);
   assert(Array.isArray(result.data.groups) && result.data.groups.length === 2);
-  assertEquals(result.data.viewer.name, "Family editor");
+  assertEquals(result.data.viewer.name, "Family admin");
 
   for (
     const [route, path] of [
@@ -306,7 +339,7 @@ routeTest("private calendar and admin pages enforce viewer capabilities", async 
       ctx(`http://localhost/admin/${path}/`, { headers: { cookie } }),
     );
     assert(!(page instanceof Response));
-    assertEquals(page.data.viewer.name, "Family editor");
+    assertEquals(page.data.viewer.name, "Family admin");
   }
 
   const groupForm = new FormData();
@@ -359,11 +392,11 @@ routeTest("admin can issue a new viewer link", async () => {
   form.set("name", "New relative");
   form.set("email", "new.relative@example.com");
   form.append("groups", "dk");
-  form.set("canEdit", "on");
+  form.set("isAdmin", "on");
   const response = await adminViewersRoute.handlers.POST(
     ctx("http://localhost/admin/viewers/", {
       method: "POST",
-      headers: { cookie: "family_admin=editor" },
+      headers: { cookie: "family_admin=admin" },
       body: form,
     }),
   );
@@ -377,24 +410,24 @@ routeTest("admin can issue a new viewer link", async () => {
   assertEquals(created?.name, "New relative");
   assertEquals(created?.email, "new.relative@example.com");
   assertEquals(created?.groups, ["dk"]);
-  assertEquals(created?.canEdit, true);
+  assertEquals(created?.isAdmin, true);
 
   const result = await adminViewersRoute.handlers.GET(
     ctx(`http://localhost${location}`, {
-      headers: { cookie: "family_admin=editor" },
+      headers: { cookie: "family_admin=admin" },
     }),
   );
   assert(!(result instanceof Response));
   assertEquals(result.data.created?.viewer.token, token);
   assertStringIncludes(result.data.created?.urls.calendar ?? "", `/view/${token}`);
-  assertStringIncludes(result.data.created?.urls.editor ?? "", `/admin/?token=${token}`);
+  assertStringIncludes(result.data.created?.urls.admin ?? "", `/admin/?token=${token}`);
 });
 
 routeTest("admin can filter viewers and expire an active token", async () => {
   const store = await getStore();
   const filtered = await adminViewersRoute.handlers.GET(
     ctx("http://localhost/admin/viewers/?status=active&permission=view&group=dk&q=danish", {
-      headers: { cookie: "family_admin=editor" },
+      headers: { cookie: "family_admin=admin" },
     }),
   );
   assert(!(filtered instanceof Response));
@@ -406,7 +439,7 @@ routeTest("admin can filter viewers and expire an active token", async () => {
   const response = await adminViewersRoute.handlers.POST(
     ctx("http://localhost/admin/viewers/", {
       method: "POST",
-      headers: { cookie: "family_admin=editor" },
+      headers: { cookie: "family_admin=admin" },
       body: form,
     }),
   );
@@ -415,13 +448,13 @@ routeTest("admin can filter viewers and expire an active token", async () => {
   assert((await store.getViewer("view-dk"))?.expiredAt);
 });
 
-routeTest("family members can redeem an active invite and sign in as editors", async () => {
+routeTest("family members can redeem an active invite and sign in as admins", async () => {
   const store = await getStore();
   await store.upsertInvite({
     token: "join-family",
     createdAt: "2026-06-08T10:00:00Z",
     expiresAt: "2099-06-15T10:00:00Z",
-    canEdit: true,
+    isAdmin: true,
   });
 
   const invitePage = await inviteRoute.handlers.GET(
@@ -451,7 +484,7 @@ routeTest("family members can redeem an active invite and sign in as editors", a
   assertEquals(viewer?.name, "New family member");
   assertEquals(viewer?.email, "new.member@example.com");
   assertEquals(viewer?.groups, ["no"]);
-  assertEquals(viewer?.canEdit, true);
+  assertEquals(viewer?.isAdmin, true);
 
   const login = await viewRoute.handlers.GET(
     ctx(`http://localhost${location}`, {}, { token: viewerToken }),
@@ -470,7 +503,7 @@ routeTest("welcome tour shows once and can subscribe to the monthly email", asyn
     name: "Fresh Member",
     email: "fresh@example.com",
     groups: ["no"],
-    canEdit: false,
+    isAdmin: false,
   });
   const cookie = "family_viewer=fresh-member";
 
@@ -544,7 +577,7 @@ routeTest("invite signup requires a valid email", async () => {
     token: "join-family",
     createdAt: "2026-06-08T10:00:00Z",
     expiresAt: "2099-06-15T10:00:00Z",
-    canEdit: false,
+    isAdmin: false,
   });
   const form = new FormData();
   form.set("name", "No Email");
@@ -565,13 +598,13 @@ routeTest("invite signup rejects an email already in use", async () => {
     name: "Existing",
     email: "taken@example.com",
     groups: ["no"],
-    canEdit: false,
+    isAdmin: false,
   });
   await store.upsertInvite({
     token: "join-family",
     createdAt: "2026-06-08T10:00:00Z",
     expiresAt: "2099-06-15T10:00:00Z",
-    canEdit: false,
+    isAdmin: false,
   });
   const form = new FormData();
   form.set("name", "Duplicate");
@@ -588,12 +621,12 @@ routeTest("invite signup rejects an email already in use", async () => {
 routeTest("admin can create a reusable expiring invite", async () => {
   const form = new FormData();
   form.set("duration", "30m");
-  form.set("canEdit", "on");
+  form.set("isAdmin", "on");
   const before = Date.now();
   const response = await adminInvitesRoute.handlers.POST(
     ctx("http://localhost/admin/invites/", {
       method: "POST",
-      headers: { cookie: "family_admin=editor" },
+      headers: { cookie: "family_admin=admin" },
       body: form,
     }),
   );
@@ -603,13 +636,13 @@ routeTest("admin can create a reusable expiring invite", async () => {
   const token = new URL(location, "http://localhost").searchParams.get("created");
   assert(token);
   const invite = await (await getStore()).getInvite(token);
-  assertEquals(invite?.canEdit, true);
+  assertEquals(invite?.isAdmin, true);
   assert(invite && new Date(invite.expiresAt) > new Date(invite.createdAt));
   assert(invite && new Date(invite.expiresAt).getTime() - before <= 30 * 60_000 + 1_000);
 
   const result = await adminInvitesRoute.handlers.GET(
     ctx(`http://localhost${location}`, {
-      headers: { cookie: "family_admin=editor" },
+      headers: { cookie: "family_admin=admin" },
     }),
   );
   assert(!(result instanceof Response));
@@ -623,7 +656,7 @@ routeTest("admin can create a view-only invite", async () => {
   const response = await adminInvitesRoute.handlers.POST(
     ctx("http://localhost/admin/invites/", {
       method: "POST",
-      headers: { cookie: "family_admin=editor" },
+      headers: { cookie: "family_admin=admin" },
       body: form,
     }),
   );
@@ -632,7 +665,7 @@ routeTest("admin can create a view-only invite", async () => {
     "http://localhost",
   ).searchParams.get("created");
   assert(token);
-  assertEquals((await (await getStore()).getInvite(token))?.canEdit, false);
+  assertEquals((await (await getStore()).getInvite(token))?.isAdmin, false);
 });
 
 routeTest("expired family invites cannot be redeemed", async () => {
@@ -641,7 +674,7 @@ routeTest("expired family invites cannot be redeemed", async () => {
     token: "expired-invite",
     createdAt: "2020-01-01T00:00:00Z",
     expiresAt: "2020-01-02T00:00:00Z",
-    canEdit: true,
+    isAdmin: true,
   });
   let error: unknown;
   try {
@@ -662,7 +695,7 @@ routeTest("expired capabilities return a specific expired response", async () =>
     name: "Expired viewer",
     email: "expired@example.com",
     groups: [],
-    canEdit: true,
+    isAdmin: true,
     expiredAt: "2026-06-06T12:00:00Z",
   });
 
@@ -706,7 +739,7 @@ routeTest("an expired session cookie is signed out, not locked out", async () =>
     name: "Stale viewer",
     email: "stale@example.com",
     groups: [],
-    canEdit: false,
+    isAdmin: false,
     expiredAt: "2026-06-06T12:00:00Z",
   });
 

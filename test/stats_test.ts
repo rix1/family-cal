@@ -25,7 +25,7 @@ function viewer(v: Partial<Viewer> & { name: string }): Viewer {
     name: v.name,
     email: v.email ?? `${v.name.toLowerCase().replaceAll(" ", ".")}@example.com`,
     groups: v.groups ?? [],
-    canEdit: v.canEdit ?? false,
+    isAdmin: v.isAdmin ?? false,
     expiredAt: v.expiredAt,
     newsletter: v.newsletter,
   };

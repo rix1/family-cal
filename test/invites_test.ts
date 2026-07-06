@@ -7,7 +7,7 @@ Deno.test("createInvite defaults signups to view-only access", () => {
     token: "invite-token",
     createdAt: "2026-06-08T12:00:00Z",
   });
-  assertEquals(invite.canEdit, false);
+  assertEquals(invite.isAdmin, false);
   assertEquals(invite.maxUses, null);
   assertEquals(invite.uses, 0);
   assertEquals(

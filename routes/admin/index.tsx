@@ -18,7 +18,7 @@ export const handlers = define.handlers({
       if (viewer && !viewerIsActive(viewer)) {
         throw new HttpError(410, "This family access link has expired. Ask for a new one.");
       }
-      if (!viewer?.canEdit) return adminDenied();
+      if (!viewer?.isAdmin) return adminDenied();
       const headers = new Headers({ location: "/admin/" });
       headers.append("set-cookie", adminCookie(token));
       headers.append("set-cookie", viewerCookie(token));

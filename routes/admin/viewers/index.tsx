@@ -29,7 +29,7 @@ export const handlers = define.handlers({
       const matchesStatus = status === "all" ||
         (status === "active" ? viewerIsActive(item) : !viewerIsActive(item));
       const matchesPermission = permission === "all" ||
-        (permission === "admin" ? item.canEdit : !item.canEdit);
+        (permission === "admin" ? item.isAdmin : !item.isAdmin);
       const matchesGroup = group === "all" ||
         (group === "none" ? item.groups.length === 0 : item.groups.includes(group));
       return matchesQuery && matchesStatus && matchesPermission && matchesGroup;
@@ -101,7 +101,7 @@ export const handlers = define.handlers({
       name,
       email,
       groups,
-      canEdit: form.get("canEdit") === "on",
+      isAdmin: form.get("isAdmin") === "on",
     });
     await expirePreviousViewerLinks(store, viewer);
     await store.upsertViewer(viewer);
@@ -167,8 +167,8 @@ export default define.page<typeof handlers>(({ data }) => (
               </div>
             </fieldset>
             <label class="flex items-center gap-2 text-sm font-medium">
-              <input type="checkbox" name="canEdit" class="accent-accent" />
-              Allow administration and editing
+              <input type="checkbox" name="isAdmin" class="accent-accent" />
+              Administrator — manage members, invites and the newsletter
             </label>
             <button type="submit" class="btn btn-primary">
               Create private link
@@ -186,7 +186,7 @@ export default define.page<typeof handlers>(({ data }) => (
           <div class="mt-4 grid gap-3">
             {[
               ["Calendar", data.created.urls.calendar],
-              ...(data.created.urls.editor ? [["Admin", data.created.urls.editor]] : []),
+              ...(data.created.urls.admin ? [["Admin", data.created.urls.admin]] : []),
               ["iCal subscription", data.created.urls.ical],
             ].map(([label, url]) => (
               <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -229,7 +229,7 @@ export default define.page<typeof handlers>(({ data }) => (
           <select name="permission" class="input">
             <option value="all" selected={data.filters.permission === "all"}>All</option>
             <option value="admin" selected={data.filters.permission === "admin"}>Admin</option>
-            <option value="view" selected={data.filters.permission === "view"}>View only</option>
+            <option value="view" selected={data.filters.permission === "view"}>Member</option>
           </select>
         </label>
         <label class="grid gap-1.5">
@@ -275,9 +275,9 @@ export default define.page<typeof handlers>(({ data }) => (
                 <td class="font-mono text-xs text-ink-2">{item.token}</td>
                 <td class="text-ink-2">{item.groups.join(", ") || "—"}</td>
                 <td>
-                  {item.canEdit
+                  {item.isAdmin
                     ? <span class="badge bg-gold-soft text-gold">Admin</span>
-                    : <span class="badge bg-inset text-ink-2">View</span>}
+                    : <span class="badge bg-inset text-ink-2">Member</span>}
                 </td>
                 <td>
                   {item.expiredAt

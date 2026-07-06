@@ -16,7 +16,7 @@ export const handlers = define.handlers({
     return page({
       people: data.people,
       viewerName: viewer.name,
-      adminUrl: viewer.canEdit ? "/admin/" : undefined,
+      adminUrl: viewer.isAdmin ? "/admin/" : undefined,
     });
   },
 });

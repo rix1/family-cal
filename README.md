@@ -54,7 +54,7 @@ Set `KV_PATH` in `.env` (or inline, e.g. `KV_PATH=/path/to/family-cal.db deno ta
 The database starts empty. There are two ways to populate it:
 
 1. Run `KV_PATH=/path/to/family-cal.db deno task seed` to load `seed/*.csv`.
-2. Issue an editor link, open the admin, and enter your own groups and people.
+2. Issue an admin link, open the admin, and enter your own groups and people.
 
 The seed command refuses to modify a non-empty database. Use `--force` to clear
 people, viewers, and invites and replace groups before loading:
@@ -79,9 +79,9 @@ KV_PATH=/path/to/famcal.db deno task issue-link \
 The command prints private calendar and iCal URLs. `--email` is required — it is the
 viewer's magic-link login identity. Use `--groups no,dk` for the groups the viewer
 follows; omitting `--groups` means they follow nothing until they pick groups on
-their profile. Add `--edit` to make the viewer an editor and print an admin URL. On
-an empty database, create the first editor without `--groups`, then add groups at
-`/admin/groups/`.
+their profile. Add `--admin` to make the viewer an administrator and print an admin
+URL. On an empty database, create the first admin without `--groups`, then add
+groups at `/admin/groups/`.
 
 There is no username/password form. Opening a private capability URL stores the
 token in an HttpOnly cookie and redirects to the clean `/calendar/` URL. The
@@ -103,24 +103,24 @@ limit is reached. Until then, each person who opens it:
 2. Selects the family groups that apply to them.
 3. Receives a new private viewer link and is signed in automatically.
 
-Viewer links created through family invites inherit the invite's selected
-permission; invites are view-only unless an editor explicitly grants administrator
-access when creating them. Each person receives an independent capability, while
-the invite itself can be reused by multiple family members until its expiry.
+Everyone who joins through an invite can add and edit people and events. Invites
+only grant administrator access when an admin explicitly checks that option while
+creating them. Each person receives an independent capability, while the invite
+itself can be reused by multiple family members until its expiry.
 
 ## Administration
 
-Open the admin URL printed by `issue-link --edit`. It validates the editor token,
+Open the admin URL printed by `issue-link --admin`. It validates the admin token,
 stores it in an HttpOnly session cookie, and redirects to `/admin/`.
 
 - `/admin/people/` edits people in a batch table and exports `people.csv`.
 - `/admin/groups/` edits family groups.
 - `/admin/viewers/` lists issued capabilities and their permissions.
 - `/admin/invites/` creates and lists expiring family signup links.
-- `/admin/audit/` shows person changes attributed to editors.
+- `/admin/audit/` shows changes attributed to the member who made them.
 
-Person details can also be edited directly from the calendar flyout by an editor.
-Changes are written to KV and audited under the editor capability's name.
+Any member can add people and events, and edit person details, directly from the
+calendar flyout. Changes are written to KV and audited under the member's name.
 
 Death dates use full `YYYY-MM-DD` values. Deceased relatives keep their birthday with
 “would have turned” wording and also receive a yearly remembrance event on the anniversary of
@@ -128,34 +128,34 @@ their death.
 
 ## Permissions
 
-Viewer links issued directly are view-only by default. The stored property is
-`Viewer.canEdit`, which defaults to `false` for direct issuance. Family invites
-are also view-only unless the editor explicitly grants administrator access when
-creating the invite.
+Every active viewer can add and edit people and events. The stored property is
+`Viewer.isAdmin`, which defaults to `false`: admins can additionally manage
+viewers and invites, delete events, send the newsletter, and read the audit log.
+Family invites only grant admin access when explicitly selected at creation.
 
-Create an editor at issuance time:
+Create an admin at issuance time:
 
 ```sh
 KV_PATH=/path/to/family-cal.db deno task issue-link \
   --name "Family admin" \
-  --edit \
+  --admin \
   --base-url https://family.example
 ```
 
-Grant or remove editor access for an existing viewer by updating that property:
+Grant or remove admin access for an existing viewer by updating that property:
 
 ```sh
 KV_PATH=/path/to/family-cal.db deno task set-permission \
   --token "the-viewer-token" \
-  --edit true
+  --admin true
 
 KV_PATH=/path/to/family-cal.db deno task set-permission \
   --token "the-viewer-token" \
-  --edit false
+  --admin false
 ```
 
-An editor can use the admin pages and person write APIs. A view-only viewer can
-only open their scoped calendar and iCal feed.
+An admin can use the admin pages and the bulk-replace people API. Every viewer can
+open their scoped calendar and iCal feed and add or edit people and events.
 
 ## Subscribing
 

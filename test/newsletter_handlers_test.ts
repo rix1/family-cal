@@ -39,7 +39,7 @@ function form(entries: Record<string, string | string[]>): FormData {
 }
 
 const VIEWER = { cookie: "family_viewer=view-all" };
-const ADMIN = { cookie: "family_admin=editor; family_viewer=editor" };
+const ADMIN = { cookie: "family_admin=admin; family_viewer=admin" };
 // view-all follows both seeded groups ("no", "dk") → this segment key.
 const ALL_SEGMENT = "dk+no";
 
@@ -125,7 +125,7 @@ async function subscribeViewer() {
   );
 }
 
-routeTest("admin newsletters require an editor capability", async () => {
+routeTest("admin newsletters require an admin capability", async () => {
   await assertRejects(() =>
     adminNewslettersRoute.handlers.GET(ctx("http://localhost/admin/newsletters/"))
   );
@@ -250,7 +250,7 @@ routeTest("generation, editing, sending and deleting a draft work end-to-end", a
   const sentDraft = await store.getNewsletterDraft(id);
   assertEquals(sentDraft?.status, "sent");
   assertEquals(sentDraft?.recipientCount, 1);
-  assertEquals(sentDraft?.sentBy, "Family editor");
+  assertEquals(sentDraft?.sentBy, "Family admin");
 
   await assertRejects(() =>
     draftRoute.handlers.POST(

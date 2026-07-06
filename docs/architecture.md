@@ -135,7 +135,7 @@ Viewer {
   token                                   // capability: access + identity
   name                                    // for attribution
   groups: ["no", "danish", "holidays-no"] // which tags this feed includes
-  canEdit: bool                           // may load editor/write/audit endpoints
+  isAdmin: bool                           // may load admin pages, bulk-replace, audit
   reminderPref: "off" | "morning" | "day-before" | "week+day"
 }
 ```
@@ -191,10 +191,10 @@ Completed:
 3. Per-viewer iCal feeds exist at `/cal/<token>.ics` and subset by viewer groups.
 4. Holidays are computed with Computus instead of stored.
 5. Edit API writes to KV and records audit entries.
-6. Capability issuance is available through `deno task issue-link`; editors use
+6. Capability issuance is available through `deno task issue-link`; admins use
    `/admin/*` and can manage people and groups.
-7. Editors can create reusable expiring invite capabilities. Each redemption
-   creates an independent editor viewer with user-selected groups and establishes
+7. Admins can create reusable expiring invite capabilities. Each redemption
+   creates an independent member viewer with user-selected groups and establishes
    the normal viewer session.
 
 Next:

@@ -7,9 +7,9 @@ function option(name: string): string | undefined {
 }
 
 const token = option("--token");
-const edit = option("--edit");
-if (!token || !["true", "false"].includes(edit ?? "")) {
-  console.error('Usage: deno task set-permission --token "..." --edit true|false');
+const admin = option("--admin");
+if (!token || !["true", "false"].includes(admin ?? "")) {
+  console.error('Usage: deno task set-permission --token "..." --admin true|false');
   Deno.exit(1);
 }
 
@@ -20,8 +20,8 @@ try {
     console.error("Viewer token not found.");
     Deno.exit(1);
   }
-  const updated = await store.upsertViewer({ ...viewer, canEdit: edit === "true" });
-  console.log(`${updated.name}: canEdit=${updated.canEdit}`);
+  const updated = await store.upsertViewer({ ...viewer, isAdmin: admin === "true" });
+  console.log(`${updated.name}: isAdmin=${updated.isAdmin}`);
 } finally {
   store.close();
 }

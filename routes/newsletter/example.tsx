@@ -23,7 +23,7 @@ export const handlers = define.handlers({
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
     return page({
       viewerName: viewer.name,
-      adminUrl: viewer.canEdit ? "/admin/" : undefined,
+      adminUrl: viewer.isAdmin ? "/admin/" : undefined,
       emailHtml: latest ? renderNewsletterEmail(latest, newsletterProfileUrl()) : null,
     });
   },

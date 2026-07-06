@@ -18,7 +18,7 @@ export const handlers = define.handlers({
     const welcome = ctx.url.searchParams.get("welcome") === "1";
     const headers = new Headers({ location: welcome ? "/calendar/?welcome=1" : "/calendar/" });
     headers.append("set-cookie", viewerCookie(viewer.token));
-    if (viewer.canEdit) headers.append("set-cookie", adminCookie(viewer.token));
+    if (viewer.isAdmin) headers.append("set-cookie", adminCookie(viewer.token));
     return new Response(null, { status: 303, headers });
   },
 });

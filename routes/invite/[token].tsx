@@ -62,7 +62,7 @@ export const handlers = define.handlers({
     // Self-chosen names are untrusted, so we do NOT expire existing same-named
     // viewers here (that would let a redeemer lock out an admin). Each signup is
     // an independent capability; the viewer token makes the audit entry unambiguous.
-    const viewer = createViewer({ name, email, groups, canEdit: invite.canEdit });
+    const viewer = createViewer({ name, email, groups, isAdmin: invite.isAdmin });
     await store.upsertViewer(viewer);
     // Count this redemption so a signup limit (if set) is enforced on the next open.
     await store.upsertInvite({ ...invite, uses: (invite.uses ?? 0) + 1 });

@@ -9,12 +9,17 @@ function option(name: string): string | undefined {
 
 function usage(): never {
   console.error(
-    'Usage: deno task issue-link --name "Person" --email who@example.com [--groups no,dk] [--admin] [--base-url URL]',
+    'Usage: deno task issue-link --name "Person" --email who@example.com [--groups no,dk] [--admin] [--prod] [--base-url URL]',
   );
   Deno.exit(1);
 }
 
 if (Deno.args.includes("--help")) usage();
+
+// Issuing links is usually a testing action, so this script targets the dev
+// database unless --prod says otherwise — overriding whatever .env declares.
+const prod = Deno.args.includes("--prod");
+Deno.env.set("ENVIRONMENT", prod ? "PROD" : "DEV");
 
 const name = option("--name");
 const email = option("--email");
@@ -24,7 +29,10 @@ const groups = (option("--groups") ?? "")
   .split(",")
   .map((group) => group.trim())
   .filter(Boolean);
-const baseUrl = option("--base-url") ?? Deno.env.get("BASE_URL") ?? "http://localhost:8000";
+// In dev, .env's BASE_URL is the production origin — print links that actually
+// hit the dev server instead.
+const baseUrl = option("--base-url") ??
+  (prod ? Deno.env.get("BASE_URL") ?? "http://localhost:8000" : "http://localhost:3000");
 const viewer = createViewer({
   name,
   email,
@@ -44,7 +52,7 @@ try {
   const matchingViewers = await expirePreviousViewerLinks(store, viewer);
   await store.upsertViewer(viewer);
   const urls = accessUrls(viewer, baseUrl);
-  console.log(`Issued access for ${viewer.name}`);
+  console.log(`Issued ${prod ? "PROD" : "dev"} access for ${viewer.name}`);
   if (matchingViewers.length) {
     console.log(`Expired ${matchingViewers.length} previous link(s) for ${viewer.name}`);
   }

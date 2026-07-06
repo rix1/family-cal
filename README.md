@@ -66,7 +66,9 @@ ENVIRONMENT=DEV deno task seed --force
 
 ## Access links
 
-CLI tasks pick their database the same way the servers do: `ENVIRONMENT` from
+`issue-link` targets the **dev** database by default (issuing links is usually a
+testing action) and prints `http://localhost:3000` URLs; pass `--prod` to write
+to production and use `BASE_URL`. Other CLI tasks follow `ENVIRONMENT` from
 `.env` (PROD in this working tree) unless overridden inline. Issue a
 cryptographically random capability:
 
@@ -75,7 +77,7 @@ deno task issue-link \
   --name "Solveig" \
   --email solveig@example.com \
   --groups no \
-  --base-url https://family.example
+  --prod
 ```
 
 The command prints private calendar and iCal URLs. `--email` is required — it is the
@@ -135,13 +137,13 @@ Every active viewer can add and edit people and events. The stored property is
 viewers and invites, delete events, send the newsletter, and read the audit log.
 Family invites only grant admin access when explicitly selected at creation.
 
-Create an admin at issuance time:
+Create an admin at issuance time (in the dev database unless `--prod`):
 
 ```sh
 deno task issue-link \
   --name "Family admin" \
   --admin \
-  --base-url https://family.example
+  --prod
 ```
 
 Grant or remove admin access for an existing viewer by updating that property:

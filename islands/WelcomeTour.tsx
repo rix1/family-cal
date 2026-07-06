@@ -1,3 +1,4 @@
+import { HowItWorksGraphic } from "@/components/HowItWorks.tsx";
 import { groupBadgeClass } from "@/lib/group_colors.ts";
 import { t } from "@/lib/i18n.ts";
 import type { ViewGroup } from "@/lib/view_data.ts";
@@ -211,6 +212,12 @@ export function WelcomeTour({
           <>
             <p>
               {t("tour.contribute.body")}
+            </p>
+            <div class="mt-4">
+              <HowItWorksGraphic />
+            </div>
+            <p class="mt-3">
+              {t("tour.contribute.groups")}
             </p>
             <p class="mt-3 text-sm text-ink-3">
               {t("tour.contribute.tip.before")} <span class="font-mono text-ink-2">@</span>{" "}

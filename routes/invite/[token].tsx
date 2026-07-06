@@ -4,7 +4,7 @@ import { createViewer } from "@/lib/access_links.ts";
 import { getStore } from "@/lib/db.ts";
 import { t } from "@/lib/i18n.ts";
 import { emailInUse } from "@/lib/login.ts";
-import { inviteIsActive } from "@/lib/model.ts";
+import { inviteIsActive, isPersonalGroup } from "@/lib/model.ts";
 import { normalizeEmail } from "@/lib/newsletter.ts";
 import { memberNamesByGroup, ValidationError } from "@/lib/people.ts";
 import { clientKey, RateLimiter } from "@/lib/rate_limit.ts";
@@ -30,7 +30,9 @@ export const handlers = define.handlers({
   async GET(ctx) {
     const { store, invite } = await inviteData(ctx.params.token);
     const [groups, people] = await Promise.all([store.listGroups(), store.listPeople()]);
-    return page({ invite, groups, members: memberNamesByGroup(people) });
+    // Newcomers can follow branches and shared lists; unlisted lists stay private.
+    const offered = groups.filter((group) => !isPersonalGroup(group) || group.listed);
+    return page({ invite, groups: offered, members: memberNamesByGroup(people) });
   },
   async POST(ctx) {
     if (!signupLimiter.check(clientKey(ctx.req, ctx.info)).allowed) {
@@ -55,7 +57,12 @@ export const handlers = define.handlers({
       throw new HttpError(400, t("invite.error.emailInUse"));
     }
 
-    const knownGroups = new Set((await store.listGroups()).map((group) => group.key));
+    // Same set the GET offered — an unlisted personal key is invalid here.
+    const knownGroups = new Set(
+      (await store.listGroups())
+        .filter((group) => !isPersonalGroup(group) || group.listed)
+        .map((group) => group.key),
+    );
     const groups = form.getAll("groups").map(String);
     if (groups.some((group) => !knownGroups.has(group))) {
       throw new HttpError(400, t("invite.error.invalidGroups"));
@@ -74,6 +81,7 @@ export const handlers = define.handlers({
       action: "accept_invite",
       targetId: viewer.token,
       detail: `Joined through invite ${invite.token} as viewer ${viewer.token}`,
+      groups,
     });
     // welcome=1 rides along to /calendar/ and triggers the one-time welcome tour.
     return new Response(null, {

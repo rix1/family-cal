@@ -1,4 +1,4 @@
-import { EVENT_KINDS, type EventKind, type FamilyEvent } from "./model.ts";
+import { EVENT_KINDS, type EventKind, type FamilyEvent, isPersonalGroup } from "./model.ts";
 import { slug } from "./dates.ts";
 import { ValidationError } from "./people.ts";
 import type { Store } from "./store.ts";
@@ -54,7 +54,11 @@ export async function addEvent(
   input: FamilyEventInput,
   actor: string,
 ): Promise<FamilyEvent> {
-  const knownGroups = new Set((await store.listGroups()).map((group) => group.key));
+  // Events are shared family milestones, so they tag branches only — personal
+  // lists are people-only by design (docs/personal-groups.md, question 2).
+  const knownGroups = new Set(
+    (await store.listGroups()).filter((group) => !isPersonalGroup(group)).map((group) => group.key),
+  );
   const event = normalizeEvent(input, knownGroups);
   await store.upsertEvent(event);
   await store.appendAudit({
@@ -63,6 +67,7 @@ export async function addEvent(
     action: "create_event",
     targetId: event.id,
     detail: `Added ${event.kind} "${event.title}" on ${event.date}`,
+    groups: event.groups,
   });
   return event;
 }

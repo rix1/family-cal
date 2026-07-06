@@ -3,7 +3,7 @@ import { Toast } from "@/islands/Toast.tsx";
 import { adminDenied, adminViewer } from "@/lib/admin_auth.ts";
 import { getStore } from "@/lib/db.ts";
 import { DEFAULT_GROUP_COLOR, GROUP_COLORS } from "@/lib/group_colors.ts";
-import type { GroupInfo } from "@/lib/model.ts";
+import { type GroupInfo, isPersonalGroup } from "@/lib/model.ts";
 import { define } from "@/utils.ts";
 import { page } from "fresh";
 
@@ -28,7 +28,7 @@ export const handlers = define.handlers({
     const descriptions = form.getAll("description").map(String);
     // Color is a per-row radio group (`color-<index>`), aligned with the
     // positional key/label arrays above.
-    const groups: GroupInfo[] = keys
+    const branches: GroupInfo[] = keys
       .map((key, index) => ({
         key: key.trim(),
         label: labels[index]?.trim() ?? "",
@@ -36,7 +36,14 @@ export const handlers = define.handlers({
         description: descriptions[index]?.trim() || undefined,
       }))
       .filter((group) => group.key && group.label);
-    await store.setGroups(groups);
+    // The form edits branches only; personal lists are viewer-owned and must
+    // survive this whole-list replacement (setGroups overwrites everything).
+    const personal = (await store.listGroups()).filter(isPersonalGroup);
+    const branchKeys = new Set(branches.map((group) => group.key));
+    await store.setGroups([
+      ...branches,
+      ...personal.filter((group) => !branchKeys.has(group.key)),
+    ]);
     return new Response(null, {
       status: 303,
       headers: { location: "/admin/groups/?saved=1" },
@@ -45,7 +52,9 @@ export const handlers = define.handlers({
 });
 
 export default define.page<typeof handlers>(({ data }) => {
-  const rows = [...data.groups, { key: "", label: "", color: DEFAULT_GROUP_COLOR }];
+  const branches = data.groups.filter((group) => !isPersonalGroup(group));
+  const personal = data.groups.filter(isPersonalGroup);
+  const rows = [...branches, { key: "", label: "", color: DEFAULT_GROUP_COLOR }];
   return (
     <>
       <title>Groups | Family Calendar Admin</title>
@@ -116,6 +125,41 @@ export default define.page<typeof handlers>(({ data }) => {
             Save groups
           </button>
         </form>
+        {personal.length > 0 && (
+          <section class="mt-10">
+            <h2 class="text-lg font-semibold tracking-tight">Personal lists</h2>
+            <p class="mt-1 text-sm text-ink-2">
+              Created and managed by their owners; shown here for reference only. Reassign an owner
+              by editing the record if someone loses access.
+            </p>
+            <div class="card mt-4 overflow-hidden">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Key</th>
+                    <th>Label</th>
+                    <th>Owner</th>
+                    <th>Visibility</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {personal.map((group) => (
+                    <tr>
+                      <td class="font-mono text-xs text-ink-2">{group.key}</td>
+                      <td class="font-medium">{group.label}</td>
+                      <td class="text-ink-2">{group.owner}</td>
+                      <td>
+                        {group.listed
+                          ? <span class="badge bg-accent-soft text-accent-2">Shared</span>
+                          : <span class="badge bg-inset text-ink-2">Private</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
         {data.saved && <Toast message="Saved groups." />}
       </AdminShell>
     </>

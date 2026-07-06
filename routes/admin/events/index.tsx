@@ -48,6 +48,7 @@ export const handlers = define.handlers({
         action: "delete_event",
         targetId: id,
         detail: `Deleted ${event.kind} "${event.title}" on ${event.date}`,
+        groups: event.groups,
       });
       return new Response(null, {
         status: 303,

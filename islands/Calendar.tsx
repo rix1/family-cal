@@ -1,6 +1,6 @@
 import { AppHeader, MenuIcon } from "@/components/AppHeader.tsx";
 import { EventForm } from "@/islands/EventForm.tsx";
-import { PersonForm } from "@/islands/PersonForm.tsx";
+import { PersonForm, type SavedGroup } from "@/islands/PersonForm.tsx";
 import { ageAtDate, localizedMonthNames } from "@/lib/dates.ts";
 import { retainAvailable, toggleSelection } from "@/lib/filter_selection.ts";
 import { groupBadgeClass } from "@/lib/group_colors.ts";
@@ -354,6 +354,8 @@ interface CalendarProps extends CalendarViewData {
   subscribed?: boolean;
   /** Groups this viewer follows; groups outside this set show disabled in the filter. */
   followedGroups: string[];
+  /** The viewer's own personal-list key, or null until its first use creates it. */
+  personalKey?: string | null;
   /** Whether the getting-started checklist was dismissed ("I'll do this later"). */
   checklistDismissed?: boolean;
 }
@@ -440,7 +442,7 @@ function FilterDropdown({ label, sections }: { label: string; sections: FilterSe
 
 export function Calendar({
   viewerName,
-  groups,
+  groups: initialGroups,
   people: initialPeople,
   holidays,
   events: initialOccasions,
@@ -449,9 +451,16 @@ export function Calendar({
   eventsSaveUrl,
   logoutUrl,
   subscribed = false,
-  followedGroups,
+  followedGroups: initialFollowedGroups,
+  personalKey: initialPersonalKey = null,
   checklistDismissed: initialChecklistDismissed = false,
 }: CalendarProps) {
+  // Groups and the follow-list are state: saving a person can create a new
+  // branch or the viewer's personal list, and both must appear (followed and
+  // filter-active) without a reload.
+  const [groups, setGroups] = useState(initialGroups);
+  const [followedGroups, setFollowedGroups] = useState(initialFollowedGroups);
+  const [personalKey, setPersonalKey] = useState(initialPersonalKey);
   const [people, setPeople] = useState(initialPeople);
   const [checklistDismissed, setChecklistDismissed] = useState(initialChecklistDismissed);
   const [occasions, setOccasions] = useState(initialOccasions);
@@ -1057,16 +1066,33 @@ export function Calendar({
     setEditing(true);
   }
 
-  function onPersonSaved(saved: ViewPerson) {
+  function onPersonSaved(saved: ViewPerson, newGroup?: SavedGroup) {
     setPeople((current) =>
       current.some((p) => p.id === saved.id)
         ? current.map((p) => (p.id === saved.id ? saved : p))
         : [...current, saved]
     );
+    if (newGroup) {
+      // The save created (or resolved to) a group this page didn't know about:
+      // register it, follow it, and switch it on in the filter so the person
+      // just added is immediately visible.
+      const { key, ...view } = newGroup;
+      setGroups((current) => ({ ...current, [key]: view }));
+      setFollowedGroups((current) => current.includes(key) ? current : [...current, key]);
+      setActiveGroups((current) => new Set(current).add(key));
+      if (newGroup.kind === "personal") setPersonalKey(key);
+    }
     setEditing(false);
     setAdding(false);
     setSelectedPerson(saved); // sheet stays open; body swaps back to the detail view
-    setToast(t("calendar.toast.saved", { name: saved.name }));
+    // A brand-new list or branch is the teachable moment — say what it means.
+    setToast(
+      newGroup?.kind === "personal"
+        ? t("calendar.toast.savedOwnList", { name: saved.name })
+        : newGroup
+        ? t("calendar.toast.savedNewBranch", { name: saved.name, group: newGroup.label })
+        : t("calendar.toast.saved", { name: saved.name }),
+    );
   }
 
   function onEventSaved(saved: ViewEvent) {
@@ -2284,6 +2310,7 @@ export function Calendar({
                 <PersonForm
                   person={adding ? null : selectedPerson}
                   groups={groups}
+                  personalKey={personalKey}
                   people={people}
                   saveUrl={saveUrl}
                   onSaved={onPersonSaved}

@@ -1,4 +1,5 @@
 import { AppHeader } from "@/components/AppHeader.tsx";
+import { HowItWorksGraphic } from "@/components/HowItWorks.tsx";
 import { getStore } from "@/lib/db.ts";
 import { t } from "@/lib/i18n.ts";
 import { sessionViewer } from "@/lib/viewer_auth.ts";
@@ -136,6 +137,9 @@ export default define.page<typeof handlers>(function About({ data }) {
             <Faq question={t("about.faq.groups.q")}>
               {t("about.faq.groups.a.before")} <ProfileLink signedIn={signedIn} />
               {t("about.faq.groups.a.after")}
+              <div class="mt-3">
+                <HowItWorksGraphic />
+              </div>
             </Faq>
             <Faq question={t("about.faq.calFeed.q")}>
               {t("about.faq.calFeed.a.before")} <ProfileLink signedIn={signedIn} />{" "}

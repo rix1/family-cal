@@ -184,17 +184,23 @@ export function EventForm({ groups, people, saveUrl, onSaved, onCancel }: Props)
         <legend class="text-sm font-medium">{t("eventForm.groups")}</legend>
         <p class="mt-1 text-xs text-ink-3">{t("eventForm.groupsHint")}</p>
         <div class="mt-2 flex flex-wrap gap-2">
-          {Object.entries(groups).map(([key, group]) => (
-            <button
-              key={key}
-              type="button"
-              class="chip"
-              aria-pressed={draft.groups.includes(key)}
-              onClick={() => toggleGroup(key)}
-            >
-              {group.label}
-            </button>
-          ))}
+          {
+            /* Branches only: events are shared family milestones; personal
+              lists are people-only (docs/personal-groups.md). */
+          }
+          {Object.entries(groups)
+            .filter(([, group]) => group.kind !== "personal")
+            .map(([key, group]) => (
+              <button
+                key={key}
+                type="button"
+                class="chip"
+                aria-pressed={draft.groups.includes(key)}
+                onClick={() => toggleGroup(key)}
+              >
+                {group.label}
+              </button>
+            ))}
         </div>
       </fieldset>
       <div class="relative grid gap-1.5 text-sm font-medium">

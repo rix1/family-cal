@@ -1,6 +1,7 @@
 import { getStore } from "@/lib/db.ts";
+import { NEW_BRANCH_PREFIX, PERSONAL_AFFILIATION, resolveAffiliation } from "@/lib/groups.ts";
 import { json } from "@/lib/http.ts";
-import { viewerIsActive } from "@/lib/model.ts";
+import { isPersonalGroup, viewerIsActive } from "@/lib/model.ts";
 import {
   addPerson,
   applyPeople,
@@ -8,7 +9,30 @@ import {
   updatePerson,
   ValidationError,
 } from "@/lib/people.ts";
+import type { Store } from "@/lib/store.ts";
 import { define } from "@/utils.ts";
+
+/**
+ * When the form's affiliation sentinel created (or resolved to) a group the
+ * client has never seen, describe it in the response so the calendar island
+ * can extend its group map, follow-list and filter without a reload.
+ */
+async function groupForResponse(store: Store, key: string | undefined) {
+  if (!key) return undefined;
+  const group = (await store.listGroups()).find((g) => g.key === key);
+  if (!group) return undefined;
+  return {
+    key: group.key,
+    label: group.label,
+    color: group.color,
+    ...(isPersonalGroup(group) ? { kind: "personal" as const } : {}),
+  };
+}
+
+function isAffiliationSentinel(affiliation: string | undefined): boolean {
+  return affiliation === PERSONAL_AFFILIATION ||
+    Boolean(affiliation?.startsWith(NEW_BRANCH_PREFIX));
+}
 
 export const handler = define.handlers({
   // Bulk replacement (the admin editor): it deletes removed people, so unlike
@@ -49,7 +73,15 @@ export const handler = define.handlers({
     }
 
     try {
-      return json({ person: await addPerson(store, payload.person ?? {}, viewer.name) });
+      const person = payload.person ?? {};
+      // "__personal__" / "__new__:<label>" create the target group first.
+      const sentinel = isAffiliationSentinel(person.affiliation);
+      person.affiliation = await resolveAffiliation(store, viewer, person.affiliation);
+      const saved = await addPerson(store, person, viewer.name);
+      return json({
+        person: saved,
+        group: sentinel ? await groupForResponse(store, person.affiliation) : undefined,
+      });
     } catch (err) {
       if (err instanceof ValidationError) return json({ error: err.message }, 400);
       throw err;
@@ -70,8 +102,13 @@ export const handler = define.handlers({
 
     if (!payload.id) return json({ error: "person id is required" }, 400);
     try {
+      const person = payload.person ?? {};
+      const sentinel = isAffiliationSentinel(person.affiliation);
+      person.affiliation = await resolveAffiliation(store, viewer, person.affiliation);
+      const saved = await updatePerson(store, payload.id, person, viewer.name);
       return json({
-        person: await updatePerson(store, payload.id, payload.person ?? {}, viewer.name),
+        person: saved,
+        group: sentinel ? await groupForResponse(store, person.affiliation) : undefined,
       });
     } catch (err) {
       if (err instanceof ValidationError) return json({ error: err.message }, 400);

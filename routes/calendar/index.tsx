@@ -2,6 +2,7 @@ import { Calendar } from "@/islands/Calendar.tsx";
 import { WelcomeTour } from "@/islands/WelcomeTour.tsx";
 import { ensureFeedToken } from "@/lib/access_links.ts";
 import { getStore } from "@/lib/db.ts";
+import { ownPersonalGroup } from "@/lib/groups.ts";
 import { t } from "@/lib/i18n.ts";
 import { sessionViewer } from "@/lib/viewer_auth.ts";
 import { calendarViewData } from "@/lib/view_data.ts";
@@ -14,6 +15,7 @@ export const handlers = define.handlers({
     const viewer = await sessionViewer(ctx.req, store);
     if (!viewer) throw new HttpError(404, t("calendar.error.requiresLink"));
     const calendar = await calendarViewData(store, viewer.groups);
+    const ownList = ownPersonalGroup(await store.listGroups(), viewer.email);
     // The welcome tour shows on the first visit — however the viewer got their
     // link (invite or admin-issued) — until finishing/skipping stamps
     // `welcomedAt`. ?welcome=1 (the "Show welcome tour" menu item) replays it.
@@ -27,6 +29,7 @@ export const handlers = define.handlers({
       eventsSaveUrl: `/api/events/${viewer.token}`,
       subscribed: Boolean(viewer.newsletter),
       followedGroups: viewer.groups,
+      personalKey: ownList?.key ?? null,
       checklistDismissed: Boolean(viewer.checklistDismissedAt),
       welcome: showWelcome
         ? {
@@ -49,6 +52,7 @@ export default define.page<typeof handlers>(({ data }) => (
       eventsSaveUrl={data.eventsSaveUrl}
       subscribed={data.subscribed}
       followedGroups={data.followedGroups}
+      personalKey={data.personalKey}
       checklistDismissed={data.checklistDismissed}
       logoutUrl="/logout"
     />

@@ -3,6 +3,7 @@ import { GroupPicker } from "@/components/GroupPicker.tsx";
 import { CopyButton } from "@/islands/CopyButton.tsx";
 import { ensureFeedToken, setViewerGroups } from "@/lib/access_links.ts";
 import { getStore } from "@/lib/db.ts";
+import { ownPersonalGroup, visibleGroups } from "@/lib/groups.ts";
 import { t } from "@/lib/i18n.ts";
 import { clearNewsletterPreference, setNewsletterPreference } from "@/lib/newsletter.ts";
 import { memberNamesByGroup, ValidationError } from "@/lib/people.ts";
@@ -19,11 +20,15 @@ export const handlers = define.handlers({
     const feedUrl = `${baseUrl}/cal/${await ensureFeedToken(store, viewer)}.ics`;
     const [groups, people] = await Promise.all([store.listGroups(), store.listPeople()]);
     const members = memberNamesByGroup(people);
+    const ownList = ownPersonalGroup(groups, viewer.email);
     return page({
       viewerName: viewer.name,
       email: viewer.email,
       adminUrl: viewer.isAdmin ? "/admin/" : undefined,
-      groups,
+      groups: visibleGroups(groups, viewer.email),
+      ownList: ownList
+        ? { key: ownList.key, label: ownList.label, listed: Boolean(ownList.listed) }
+        : null,
       members,
       followedGroups: viewer.groups,
       subscribed: Boolean(viewer.newsletter),
@@ -50,6 +55,23 @@ export const handlers = define.handlers({
         await setNewsletterPreference(store, viewer);
         return redirect("subscribed");
       }
+      if (action === "share-list" || action === "unshare-list") {
+        const groups = await store.listGroups();
+        const ownList = ownPersonalGroup(groups, viewer.email);
+        if (!ownList) throw new HttpError(400, t("profile.error.unknownAction"));
+        const listed = action === "share-list";
+        await store.setGroups(
+          groups.map((group) => group.key === ownList.key ? { ...group, listed } : group),
+        );
+        await store.appendAudit({
+          at: new Date().toISOString(),
+          actor: viewer.name,
+          action: listed ? "share_list" : "unshare_list",
+          detail: `${listed ? "Shared" : "Unshared"} personal list "${ownList.label}"`,
+          groups: [ownList.key],
+        });
+        return redirect(listed ? "shared" : "unshared");
+      }
     } catch (error) {
       if (error instanceof ValidationError) throw new HttpError(400, error.message);
       throw error;
@@ -68,6 +90,8 @@ const FLASH: Record<string, string> = {
   groups: "profile.flash.groups",
   subscribed: "profile.flash.subscribed",
   unsubscribed: "profile.flash.unsubscribed",
+  shared: "profile.flash.shared",
+  unshared: "profile.flash.unshared",
 };
 
 export default define.page<typeof handlers>(({ data }) => {
@@ -135,11 +159,49 @@ export default define.page<typeof handlers>(({ data }) => {
                 groups={data.groups}
                 members={data.members}
                 selected={data.followedGroups}
+                ownKeys={data.ownList ? [data.ownList.key] : []}
               />
               <button type="submit" class="btn btn-primary justify-self-start">
                 {t("profile.groups.save")}
               </button>
             </form>
+
+            {data.ownList && (
+              <div class="flex items-center justify-between gap-4 border-t border-line pt-5">
+                <div class="min-w-0">
+                  <h3 class="text-sm font-medium">
+                    {t("profile.shareList.title", { label: data.ownList.label })}
+                  </h3>
+                  <p class="mt-1 text-xs leading-relaxed text-ink-3">
+                    {data.ownList.listed
+                      ? t("profile.shareList.onHint")
+                      : t("profile.shareList.offHint")}
+                  </p>
+                </div>
+                <form method="post" class="shrink-0">
+                  <input
+                    type="hidden"
+                    name="action"
+                    value={data.ownList.listed ? "unshare-list" : "share-list"}
+                  />
+                  <button
+                    type="submit"
+                    role="switch"
+                    aria-checked={data.ownList.listed}
+                    aria-label={t("profile.shareList.switchLabel")}
+                    class={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      data.ownList.listed ? "bg-accent" : "bg-line-2"
+                    }`}
+                  >
+                    <span
+                      class={`inline-block size-5 rounded-full bg-surface shadow transition-transform ${
+                        data.ownList.listed ? "translate-x-[1.375rem]" : "translate-x-0.5"
+                      }`}
+                    />
+                  </button>
+                </form>
+              </div>
+            )}
           </section>
 
           {/* Monthly email */}

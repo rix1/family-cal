@@ -39,6 +39,22 @@ export interface GroupInfo {
    * newcomers understand what they're choosing.
    */
   description?: string;
+  /**
+   * "branch" (absent = branch): an admin-defined side of the family, listed
+   * for everyone. "personal": a viewer-created list ("Mine folk") — friends
+   * and other people-only extras, private to its owner unless `listed`.
+   * See docs/personal-groups.md.
+   */
+  kind?: "branch" | "personal";
+  /** Owner's profile email (stable across token rotation). Personal groups only. */
+  owner?: string;
+  /** Personal groups only: shown in everyone's group picker. Default false. */
+  listed?: boolean;
+}
+
+/** Branches are admin-defined; absent `kind` means branch (pre-feature records). */
+export function isPersonalGroup(group: GroupInfo): boolean {
+  return group.kind === "personal";
 }
 
 export const EVENT_KINDS = ["wedding", "baptism", "confirmation", "other"] as const;
@@ -209,6 +225,12 @@ export interface AuditEntry {
   /** Affected person id, when applicable. */
   targetId?: string;
   detail?: string;
+  /**
+   * Group keys the change touched (a person's affiliation, an event's tags).
+   * Lets a future activity feed filter to "groups you follow" without joining
+   * against people — which breaks for deletions. Absent on old entries.
+   */
+  groups?: string[];
 }
 
 /** Country codes used for holiday sets. */

@@ -1,10 +1,12 @@
 import { holidayLabel, holidaysForYears } from "@/lib/holidays.ts";
-import type { FamilyEvent, GroupInfo, Person } from "@/lib/model.ts";
+import { type FamilyEvent, type GroupInfo, isPersonalGroup, type Person } from "@/lib/model.ts";
 import type { Store } from "@/lib/store.ts";
 
 export interface ViewGroup {
   label: string;
   color: string;
+  /** "personal" marks a viewer-created list; absent means family branch. */
+  kind?: "personal";
 }
 
 export interface ViewPerson {
@@ -42,7 +44,14 @@ export interface CalendarViewData {
 }
 
 function groupsToMap(groups: GroupInfo[]): Record<string, ViewGroup> {
-  return Object.fromEntries(groups.map((g) => [g.key, { label: g.label, color: g.color }]));
+  return Object.fromEntries(groups.map((g) => [
+    g.key,
+    {
+      label: g.label,
+      color: g.color,
+      ...(isPersonalGroup(g) ? { kind: "personal" as const } : {}),
+    },
+  ]));
 }
 
 function peopleToView(people: Person[]): ViewPerson[] {
@@ -97,8 +106,15 @@ export async function calendarViewData(
   const visibleEvents = followed
     ? events.filter((event) => event.groups.some((group) => followed.has(group)))
     : events;
+  // The group map names every group the client may mention: branches and
+  // shared lists always (the filter shows unfollowed ones disabled), but other
+  // people's unlisted lists must not leak — owners follow their own, so
+  // "followed" covers those.
+  const visibleGroups = groups.filter(
+    (group) => !isPersonalGroup(group) || group.listed || !followed || followed.has(group.key),
+  );
   return {
-    groups: groupsToMap(groups),
+    groups: groupsToMap(visibleGroups),
     people: peopleToView(visiblePeople),
     holidays: holidayWindow(),
     events: eventsToView(visibleEvents),

@@ -81,7 +81,14 @@ export async function applyPeople(
   for (const p of current) {
     if (!ids.has(p.id)) {
       await store.deletePerson(p.id);
-      await store.appendAudit({ at, actor, action: "delete", targetId: p.id, detail: p.name });
+      await store.appendAudit({
+        at,
+        actor,
+        action: "delete",
+        targetId: p.id,
+        detail: p.name,
+        groups: [p.affiliation],
+      });
     }
   }
 
@@ -89,10 +96,24 @@ export async function applyPeople(
     const prev = currentById.get(p.id);
     if (!prev) {
       await store.upsertPerson(p);
-      await store.appendAudit({ at, actor, action: "create", targetId: p.id, detail: p.name });
+      await store.appendAudit({
+        at,
+        actor,
+        action: "create",
+        targetId: p.id,
+        detail: p.name,
+        groups: [p.affiliation],
+      });
     } else if (JSON.stringify(prev) !== JSON.stringify(p)) {
       await store.upsertPerson(p);
-      await store.appendAudit({ at, actor, action: "update", targetId: p.id, detail: p.name });
+      await store.appendAudit({
+        at,
+        actor,
+        action: "update",
+        targetId: p.id,
+        detail: p.name,
+        groups: [...new Set([prev.affiliation, p.affiliation])],
+      });
     }
   }
 
@@ -115,6 +136,7 @@ export async function addPerson(
     action: "create",
     targetId: next.id,
     detail: next.name,
+    groups: [next.affiliation],
   });
   return next;
 }
@@ -139,6 +161,7 @@ export async function updatePerson(
       action: "update",
       targetId: id,
       detail: next.name,
+      groups: [...new Set([current.affiliation, next.affiliation])],
     });
   }
   return next;

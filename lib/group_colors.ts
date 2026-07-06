@@ -76,8 +76,40 @@ export const GROUP_COLORS: GroupColor[] = [
 
 export const DEFAULT_GROUP_COLOR = GROUP_COLORS[0].key;
 
+/**
+ * The single reserved style for personal lists ("Mine folk"). Deliberately
+ * outside GROUP_COLORS: user-created lists are unbounded and must not consume
+ * palette slots or dilute the branch color coding, so they all share this
+ * neutral look and the admin color picker never offers it.
+ */
+export const PERSONAL_GROUP_COLOR: GroupColor = {
+  key: "personal",
+  label: "Personal list",
+  bg: "bg-inset",
+  text: "text-ink-2",
+  border: "border-line",
+};
+
 function colorOf(key: string | undefined): GroupColor {
+  if (key === PERSONAL_GROUP_COLOR.key) return PERSONAL_GROUP_COLOR;
   return GROUP_COLORS.find((color) => color.key === key) ?? GROUP_COLORS[0];
+}
+
+/**
+ * Palette key for a new branch: the least-used color, first-listed winning
+ * ties — so member-created branches stay visually distinct for as long as the
+ * palette allows.
+ */
+export function nextFreeColor(usedColors: string[]): string {
+  const counts = new Map(GROUP_COLORS.map((color) => [color.key, 0]));
+  for (const used of usedColors) {
+    if (counts.has(used)) counts.set(used, counts.get(used)! + 1);
+  }
+  let best = GROUP_COLORS[0].key;
+  for (const [key, count] of counts) {
+    if (count < counts.get(best)!) best = key;
+  }
+  return best;
 }
 
 /** Tailwind classes for a group badge (background + text). */

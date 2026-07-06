@@ -1,3 +1,4 @@
+import { visibleGroups } from "./groups.ts";
 import { type Viewer, viewerIsActive } from "./model.ts";
 import { normalizeEmail } from "./newsletter.ts";
 import { ValidationError } from "./people.ts";
@@ -57,7 +58,11 @@ export async function setViewerGroups(
   viewer: Viewer,
   groups: string[],
 ): Promise<Viewer> {
-  const known = new Set((await store.listGroups()).map((group) => group.key));
+  // Followable = what the picker offers this viewer: branches, own lists,
+  // shared lists. Other people's unlisted lists are not valid targets.
+  const known = new Set(
+    visibleGroups(await store.listGroups(), viewer.email).map((group) => group.key),
+  );
   const next = [...new Set(groups.map((group) => group.trim()).filter(Boolean))].sort();
   for (const group of next) {
     if (!known.has(group)) throw new ValidationError(`unknown group "${group}"`);
@@ -69,6 +74,7 @@ export async function setViewerGroups(
     actor: viewer.name,
     action: "viewer_groups",
     detail: `Following: ${next.join(", ") || "none"}`,
+    groups: next,
   });
   return updated;
 }

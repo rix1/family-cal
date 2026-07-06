@@ -1,5 +1,5 @@
 import { t } from "@/lib/i18n.ts";
-import type { GroupInfo } from "@/lib/model.ts";
+import { type GroupInfo, isPersonalGroup } from "@/lib/model.ts";
 
 interface Props {
   groups: GroupInfo[];
@@ -7,14 +7,51 @@ interface Props {
   members: Record<string, string[]>;
   /** Group keys rendered pre-checked. */
   selected?: string[];
+  /** Keys of the viewer's own personal lists, shown under their own heading. */
+  ownKeys?: string[];
 }
 
 /**
  * Checkbox cards for choosing which groups to follow, with an expandable
  * member preview so newcomers can see who a "branch" actually is. Submits as
  * repeated `groups` form fields; used by the profile editor and the invite page.
+ *
+ * Family branches render first, unlabeled (they are the normal case). The
+ * viewer's own lists and lists others have shared get their own small
+ * headings, so the branch taxonomy stays visually clean.
  */
-export function GroupPicker({ groups, members, selected = [] }: Props) {
+export function GroupPicker({ groups, members, selected = [], ownKeys = [] }: Props) {
+  const branches = groups.filter((group) => !isPersonalGroup(group));
+  const own = groups.filter((group) => ownKeys.includes(group.key));
+  const shared = groups.filter(
+    (group) => isPersonalGroup(group) && !ownKeys.includes(group.key),
+  );
+  return (
+    <div class="grid gap-2">
+      <GroupCards groups={branches} members={members} selected={selected} />
+      {own.length > 0 && (
+        <>
+          <h4 class="kicker mt-2">{t("groupPicker.ownLists")}</h4>
+          <GroupCards groups={own} members={members} selected={selected} />
+        </>
+      )}
+      {shared.length > 0 && (
+        <>
+          <h4 class="kicker mt-2">{t("groupPicker.sharedLists")}</h4>
+          <GroupCards groups={shared} members={members} selected={selected} />
+        </>
+      )}
+    </div>
+  );
+}
+
+function GroupCards(
+  { groups, members, selected }: {
+    groups: GroupInfo[];
+    members: Record<string, string[]>;
+    selected: string[];
+  },
+) {
   return (
     <div class="grid gap-2 sm:grid-cols-2">
       {groups.map((group) => {

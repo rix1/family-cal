@@ -37,7 +37,7 @@ the ones you'll most likely set:
 | `ENVIRONMENT` | `DEV` or `PROD`. Picks the database (`.data/dev.sqlite3` vs `.data/kv.sqlite3`) and the cookie policy (DEV allows non-Secure cookies for http). |
 | `BASE_URL` | Public origin for emailed links and iCal feed URLs. |
 | `KV_PATH` | Maintenance-only override of the DB path (e.g. booting a backup copy). |
-| `RESEND_API_KEY`, `RESEND_FROM` | Send real email via Resend; otherwise mail logs to the console. |
+| `RESEND_API_KEY`, `RESEND_FROM` | Send real email via Resend (PROD only — DEV always logs to the console). |
 | `OLLAMA_HOST`, `INTRO_MODEL`, `OLLAMA_KEEP_ALIVE` | Local newsletter-prose model (built-in defaults work as-is). |
 | `INTRO_DISABLED`, `INTRO_CMD` | Turn prose off, or shell out to a different local model command. |
 

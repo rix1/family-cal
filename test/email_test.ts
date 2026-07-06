@@ -1,5 +1,5 @@
-import { ResendEmailSender } from "../lib/email.ts";
-import { assertEquals, assertRejects, assertStringIncludes } from "./asserts.ts";
+import { ConsoleEmailSender, getEmailSender, ResendEmailSender } from "../lib/email.ts";
+import { assert, assertEquals, assertRejects, assertStringIncludes } from "./asserts.ts";
 
 /** Capture the request a sender makes by stubbing global fetch. */
 function withStubbedFetch(
@@ -56,6 +56,29 @@ Deno.test("ResendEmailSender throws on a non-2xx response", async () => {
     await assertRejects(() => sender.send({ to: "a@b.com", subject: "s", text: "t" }));
   } finally {
     stub.restore();
+  }
+});
+
+Deno.test("getEmailSender never returns Resend in DEV, even fully configured", () => {
+  const saved = {
+    ENVIRONMENT: Deno.env.get("ENVIRONMENT"),
+    RESEND_API_KEY: Deno.env.get("RESEND_API_KEY"),
+    RESEND_FROM: Deno.env.get("RESEND_FROM"),
+  };
+  try {
+    Deno.env.set("RESEND_API_KEY", "re_test");
+    Deno.env.set("RESEND_FROM", "x@updates.example.com");
+
+    Deno.env.set("ENVIRONMENT", "DEV");
+    assert(getEmailSender() instanceof ConsoleEmailSender);
+
+    Deno.env.set("ENVIRONMENT", "PROD");
+    assert(getEmailSender() instanceof ResendEmailSender);
+  } finally {
+    for (const [key, value] of Object.entries(saved)) {
+      if (value === undefined) Deno.env.delete(key);
+      else Deno.env.set(key, value);
+    }
   }
 });
 

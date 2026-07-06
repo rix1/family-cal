@@ -2,8 +2,8 @@
   "unstable": ["kv"],
   "nodeModulesDir": "manual",
   "tasks": {
-    "dev": "DEV_INSECURE_COOKIES=1 deno run -A --env-file npm:vite@^7.1.3 --host 0.0.0.0 --port 3000",
-    "subset": "sqlite3 .data/kv.sqlite3 '.backup /tmp/dev-kv.sqlite3' && KV_PATH=/tmp/dev-kv.sqlite3 deno task dev",
+    "dev": "sh -c 'test -f .data/dev.sqlite3 || { echo \"No dev database at .data/dev.sqlite3 - run: deno task subset\" >&2; exit 1; }' && ENVIRONMENT=DEV deno run -A --env-file npm:vite@^7.1.3 --host 0.0.0.0 --port 3000",
+    "subset": "rm -f .data/dev.sqlite3 .data/dev.sqlite3-wal .data/dev.sqlite3-shm && sqlite3 .data/kv.sqlite3 '.backup .data/dev.sqlite3' && echo 'Copied prod -> .data/dev.sqlite3'",
     "build": "vite build",
     "start": "deno serve --env-file --allow-net --allow-env --allow-read --allow-write _fresh/server.js",
     "seed": "deno run --env-file --allow-env --allow-read --allow-write scripts/seed.ts",

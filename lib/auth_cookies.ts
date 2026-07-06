@@ -1,3 +1,5 @@
+import { isDev } from "@/lib/env.ts";
+
 export const VIEWER_COOKIE = "family_viewer";
 export const ADMIN_COOKIE = "family_admin";
 
@@ -11,11 +13,11 @@ export function cookieValue(request: Request, name: string): string | null {
 }
 
 /**
- * `; Secure` so the capability token is never sent over plaintext HTTP. Opt out
- * with DEV_INSECURE_COOKIES=1 for local http development only.
+ * `; Secure` so the capability token is never sent over plaintext HTTP. Only
+ * ENVIRONMENT=DEV drops it, because local dev runs over plain http.
  */
 function secureAttr(): string {
-  return Deno.env.get("DEV_INSECURE_COOKIES") === "1" ? "" : "; Secure";
+  return isDev() ? "" : "; Secure";
 }
 
 export function sessionCookie(name: string, token: string): string {

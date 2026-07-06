@@ -4,7 +4,8 @@ import { loadSeedData } from "@/lib/seed.ts";
 
 const force = Deno.args.includes("--force");
 const seedDir = Deno.args.find((arg) => !arg.startsWith("--")) ?? "seed";
-const store = await KvStore.create(await resolveKvPath());
+// Seeding is the one flow allowed to create a dev DB from nothing.
+const store = await KvStore.create(await resolveKvPath({ createIfMissing: true }));
 
 try {
   const [people, groups, viewers, invites] = await Promise.all([

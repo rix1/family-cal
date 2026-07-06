@@ -27,16 +27,16 @@ needed — every `deno task` loads `.env` automatically (via Deno's `--env-file`
 cp .env.template .env
 ```
 
-`.env` is gitignored; keep real secrets out of the repo. All variables are
-optional — with an empty `.env` the app uses a local KV file and logs emails to
-the console instead of sending. See `.env.template` for the full annotated list;
+`.env` is gitignored; keep real secrets out of the repo. `ENVIRONMENT` is
+required; everything else is optional (without the email keys, mail logs to the
+console instead of sending). See `.env.template` for the full annotated list;
 the ones you'll most likely set:
 
 | Variable | Purpose |
 | --- | --- |
+| `ENVIRONMENT` | `DEV` or `PROD`. Picks the database (`.data/dev.sqlite3` vs `.data/kv.sqlite3`) and the cookie policy (DEV allows non-Secure cookies for http). |
 | `BASE_URL` | Public origin for emailed links and iCal feed URLs. |
-| `KV_PATH` | Deno KV database path (default `./.data/kv.sqlite3`). Must match app and CLI tasks. |
-| `DEV_INSECURE_COOKIES` | Local dev only: allow non-Secure cookies over http (the `dev` task sets this). |
+| `KV_PATH` | Maintenance-only override of the DB path (e.g. booting a backup copy). |
 | `RESEND_API_KEY`, `RESEND_FROM` | Send real email via Resend; otherwise mail logs to the console. |
 | `OLLAMA_HOST`, `INTRO_MODEL`, `OLLAMA_KEEP_ALIVE` | Local newsletter-prose model (built-in defaults work as-is). |
 | `INTRO_DISABLED`, `INTRO_CMD` | Turn prose off, or shell out to a different local model command. |
@@ -50,26 +50,28 @@ deploys can inject secrets without a file. See `DEPLOY.md` for the production se
 deno task dev
 ```
 
-Set `KV_PATH` in `.env` (or inline, e.g. `KV_PATH=/path/to/family-cal.db deno task dev`).
-The database starts empty. There are two ways to populate it:
+The dev server always runs on the local dev database `.data/dev.sqlite3` and
+refuses to start if it doesn't exist. Two ways to create one:
 
-1. Run `KV_PATH=/path/to/family-cal.db deno task seed` to load `seed/*.csv`.
-2. Issue an admin link, open the admin, and enter your own groups and people.
+1. `deno task subset` — copy the production database (`.data/kv.sqlite3`).
+2. `ENVIRONMENT=DEV deno task seed` — a fresh database from `seed/*.csv`; then
+   issue an admin link and enter your own groups and people.
 
 The seed command refuses to modify a non-empty database. Use `--force` to clear
 people, viewers, and invites and replace groups before loading:
 
 ```sh
-KV_PATH=/path/to/family-cal.db deno task seed --force
+ENVIRONMENT=DEV deno task seed --force
 ```
 
 ## Access links
 
-Set `KV_PATH` to the same database used by the app, then issue a cryptographically random
-capability:
+CLI tasks pick their database the same way the servers do: `ENVIRONMENT` from
+`.env` (PROD in this working tree) unless overridden inline. Issue a
+cryptographically random capability:
 
 ```sh
-KV_PATH=/path/to/famcal.db deno task issue-link \
+deno task issue-link \
   --name "Solveig" \
   --email solveig@example.com \
   --groups no \
@@ -136,7 +138,7 @@ Family invites only grant admin access when explicitly selected at creation.
 Create an admin at issuance time:
 
 ```sh
-KV_PATH=/path/to/family-cal.db deno task issue-link \
+deno task issue-link \
   --name "Family admin" \
   --admin \
   --base-url https://family.example
@@ -145,11 +147,11 @@ KV_PATH=/path/to/family-cal.db deno task issue-link \
 Grant or remove admin access for an existing viewer by updating that property:
 
 ```sh
-KV_PATH=/path/to/family-cal.db deno task set-permission \
+deno task set-permission \
   --token "the-viewer-token" \
   --admin true
 
-KV_PATH=/path/to/family-cal.db deno task set-permission \
+deno task set-permission \
   --token "the-viewer-token" \
   --admin false
 ```

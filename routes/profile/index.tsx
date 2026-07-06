@@ -1,10 +1,11 @@
 import { AppHeader } from "@/components/AppHeader.tsx";
+import { GroupPicker } from "@/components/GroupPicker.tsx";
 import { CopyButton } from "@/islands/CopyButton.tsx";
 import { ensureFeedToken, setViewerGroups } from "@/lib/access_links.ts";
 import { getStore } from "@/lib/db.ts";
 import { t } from "@/lib/i18n.ts";
 import { clearNewsletterPreference, setNewsletterPreference } from "@/lib/newsletter.ts";
-import { ValidationError } from "@/lib/people.ts";
+import { memberNamesByGroup, ValidationError } from "@/lib/people.ts";
 import { sessionViewer } from "@/lib/viewer_auth.ts";
 import { define } from "@/utils.ts";
 import { HttpError, page } from "fresh";
@@ -17,11 +18,7 @@ export const handlers = define.handlers({
     const baseUrl = Deno.env.get("BASE_URL") ?? ctx.url.origin;
     const feedUrl = `${baseUrl}/cal/${await ensureFeedToken(store, viewer)}.ics`;
     const [groups, people] = await Promise.all([store.listGroups(), store.listPeople()]);
-    const members: Record<string, string[]> = {};
-    for (const person of people) {
-      (members[person.affiliation] ??= []).push(person.name);
-    }
-    for (const names of Object.values(members)) names.sort((a, b) => a.localeCompare(b, "nb"));
+    const members = memberNamesByGroup(people);
     return page({
       viewerName: viewer.name,
       email: viewer.email,
@@ -134,50 +131,11 @@ export default define.page<typeof handlers>(({ data }) => {
                   {t("profile.groups.hint")}
                 </p>
               </div>
-              <div class="grid gap-2 sm:grid-cols-2">
-                {data.groups.map((group) => {
-                  const names = data.members[group.key] ?? [];
-                  return (
-                    <div class="rounded-lg border border-line-2 text-sm has-checked:border-accent has-checked:bg-accent-soft">
-                      <label class="flex cursor-pointer items-start gap-3 rounded-t-lg px-3 py-2.5 font-medium hover:bg-inset has-checked:text-accent-2">
-                        <input
-                          type="checkbox"
-                          name="groups"
-                          value={group.key}
-                          checked={data.followedGroups.includes(group.key)}
-                          class="mt-0.5 accent-accent"
-                        />
-                        <span class="min-w-0">
-                          <span class="block">{group.label}</span>
-                          {group.description && (
-                            <span class="mt-0.5 block text-xs font-normal leading-relaxed text-ink-3">
-                              {group.description}
-                            </span>
-                          )}
-                        </span>
-                      </label>
-                      {names.length
-                        ? (
-                          <details class="border-t border-line-2/60 px-3 py-2">
-                            <summary class="cursor-pointer text-xs font-medium text-ink-3 hover:text-ink-2">
-                              {names.length === 1
-                                ? t("profile.groups.memberOne")
-                                : t("profile.groups.memberCount", { count: names.length })}
-                            </summary>
-                            <p class="mt-1.5 text-xs font-normal leading-relaxed text-ink-2">
-                              {names.join(", ")}
-                            </p>
-                          </details>
-                        )
-                        : (
-                          <p class="border-t border-line-2/60 px-3 py-2 text-xs text-ink-3">
-                            {t("profile.groups.membersNone")}
-                          </p>
-                        )}
-                    </div>
-                  );
-                })}
-              </div>
+              <GroupPicker
+                groups={data.groups}
+                members={data.members}
+                selected={data.followedGroups}
+              />
               <button type="submit" class="btn btn-primary justify-self-start">
                 {t("profile.groups.save")}
               </button>

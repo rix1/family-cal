@@ -143,3 +143,13 @@ export async function updatePerson(
   }
   return next;
 }
+
+/** Member names per group key, alphabetized for display (GroupPicker preview). */
+export function memberNamesByGroup(people: Person[]): Record<string, string[]> {
+  const members: Record<string, string[]> = {};
+  for (const person of people) {
+    (members[person.affiliation] ??= []).push(person.name);
+  }
+  for (const names of Object.values(members)) names.sort((a, b) => a.localeCompare(b, "nb"));
+  return members;
+}

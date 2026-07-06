@@ -1,37 +1,23 @@
 # Nitpick / smaller feedback to be fixed
 
-- [x] consistent (font) styling is not applied to the /about page compared to the main page
-- [ ] in the "Anniversary of their death" please add "(...) XX years ago"
+- [x] in the "Anniversary of their death" please add "(...) i 20XX, YY years ago" so we can easily see how many years ago it is they passed.
+- [x] the 404 page links back to "familiekalenderen" - change the link text to "gå til innlogging"
 
 
-## calendar > flyout
-- [x] ditch the blur on the backdrop for the flyout.
-- [x] ditch opacity tranition on the flyout itself; instead, follow this pattern: container is rendered off screen and we use translateX when clicking. this should make it feel more snappy.
-- [x] when editing notes, @mention doesn't work.
+## Viewer admin
 
-# admin
-- [x] ensure consistent usage of toasts: people edit has save confirmation, other pages should too.
-- [x] add top nav in order to navigate back to the main calendar. also change from "Edit" to "Admin"
+- [x] update table with the newly added fields, and add a createdAt property. doesn't have to be one col per field (can combine email + name for instance).
+      _(Name+email combined in one column, Created column added, table sorts newest first, search matches email too. `createdAt` is set by `createViewer`; older records show “—”.)_
 
-## auth
-- [x] issuing a new link for the same user does not expire the old one. expired links should say something like "expired - ask for a new oen"
-- [x] add 404 and error page templates and ensure consistent usage.
-- [x] UX improvement: store token in cookie or localstorage. Means we also need a way to "log out"
-- [x] Invite improvement: Add a "new" button to /admin/viewers/ to issue new links (with click to copy)
-- [x] for /admin/viewers/ - Add the ability to expire a token and add some filters to the table.
-- [x] Invite links: make it possible to toggle admin on/off when creating an invite link
-- [x] invite links: change default intervals to: 30m, 4h, 1d, 7d
 
-## other
-- [x] add dark mode
-- [x] add a persistent theme toggle button
+## Viewer onbording
 
-## calendard > filters
-- [x] need to fix the filters: make them dropdown checkbox select instead of pills
-- [x] deselecting the final filter must not reselect every option
-- [x] clicking outside a filter popover closes it
+- [x] If I'm not mistaken, there's no onboarding for viewers? is it possible to re-use the same onboarding flow as invites? Since email and name and admin are required fields, I guess we have to set these at create-time, but on first time visit I'd like them to go through the flow (only name+email fields being disabled) and choose groups, see onboarding etc.
+      _(Confirmed — the tour only fired on `?welcome=1` from invite redemption. Now it shows on any first visit until finished/skipped, so admin-issued viewers get the same tour. Group choice inside the tour is still a link to the profile, not an embedded picker — embedding the GroupPicker as a tour step is a possible follow-up.)_
 
-## Nav
+## Onboarding flow
 
-- [x] Redesign right part of the navbar: Move most items into a dropdown (keep today), under the viewer name with initials as avatar. and ditch the silly emojis.
-- [x] Use the same nav across all pages (/about)
+- [x] Selecting groups doesn't let you preview the members like we have on profile. reuse the same component.
+      _(Extracted `components/GroupPicker.tsx` from the profile markup; invite page and profile now share it, member preview included. Note: this shows family member names to anyone holding an unauthenticated invite link — deemed acceptable since the link holder can join and see everything anyway.)_
+- [x] maybe we could add a menu item for "show onbaording wizard"? or will this cause trouble with the welcomedAt property?
+      _(No trouble: `?welcome=1` now force-shows the tour regardless of `welcomedAt`, and the calendar account menu has a "Vis omvisningen" item linking there. Finishing just re-stamps `welcomedAt`, which is idempotent.)_

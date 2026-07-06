@@ -507,21 +507,14 @@ routeTest("welcome tour shows once and can subscribe to the monthly email", asyn
   });
   const cookie = "family_viewer=fresh-member";
 
-  // ?welcome=1 + no welcomedAt stamp = tour data present, with the feed URL ready.
+  // Any first visit shows the tour — invited and admin-issued viewers alike.
   const withTour = await calendarPageRoute.handlers.GET(
-    ctx("http://localhost/calendar/?welcome=1", { headers: { cookie } }),
+    ctx("http://localhost/calendar/", { headers: { cookie } }),
   );
   assert(!(withTour instanceof Response));
   assert(withTour.data.welcome);
   assertStringIncludes(withTour.data.welcome.feedUrl, ".ics");
   assertEquals(withTour.data.welcome.hasEmail, true);
-
-  // A plain visit never triggers the tour.
-  const plain = await calendarPageRoute.handlers.GET(
-    ctx("http://localhost/calendar/", { headers: { cookie } }),
-  );
-  assert(!(plain instanceof Response));
-  assertEquals(plain.data.welcome, null);
 
   // Subscribing from the tour records the newsletter opt-in.
   const subscribe = await welcomeRoute.handler.POST(
@@ -535,7 +528,7 @@ routeTest("welcome tour shows once and can subscribe to the monthly email", asyn
   await subscribe.text();
   assertEquals((await store.getViewer("fresh-member"))?.newsletter?.email, "fresh@example.com");
 
-  // Finishing stamps welcomedAt, so the tour never comes back — even with ?welcome=1.
+  // Finishing stamps welcomedAt, so the tour stops auto-showing …
   const done = await welcomeRoute.handler.POST(
     ctx("http://localhost/api/welcome", {
       method: "POST",
@@ -548,10 +541,17 @@ routeTest("welcome tour shows once and can subscribe to the monthly email", asyn
   assert((await store.getViewer("fresh-member"))?.welcomedAt);
 
   const again = await calendarPageRoute.handlers.GET(
-    ctx("http://localhost/calendar/?welcome=1", { headers: { cookie } }),
+    ctx("http://localhost/calendar/", { headers: { cookie } }),
   );
   assert(!(again instanceof Response));
   assertEquals(again.data.welcome, null);
+
+  // … but ?welcome=1 (the "Show welcome tour" menu item) replays it on demand.
+  const replay = await calendarPageRoute.handlers.GET(
+    ctx("http://localhost/calendar/?welcome=1", { headers: { cookie } }),
+  );
+  assert(!(replay instanceof Response));
+  assert(replay.data.welcome);
 
   // Dismissing the getting-started checklist sticks on the viewer record.
   assertEquals(again.data.checklistDismissed, false);

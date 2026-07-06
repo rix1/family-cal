@@ -83,6 +83,8 @@ export interface NewsletterPreference {
 export interface Viewer {
   token: string;
   name: string;
+  /** When this capability was issued. Absent only on seeded/test records. */
+  createdAt?: string;
   /**
    * Profile email, collected at onboarding. Identifies the viewer for magic-link
    * login and seeds the newsletter. Distinct from `newsletter.email`, which is an

@@ -25,7 +25,7 @@ export const handlers = define.handlers({
     const group = ctx.url.searchParams.get("group") ?? "all";
     const filteredViewers = viewers.filter((item) => {
       const matchesQuery = !query ||
-        `${item.name} ${item.token}`.toLocaleLowerCase().includes(query);
+        `${item.name} ${item.email} ${item.token}`.toLocaleLowerCase().includes(query);
       const matchesStatus = status === "all" ||
         (status === "active" ? viewerIsActive(item) : !viewerIsActive(item));
       const matchesPermission = permission === "all" ||
@@ -33,7 +33,7 @@ export const handlers = define.handlers({
       const matchesGroup = group === "all" ||
         (group === "none" ? item.groups.length === 0 : item.groups.includes(group));
       return matchesQuery && matchesStatus && matchesPermission && matchesGroup;
-    });
+    }).sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
     const createdToken = ctx.url.searchParams.get("created");
     const created = createdToken ? await store.getViewer(createdToken) : null;
     const baseUrl = Deno.env.get("BASE_URL") ?? ctx.url.origin;
@@ -212,7 +212,7 @@ export default define.page<typeof handlers>(({ data }) => (
           <input
             name="q"
             value={data.filters.query}
-            placeholder="Name or token"
+            placeholder="Name, email or token"
             class="input"
           />
         </label>
@@ -260,10 +260,11 @@ export default define.page<typeof handlers>(({ data }) => (
         <table class="data-table">
           <thead>
             <tr>
-              <th>Name</th>
+              <th>Viewer</th>
               <th>Token</th>
               <th>Groups</th>
               <th>Permission</th>
+              <th>Created</th>
               <th>Status</th>
               <th></th>
             </tr>
@@ -271,13 +272,19 @@ export default define.page<typeof handlers>(({ data }) => (
           <tbody>
             {data.viewers.map((item) => (
               <tr>
-                <td class="font-medium">{item.name}</td>
+                <td>
+                  <span class="block font-medium">{item.name}</span>
+                  <span class="block text-xs text-ink-3">{item.email || "—"}</span>
+                </td>
                 <td class="font-mono text-xs text-ink-2">{item.token}</td>
                 <td class="text-ink-2">{item.groups.join(", ") || "—"}</td>
                 <td>
                   {item.isAdmin
                     ? <span class="badge bg-gold-soft text-gold">Admin</span>
                     : <span class="badge bg-inset text-ink-2">Member</span>}
+                </td>
+                <td class="tabular-nums text-ink-2">
+                  {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "—"}
                 </td>
                 <td>
                   {item.expiredAt

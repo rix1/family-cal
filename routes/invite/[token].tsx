@@ -1,11 +1,12 @@
 import { BrandMark } from "@/components/AppHeader.tsx";
+import { GroupPicker } from "@/components/GroupPicker.tsx";
 import { createViewer } from "@/lib/access_links.ts";
 import { getStore } from "@/lib/db.ts";
 import { t } from "@/lib/i18n.ts";
 import { emailInUse } from "@/lib/login.ts";
 import { inviteIsActive } from "@/lib/model.ts";
 import { normalizeEmail } from "@/lib/newsletter.ts";
-import { ValidationError } from "@/lib/people.ts";
+import { memberNamesByGroup, ValidationError } from "@/lib/people.ts";
 import { clientKey, RateLimiter } from "@/lib/rate_limit.ts";
 import { define } from "@/utils.ts";
 import { HttpError, page } from "fresh";
@@ -28,7 +29,8 @@ async function inviteData(token: string) {
 export const handlers = define.handlers({
   async GET(ctx) {
     const { store, invite } = await inviteData(ctx.params.token);
-    return page({ invite, groups: await store.listGroups() });
+    const [groups, people] = await Promise.all([store.listGroups(), store.listPeople()]);
+    return page({ invite, groups, members: memberNamesByGroup(people) });
   },
   async POST(ctx) {
     if (!signupLimiter.check(clientKey(ctx.req, ctx.info)).allowed) {
@@ -129,25 +131,8 @@ export default define.page<typeof handlers>(({ data }) => (
             <p class="mt-1 text-xs leading-relaxed text-ink-3">
               {t("invite.groupsHint")}
             </p>
-            <div class="mt-3 grid gap-2 sm:grid-cols-2">
-              {data.groups.map((group) => (
-                <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-line-2 px-3 py-2.5 text-sm font-medium hover:bg-inset has-checked:border-accent has-checked:bg-accent-soft has-checked:text-accent-2">
-                  <input
-                    type="checkbox"
-                    name="groups"
-                    value={group.key}
-                    class="mt-0.5 accent-accent"
-                  />
-                  <span class="min-w-0">
-                    <span class="block">{group.label}</span>
-                    {group.description && (
-                      <span class="mt-0.5 block text-xs font-normal leading-relaxed text-ink-3">
-                        {group.description}
-                      </span>
-                    )}
-                  </span>
-                </label>
-              ))}
+            <div class="mt-3">
+              <GroupPicker groups={data.groups} members={data.members} />
             </div>
           </fieldset>
 

@@ -1,8 +1,8 @@
-import type { ComponentChildren } from "preact";
 import { LanguageToggle } from "@/islands/LanguageToggle.tsx";
 import { PopoverBehavior } from "@/islands/PopoverBehavior.tsx";
 import { ThemeToggle } from "@/islands/ThemeToggle.tsx";
 import { t } from "@/lib/i18n.ts";
+import type { ComponentChildren } from "preact";
 
 interface Props {
   title: string;
@@ -85,7 +85,7 @@ export function AppHeader({
           <BrandMark />
           <div class="min-w-0">
             <p class="kicker">{eyebrow ?? t("app.name")}</p>
-            <h1 class="truncate text-[15px] font-semibold leading-snug">{title}</h1>
+            <h1 class="truncate text-[15px] font-semibold leading-snug capitalize">{title}</h1>
           </div>
         </a>
         <div class="flex shrink-0 items-center gap-2">

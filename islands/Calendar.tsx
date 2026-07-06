@@ -1307,6 +1307,14 @@ export function Calendar({
     }
     if (event.type === "memorial") {
       const group = groups[event.person.affiliation];
+      // "i 2003, 22 år siden" — the death is a full YYYY-MM-DD date by model rule.
+      const deathYear = Number(event.person.died!.slice(0, 4));
+      const yearsSince = Number(event.date.slice(0, 4)) - deathYear;
+      const sinceText = yearsSince === 1
+        ? t("calendar.deathAnniversaryYears.one", { year: deathYear })
+        : yearsSince > 1
+        ? t("calendar.deathAnniversaryYears.other", { year: deathYear, count: yearsSince })
+        : "";
       return (
         <div
           id={`event-${event.person.id}-${event.date}-memorial`}
@@ -1332,6 +1340,7 @@ export function Calendar({
             </div>
             <p class="mt-0.5 text-sm text-ink-2">
               {t("calendar.deathAnniversary")}
+              {sinceText && ` — ${sinceText}`}
               {event.person.notes && <>{" · "}{linkedNotes(event.person.notes)}</>}
             </p>
           </div>
@@ -1601,6 +1610,12 @@ export function Calendar({
               </MenuIcon>
               {t("calendar.exportIcs")}
             </button>
+            <a href="/calendar/?welcome=1">
+              <MenuIcon>
+                <path d="M20 12a8 8 0 1 1-2.5-5.8M18.8 3V8.2H14" />
+              </MenuIcon>
+              {t("calendar.showTour")}
+            </a>
           </>
         }
       >

@@ -29,6 +29,7 @@ export function createViewer(options: AccessLinkOptions): Viewer {
   return {
     token: options.token ?? randomToken(),
     name,
+    createdAt: new Date().toISOString(),
     email: normalizeEmail(options.email),
     groups: options.groups,
     isAdmin: options.isAdmin,

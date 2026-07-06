@@ -14,9 +14,10 @@ export const handlers = define.handlers({
     const viewer = await sessionViewer(ctx.req, store);
     if (!viewer) throw new HttpError(404, t("calendar.error.requiresLink"));
     const calendar = await calendarViewData(store, viewer.groups);
-    // The welcome tour shows once: fresh signups land here with ?welcome=1,
-    // and finishing (or skipping) it stamps `welcomedAt` on the viewer.
-    const showWelcome = ctx.url.searchParams.get("welcome") === "1" && !viewer.welcomedAt;
+    // The welcome tour shows on the first visit — however the viewer got their
+    // link (invite or admin-issued) — until finishing/skipping stamps
+    // `welcomedAt`. ?welcome=1 (the "Show welcome tour" menu item) replays it.
+    const showWelcome = !viewer.welcomedAt || ctx.url.searchParams.get("welcome") === "1";
     const baseUrl = Deno.env.get("BASE_URL") ?? ctx.url.origin;
     return page({
       calendar,

@@ -17,10 +17,10 @@ export function ErrorPage({ status, title, message }: Props) {
         <h1 class="mt-2 text-3xl font-semibold tracking-tight">{title}</h1>
         <p class="mt-3 max-w-md text-base leading-relaxed text-ink-2">{message}</p>
         <a
-          href="/"
+          href="/login"
           class="mt-6 inline-block font-medium text-accent-2 underline underline-offset-4"
         >
-          {t("app.name")}
+          {t("error.goToLogin")}
         </a>
       </main>
     </>

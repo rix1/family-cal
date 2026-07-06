@@ -21,3 +21,7 @@
       _(Extracted `components/GroupPicker.tsx` from the profile markup; invite page and profile now share it, member preview included. Note: this shows family member names to anyone holding an unauthenticated invite link — deemed acceptable since the link holder can join and see everything anyway.)_
 - [x] maybe we could add a menu item for "show onbaording wizard"? or will this cause trouble with the welcomedAt property?
       _(No trouble: `?welcome=1` now force-shows the tour regardless of `welcomedAt`, and the calendar account menu has a "Vis omvisningen" item linking there. Finishing just re-stamps `welcomedAt`, which is idempotent.)_
+
+## Concept clarity
+
+- [ ] Clarify what "events" are (recurring reminders / historic records of important family dates — anniversaries that resurface every year, not generic one-off calendar entries) in the event form UI, the welcome tour, and /about. Surfaced while designing personal groups (see docs/personal-groups.md, resolved question 2) — the distinction wasn't self-evident even mid-design, so it won't be for family members either.

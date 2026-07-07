@@ -636,6 +636,55 @@ html[data-theme="dark"] {
     transform: translate(-50%, calc(-100% - 12px)) scale(1);
     transition: opacity 100ms ease, transform 100ms ease;
   }
+
+  /* How-it-works figure: one shared 14s loop that builds the Norwegian
+   branch beat by beat — each person pops in (p1..p3) and their birthday
+   lands on the strip (d1..d3); then the dåpsdag chip fades in (ev) and
+   lands too (d4). The Danish side stays put. Everything clears together
+   at 88–93% so the loop restarts cleanly. */
+  .hiw-p1,
+  .hiw-p2,
+  .hiw-p3,
+  .hiw-d1,
+  .hiw-d2,
+  .hiw-d3,
+  .hiw-d4,
+  .hiw-ev {
+    opacity: 0;
+    animation: 14s ease-in-out infinite;
+  }
+
+  .hiw-p1 {
+    animation-name: hiw-p1;
+  }
+
+  .hiw-d1 {
+    animation-name: hiw-d1;
+  }
+
+  .hiw-p2 {
+    animation-name: hiw-p2;
+  }
+
+  .hiw-d2 {
+    animation-name: hiw-d2;
+  }
+
+  .hiw-p3 {
+    animation-name: hiw-p3;
+  }
+
+  .hiw-d3 {
+    animation-name: hiw-d3;
+  }
+
+  .hiw-ev {
+    animation-name: hiw-ev;
+  }
+
+  .hiw-d4 {
+    animation-name: hiw-d4;
+  }
 }
 
 @keyframes backdrop-in {
@@ -658,6 +707,179 @@ html[data-theme="dark"] {
   }
 }
 
+/* How-it-works beats: dots pop in with a little overshoot at staggered
+   times, hold, then everything fades out together at 88–93%. */
+@keyframes hiw-p1 {
+  0%, 3% {
+    opacity: 0;
+    transform: scale(0);
+  }
+
+  6% {
+    opacity: 1;
+    transform: scale(1.3);
+  }
+
+  9%, 88% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  93%, 100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+@keyframes hiw-d1 {
+  0%, 10% {
+    opacity: 0;
+    transform: scale(0);
+  }
+
+  13% {
+    opacity: 1;
+    transform: scale(1.3);
+  }
+
+  16%, 88% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  93%, 100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+@keyframes hiw-p2 {
+  0%, 18% {
+    opacity: 0;
+    transform: scale(0);
+  }
+
+  21% {
+    opacity: 1;
+    transform: scale(1.3);
+  }
+
+  24%, 88% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  93%, 100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+@keyframes hiw-d2 {
+  0%, 25% {
+    opacity: 0;
+    transform: scale(0);
+  }
+
+  28% {
+    opacity: 1;
+    transform: scale(1.3);
+  }
+
+  31%, 88% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  93%, 100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+@keyframes hiw-p3 {
+  0%, 33% {
+    opacity: 0;
+    transform: scale(0);
+  }
+
+  36% {
+    opacity: 1;
+    transform: scale(1.3);
+  }
+
+  39%, 88% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  93%, 100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+@keyframes hiw-d3 {
+  0%, 40% {
+    opacity: 0;
+    transform: scale(0);
+  }
+
+  43% {
+    opacity: 1;
+    transform: scale(1.3);
+  }
+
+  46%, 88% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  93%, 100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+@keyframes hiw-ev {
+  0%, 50% {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+
+  55%, 88% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  93%, 100% {
+    opacity: 0;
+    transform: translateY(0);
+  }
+}
+
+@keyframes hiw-d4 {
+  0%, 59% {
+    opacity: 0;
+    transform: scale(0);
+  }
+
+  62% {
+    opacity: 1;
+    transform: scale(1.3);
+  }
+
+  65%, 88% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  93%, 100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
@@ -670,5 +892,17 @@ html[data-theme="dark"] {
 
   .sheet {
     transition-duration: 1ms;
+  }
+
+  .hiw-p1,
+  .hiw-p2,
+  .hiw-p3,
+  .hiw-d1,
+  .hiw-d2,
+  .hiw-d3,
+  .hiw-d4,
+  .hiw-ev {
+    animation: none;
+    opacity: 1;
   }
 }

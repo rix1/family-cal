@@ -12,10 +12,33 @@ import type { ComponentChildren } from "preact";
  * faint dot grid, group colors only where they mean something. Pure markup on
  * theme tokens, so light/dark and both locales come for free. Used in the
  * welcome tour's "contribute" step and on /about.
+ *
+ * One CSS loop (.hiw-* in styles.css) builds the Norwegian branch while the
+ * Danish one sits fully established: three people pop in one at a time, each
+ * birthday landing on the strip a beat later; then Emils dåpsdag chip fades
+ * in and lands too. The strip ends up as the sum of the rows above — 3 + 3
+ * birthdays plus the two events, 8 dots. Reduced-motion users see the
+ * finished state statically.
  */
 
 const BRANCH_A = GROUP_COLORS[1]; // teal
 const BRANCH_B = GROUP_COLORS[5]; // pink
+
+const DOT_A = `${BRANCH_A.bg} ${BRANCH_A.border}`;
+const DOT_B = `${BRANCH_B.bg} ${BRANCH_B.border}`;
+
+/* Calendar strip: day → dot. The pink side is static; the teal hiw-d1..d3
+   birthdays land as each person joins, and hiw-d4 is the dåpsdag. */
+const CAL_DOTS: Record<number, string> = {
+  1: `hiw-d1 ${DOT_A}`,
+  3: DOT_B,
+  5: `hiw-d2 ${DOT_A}`,
+  6: `hiw-d4 ${DOT_A}`,
+  8: DOT_B,
+  10: `hiw-d3 ${DOT_A}`,
+  11: DOT_B,
+  13: DOT_B,
+};
 
 function Dot({ class: className = "" }: { class?: string }) {
   return <span class={`inline-block size-2 rounded-full border ${className}`} />;
@@ -108,9 +131,9 @@ export function HowItWorksGraphic() {
           label={t("howItWorks.branchA")}
           dots={
             <>
-              <Dot class={`${BRANCH_A.bg} ${BRANCH_A.border}`} />
-              <Dot class={`${BRANCH_A.bg} ${BRANCH_A.border}`} />
-              <Dot class={`${BRANCH_A.bg} ${BRANCH_A.border}`} />
+              <Dot class={`hiw-p1 ${DOT_A}`} />
+              <Dot class={`hiw-p2 ${DOT_A}`} />
+              <Dot class={`hiw-p3 ${DOT_A}`} />
             </>
           }
         />
@@ -118,8 +141,9 @@ export function HowItWorksGraphic() {
           label={t("howItWorks.branchB")}
           dots={
             <>
-              <Dot class={`${BRANCH_B.bg} ${BRANCH_B.border}`} />
-              <Dot class={`${BRANCH_B.bg} ${BRANCH_B.border}`} />
+              <Dot class={DOT_B} />
+              <Dot class={DOT_B} />
+              <Dot class={DOT_B} />
             </>
           }
         />
@@ -138,34 +162,34 @@ export function HowItWorksGraphic() {
       </div>
 
       {
-        /* Row 2 — where dates come from: a birthday carried by a person in the
-          first branch, and a family event tagged to the same branch. */
+        /* Row 2 — milestone events beyond birthdays, one tagged to each
+          branch. Birthdays ride along with the people in row 1. */
       }
       <Connector at="left-[16%]" />
-      <p class="kicker">{t("howItWorks.dates")}</p>
+      <p class="kicker">{t("howItWorks.events")}</p>
       <div class="mt-2 flex flex-wrap gap-2">
-        <span class="inline-flex items-center gap-2 rounded-full border border-line-2 bg-surface px-2.5 py-1 text-[11px] font-medium">
-          <Dot class={`${BRANCH_A.bg} ${BRANCH_A.border}`} />
-          {t("howItWorks.birthdaySample")}
+        <span class="hiw-ev inline-flex items-center gap-2 rounded-full border border-line-2 bg-surface px-2.5 py-1 text-[11px] font-medium">
+          <Dot class={DOT_A} />
+          {t("howItWorks.christeningSample")}
           <RecurBadge />
         </span>
         <span class="inline-flex items-center gap-2 rounded-full border border-line-2 bg-surface px-2.5 py-1 text-[11px] font-medium">
-          <Dot class={`${BRANCH_B.bg} ${BRANCH_B.border}`} />
-          {t("howItWorks.eventSample")}
+          <Dot class={DOT_B} />
+          {t("howItWorks.weddingSample")}
           <RecurBadge />
         </span>
       </div>
 
       {/* Row 3 — the calendar strip they land on */}
       <Connector at="left-[10%]" />
-      <div class="rounded-lg border border-line-2 bg-surface p-2">
+      <p class="kicker">{t("howItWorks.calendar")}</p>
+      <div class="mt-2 rounded-lg border border-line-2 bg-surface p-2">
         <div class="grid grid-cols-[repeat(14,minmax(0,1fr))] gap-px" aria-hidden="true">
           {Array.from(
             { length: 14 },
             (_, day) => (
               <span class="grid h-6 place-items-center rounded-sm bg-inset/70">
-                {day === 3 && <Dot class={`${BRANCH_A.bg} ${BRANCH_A.border}`} />}
-                {day === 9 && <Dot class={`${BRANCH_B.bg} ${BRANCH_B.border}`} />}
+                {CAL_DOTS[day] && <Dot class={CAL_DOTS[day]} />}
               </span>
             ),
           )}

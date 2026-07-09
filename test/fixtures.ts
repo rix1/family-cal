@@ -21,7 +21,14 @@ export const TEST_PEOPLE: Person[] = [
     notes: "sønnen til [[Solveig]] og [[Halvor]]",
   },
   { id: "mette", name: "Mette", born: "1958-03-12", died: null, affiliation: "dk", notes: "" },
-  { id: "bedstefar", name: "Henrik", born: "1950-11-02", died: "2020-01-15", affiliation: "dk", notes: "" },
+  {
+    id: "bedstefar",
+    name: "Henrik",
+    born: "1950-11-02",
+    died: "2020-01-15",
+    affiliation: "dk",
+    notes: "",
+  },
   { id: "ukjent-aar", name: "Ukjent År", born: "06-20", died: null, affiliation: "no", notes: "" },
 ];
 // Groups are an explicit follow-list now (empty = see nobody), so the all-access

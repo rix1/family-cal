@@ -546,7 +546,10 @@ Deno.test("sendDraft emails each recipient with an unsubscribe footer, then free
 
   const sent = await sendDraft(store, draft.id, "Admin", sender);
   assertEquals(sent.status, "sent");
-  assertEquals(sender.messages.map((m) => m.to).sort(), ["anna@example.com", "solveig@example.com"]);
+  assertEquals(sender.messages.map((m) => m.to).sort(), [
+    "anna@example.com",
+    "solveig@example.com",
+  ]);
   assertStringIncludes(sender.messages[0].text!, "Administrer eller meld deg av");
   assert(sender.messages[0].headers?.["List-Unsubscribe"]);
   assert(sender.messages[0].html?.includes("Bursdager"));

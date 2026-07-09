@@ -126,8 +126,8 @@ live logs) is in `deploy/grafana-dashboard-family-cal.json`.
 
 `seed/people.csv` is gitignored — your real family data stays local. Place your
 CSVs under `seed/` (see the tracked `seed/groups.csv` / `seed/viewers.csv` for
-the format) and run `deno task seed` once. Issue access links with
-`deno task issue-link`.
+the format, or `seed/demo/` for a complete fictional example) and run
+`deno task seed` once. Issue access links with `deno task issue-link`.
 
 ## 8. Resilience checklist
 

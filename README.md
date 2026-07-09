@@ -66,6 +66,24 @@ people, viewers, and invites and replace groups before loading:
 ENVIRONMENT=DEV deno task seed --force
 ```
 
+## Try it with demo data
+
+A fictional two-branch family ships in `seed/demo/` so you can explore the app
+without any real data:
+
+```sh
+cp .env.template .env                      # set ENVIRONMENT=DEV
+ENVIRONMENT=DEV deno task seed seed/demo
+deno task dev
+```
+
+Then open <http://localhost:3000/view/demo-admin> — you're signed in as the
+demo admin, so the calendar, profile, and every `/admin/` page are live. The
+data covers the interesting cases: a milestone birthday, an unknown birth
+year, a remembered relative, and notes with `@mention` and `[[wiki-link]]`
+references. `demo-viewer` is a second, non-admin token following only one
+branch.
+
 ## Access links
 
 `issue-link` targets the **dev** database by default (issuing links is usually a

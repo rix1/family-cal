@@ -1,0 +1,3 @@
+token,name,email,groups,isAdmin
+demo-admin,Demo Admin,demo-admin@example.com,berg|dahl,true
+demo-viewer,Demo Viewer,demo-viewer@example.com,berg,false

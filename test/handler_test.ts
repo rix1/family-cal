@@ -85,9 +85,9 @@ routeTest("scoped token subsets people; unknown token is 404", async () => {
       ctx("http://localhost/cal/view-dk.ics", {}, { token: "view-dk" }),
     )
   ).text();
-  assertStringIncludes(dk, "🎂 Mette Dahl");
+  assertStringIncludes(dk, "🎂 Mette");
   assert(
-    !dk.includes("🎂 Åse / Mamma"),
+    !dk.includes("🎂 Solveig"),
     "NO person must be excluded from DK feed",
   );
 

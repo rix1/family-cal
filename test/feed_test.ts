@@ -29,7 +29,7 @@ Deno.test("buildFeed produces a well-formed calendar from the seed store", async
   assertEquals(begin, end);
 
   // A known seeded birthday and a computed holiday are both present.
-  assertStringIncludes(ics, "🎂 Åse / Mamma");
+  assertStringIncludes(ics, "🎂 Solveig");
   assertStringIncludes(ics, "Constitution Day"); // May 17, computed
 });
 
@@ -39,8 +39,8 @@ Deno.test("buildFeed group filter subsets people (the per-viewer seam)", async (
     now: fixedNow,
     dtstamp: fixedStamp,
   });
-  assertStringIncludes(dkOnly, "🎂 Mette Dahl"); // DK person present
-  assert(!dkOnly.includes("🎂 Åse / Mamma"), "NO person should be excluded");
+  assertStringIncludes(dkOnly, "🎂 Mette"); // DK person present
+  assert(!dkOnly.includes("🎂 Solveig"), "NO person should be excluded");
 
   // Holidays are independent of the people filter.
   assertStringIncludes(dkOnly, "Christmas Day");

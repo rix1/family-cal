@@ -2,6 +2,11 @@
 
 A private calendar for birthdays and other important dates across the family.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/calendar-dark.png">
+  <img alt="The calendar dashboard, showing the demo family's upcoming birthdays" src="docs/calendar-light.png">
+</picture>
+
 The app is a **Fresh 2 / Vite** app on Deno, backed by Deno KV. Fresh serves the
 web pages, admin pages, JSON API, and per-viewer iCal subscription feeds.
 

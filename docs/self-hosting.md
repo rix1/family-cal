@@ -103,14 +103,18 @@ Grafana + Loki + Tempo + Prometheus with an OTLP receiver, one container:
 
 ```sh
 docker run -d --name lgtm --restart unless-stopped \
-  -p 127.0.0.1:8317:3000 -p 127.0.0.1:4317:4317 -p 127.0.0.1:4318:4318 \
+  -p 127.0.0.1:8317:3300 -p 127.0.0.1:4317:4317 -p 127.0.0.1:4318:4318 \
   -v lgtm-grafana:/data/grafana -v lgtm-prometheus:/data/prometheus -v lgtm-loki:/data/loki \
   -e GF_PATHS_DATA=/data/grafana \
+  -e GF_SERVER_HTTP_PORT=3300 \
   grafana/otel-lgtm
 ```
 
-Bind to `127.0.0.1` as above — a bare `-p 8317:3000` exposes Grafana (default
+Bind to `127.0.0.1` as above — a bare `-p 8317:…` exposes Grafana (default
 login admin/admin) to your whole LAN. Change the admin password on first login.
+`GF_SERVER_HTTP_PORT` moves Grafana off its default `:3000` inside the
+container, so it never collides with a dev server (`deno task dev` also uses
+`:3000`) under host-visible container networking like OrbStack's.
 
 Enable Deno's built-in OTel on the server process (`--unstable-otel` plus
 `OTEL_DENO=true`, `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318` in the

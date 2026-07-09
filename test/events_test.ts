@@ -14,7 +14,7 @@ const person = (over: Partial<Person>): Person => ({
 
 Deno.test("birthdayEvents: full date anchors to birth year, recurring, with reminder", () => {
   const [ev] = birthdayEvents([person({ id: "aase", name: "Åse", born: "1957-08-05" })]);
-  assertEquals(ev.start, { year: 1957, month: 8, day: 16 });
+  assertEquals(ev.start, { year: 1957, month: 8, day: 5 });
   assert(ev.recurring);
   assertEquals(ev.reminders, reminderDefaults.birthday);
   assertEquals(ev.summary, "🎂 Åse");

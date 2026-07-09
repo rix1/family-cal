@@ -247,7 +247,7 @@ export default define.page<typeof handlers>(({ data }) => {
                         type="email"
                         name="email"
                         required
-                        value="admin@example.com"
+                        value={data.viewer.email}
                         class="input"
                       />
                     </label>

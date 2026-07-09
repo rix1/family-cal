@@ -8,6 +8,14 @@ seed/people.csv
 .env
 !.env.template
 
+# Machine-specific runbook, launchd plists, and security notes — never public.
+private/
+
+# Editor / OS noise
+.DS_Store
+.claude/
+.zed/
+
 # Generated / dependency output
 _fresh/
 _prod/

@@ -15,8 +15,9 @@ web pages, admin pages, JSON API, and per-viewer iCal subscription feeds.
 | `test/` | Deno tests for domain logic and Fresh route handlers. |
 | `main.ts` | Fresh `App` entry point. |
 | `vite.config.ts` | Fresh 2 Vite plugin config. |
-| `architecture.md` | Architecture notes. |
-| `design.md` | Visual/product design notes. |
+| `docs/architecture.md` | Architecture notes. |
+| `docs/design.md` | Visual/product design notes. |
+| `docs/self-hosting.md` | Running it for real: service, HTTPS origin, email, backups. |
 
 ## Configuration
 
@@ -42,7 +43,8 @@ the ones you'll most likely set:
 | `INTRO_DISABLED`, `INTRO_CMD` | Turn prose off, or shell out to a different local model command. |
 
 Values already present in the real environment take precedence over `.env`, so
-deploys can inject secrets without a file. See `DEPLOY.md` for the production setup.
+deploys can inject secrets without a file. See `docs/self-hosting.md` for a
+production/self-hosting guide.
 
 ## Running
 

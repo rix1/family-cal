@@ -1,5 +1,5 @@
 /**
- * Monthly "prepare + notify" job (run by the launchd calendar job — see DEPLOY.md).
+ * Monthly "prepare + notify" job (run by a scheduled job — see docs/self-hosting.md).
  *
  * Idempotently generates next month's newsletter draft(s) — with the intro
  * drafted by the local model — then emails every admin a link to review and

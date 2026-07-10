@@ -37,7 +37,20 @@ export function parseLocale(value: string | null | undefined): Locale {
 
 /** Look up a flat key with nb→en→key fallback; `{name}` placeholders interpolate. */
 export function t(key: string, params?: Record<string, string | number>): string {
-  const template = tables[current][key] ?? tables.en[key] ?? key;
+  return translate(current, key, params);
+}
+
+/**
+ * `t` for an explicit locale. For output that isn't tied to the current request
+ * — emails above all, which render in the recipient's language regardless of
+ * which request (or script) triggered them.
+ */
+export function translate(
+  locale: Locale,
+  key: string,
+  params?: Record<string, string | number>,
+): string {
+  const template = tables[locale][key] ?? tables.en[key] ?? key;
   if (!params) return template;
   return template.replace(
     /\{(\w+)\}/g,

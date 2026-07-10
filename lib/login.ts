@@ -10,6 +10,8 @@
 
 import { randomToken } from "./access_links.ts";
 import type { EmailSender } from "./email.ts";
+import { renderTransactionalEmail } from "./email_template.ts";
+import { DEFAULT_LOCALE, type Locale, translate } from "./i18n.ts";
 import { type LoginToken, loginTokenIsActive, type Viewer, viewerIsActive } from "./model.ts";
 import { normalizeEmail } from "./newsletter.ts";
 import { ValidationError } from "./people.ts";
@@ -66,13 +68,15 @@ export interface LoginRequestResult {
 /**
  * Mint and email a single-use sign-in link for `rawEmail`, if it belongs to an
  * active viewer. Always resolves; `sent` is false for unknown or malformed
- * emails (no token created, no email sent).
+ * emails (no token created, no email sent). The email renders in `locale` —
+ * the requester's language, since requester and recipient are the same person.
  */
 export async function requestLogin(
   store: Store,
   rawEmail: unknown,
   baseUrl: string,
   sender: EmailSender,
+  locale: Locale = DEFAULT_LOCALE,
   now = new Date(),
 ): Promise<LoginRequestResult> {
   const email = tryNormalize(rawEmail);
@@ -90,21 +94,17 @@ export async function requestLogin(
   await store.upsertLoginToken(loginToken);
 
   const link = `${baseUrl.replace(/\/+$/, "")}/auth/login/${loginToken.token}`;
-  await sender.send({
-    to: email,
-    subject: "Your Family Calendar sign-in link",
-    text: [
-      `Hi ${viewer.name.split(" ")[0] || viewer.name},`,
-      "",
-      "Open this link to sign in to the Family Calendar on this device:",
-      link,
-      "",
-      "It works once and expires in 30 minutes. Signing in here ends any other",
-      "active session, so you may need a new link on your other devices.",
-      "",
-      "If you didn't ask to sign in, you can safely ignore this email.",
-    ].join("\n"),
-  });
+  const rendered = renderTransactionalEmail({
+    subject: translate(locale, "email.login.subject"),
+    greeting: translate(locale, "email.greeting", {
+      name: viewer.name.split(" ")[0] || viewer.name,
+    }),
+    paragraphs: [translate(locale, "email.login.intro")],
+    cta: { label: translate(locale, "email.login.cta"), url: link },
+    outro: [translate(locale, "email.login.outro")],
+    footnote: translate(locale, "email.login.ignore"),
+  }, locale);
+  await sender.send({ to: email, ...rendered });
   await store.appendAudit({
     at: now.toISOString(),
     actor: viewer.name,

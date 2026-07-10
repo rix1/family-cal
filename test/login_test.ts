@@ -65,8 +65,12 @@ Deno.test("requestLogin mints and emails a single-use link for a known email", a
   assertEquals(result.sent, true);
   assertEquals(sender.messages.length, 1);
   assertEquals(sender.messages[0].to, "kari@example.com");
+  // Norwegian by default, with an HTML body carrying the same link.
+  assertEquals(sender.messages[0].subject, "Innloggingslenken din til Familiekalenderen");
+  assert(sender.messages[0].text.includes("Hei Kari,"));
 
   const token = tokenFromMessage(sender.messages[0]);
+  assert(sender.messages[0].html?.includes(`/auth/login/${token}`));
   const loginToken = await s.getLoginToken(token);
   assert(loginToken);
   assertEquals(loginToken!.viewerToken, "kari-token");
@@ -75,6 +79,14 @@ Deno.test("requestLogin mints and emails a single-use link for a known email", a
   // ~30 minute TTL.
   const ttl = new Date(loginToken!.expiresAt).getTime() - new Date(loginToken!.createdAt).getTime();
   assertEquals(ttl, 30 * 60_000);
+});
+
+Deno.test("requestLogin renders the email in the requester's locale", async () => {
+  const s = store();
+  const sender = new FakeEmailSender();
+  await requestLogin(s, "kari@example.com", "https://fam.example/", sender, "en");
+  assertEquals(sender.messages[0].subject, "Your sign-in link for the Family Calendar");
+  assert(sender.messages[0].text.includes("Hi Kari,"));
 });
 
 Deno.test("requestLogin stays neutral for unknown or malformed emails", async () => {

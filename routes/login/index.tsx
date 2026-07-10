@@ -32,7 +32,13 @@ export const handlers = define.handlers({
     }
     const form = await ctx.req.formData();
     // Always neutral: never reveal whether the email is registered.
-    await requestLogin(await getStore(), form.get("email"), baseUrl(ctx.req), getEmailSender());
+    await requestLogin(
+      await getStore(),
+      form.get("email"),
+      baseUrl(ctx.req),
+      getEmailSender(),
+      ctx.state.locale,
+    );
     return page({ submitted: true });
   },
 });

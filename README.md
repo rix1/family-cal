@@ -7,6 +7,34 @@ A private calendar for birthdays and other important dates across the family.
   <img alt="The calendar dashboard, showing the demo family's upcoming birthdays" src="docs/calendar-light.png">
 </picture>
 
+## Why?
+
+With 50+ close-ish family members spanning 3–4 generations, keeping an overview
+becomes genuinely hard. Birthdays live in someone's head, a paper list, or a
+group chat scroll-back — and every year someone is surprised by a milestone
+birthday or forgets which cousin's kid just turned five.
+
+This app is that overview. In various shapes — a calendar dashboard, iCal
+subscription feeds, a monthly email newsletter, and person pages — it answers
+questions like:
+
+- **Whose birthday is coming up — and what did we just celebrate?** The
+  dashboard always shows what's next, alongside a recently-celebrated list
+  and a birthdays-this-year counter.
+- **When was that birthday again?** Round birthdays
+  are called out so nobody misses a 50th or a 90th, and search plus group and
+  event-type filters find any date without scrolling twelve months.
+- **When was grandpa born, and when did he pass away?** Deceased relatives
+  keep their dates, with "would have turned" wording and a yearly remembrance.
+- **What's happening in *my* branch of the family?** Every member follows the
+  family groups relevant to them and sees a calendar scoped to those.
+- **Can I get this in the calendar I already use?** Every member gets a
+  personal iCal feed for Google, Apple, or Outlook Calendar.
+- **Do I actually know these dates by now?** A low-stakes recall quiz —
+  questions drawn from the family's real birthdays — helps them stick.
+- **Who is this person, again?** Notes with `@mentions` and `[[wiki-links]]`
+  connect people, so context doesn't stay locked in one relative's memory.
+
 The app is a **Fresh 2 / Vite** app on Deno, backed by Deno KV. Fresh serves the
 web pages, admin pages, JSON API, and per-viewer iCal subscription feeds.
 

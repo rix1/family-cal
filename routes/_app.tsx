@@ -3,7 +3,7 @@ import { define } from "@/utils.ts";
 
 export default define.page(function App({ Component, state, url }) {
   setLocale(state.locale);
-  const ogImage = new URL("/og-image.png", url).href;
+  const ogImage = new URL("/og-image.png", Deno.env.get("BASE_URL") || url).href;
   return (
     <html lang={state.locale}>
       <head>

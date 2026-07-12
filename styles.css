@@ -639,38 +639,40 @@ html[data-theme="dark"] {
 
   /* How-it-works vignette: one shared 14s loop acts out adding two people.
    The fake input's placeholder (ph) gives way to a name (t1/t2), the
-   matching branch pill lights up (s1/s2), and the person drops into that
-   branch's row (n1/n2) while the row flashes a ring in the branch color
-   (g1/g2). Rikard lands in the teal branch, Dorthe in the pink one; both
-   stay put until everything clears at 90–95% so the loop restarts
-   cleanly. */
-  .hiw-ph,
-  .hiw-t1,
-  .hiw-t2,
-  .hiw-n1,
-  .hiw-n2 {
-    opacity: 0;
-    animation: 14s ease-in-out infinite;
-  }
+   matching branch pill lights up (s1/s2), and the person's avatar pops
+   in among that branch's members (n1/n2) while the row flashes a ring in
+   the branch color (g1/g2). Rikard lands in the teal branch, Dorthe in
+   the pink one; both stay put until everything clears at 90–95% so the
+   loop restarts cleanly.
 
+   Every rule must spell out the full animation shorthand, name included:
+   the minifier collapses a name-less `animation: 14s …` into
+   `animation: none` (dropping the duration), so attaching the name via a
+   separate animation-name rule yields a 0s animation and the loop never
+   runs. */
   .hiw-ph {
-    animation-name: hiw-ph;
+    opacity: 0;
+    animation: hiw-ph 14s ease-in-out infinite;
   }
 
   .hiw-t1 {
-    animation-name: hiw-t1;
+    opacity: 0;
+    animation: hiw-t1 14s ease-in-out infinite;
   }
 
   .hiw-t2 {
-    animation-name: hiw-t2;
+    opacity: 0;
+    animation: hiw-t2 14s ease-in-out infinite;
   }
 
   .hiw-n1 {
-    animation-name: hiw-n1;
+    opacity: 0;
+    animation: hiw-n1 14s ease-in-out infinite;
   }
 
   .hiw-n2 {
-    animation-name: hiw-n2;
+    opacity: 0;
+    animation: hiw-n2 14s ease-in-out infinite;
   }
 
   .hiw-s1 {
@@ -814,38 +816,48 @@ html[data-theme="dark"] {
   }
 }
 
-/* The person drops from the form into their branch row, and stays. */
+/* The person's avatar pops into the branch's member stack, and stays. */
 @keyframes hiw-n1 {
   0%, 14% {
     opacity: 0;
-    transform: translateY(-5px);
+    transform: scale(0);
   }
 
-  18%, 90% {
+  18% {
     opacity: 1;
-    transform: translateY(0);
+    transform: scale(1.15);
+  }
+
+  21%, 90% {
+    opacity: 1;
+    transform: scale(1);
   }
 
   95%, 100% {
     opacity: 0;
-    transform: translateY(0);
+    transform: scale(1);
   }
 }
 
 @keyframes hiw-n2 {
   0%, 57% {
     opacity: 0;
-    transform: translateY(-5px);
+    transform: scale(0);
   }
 
-  61%, 90% {
+  61% {
     opacity: 1;
-    transform: translateY(0);
+    transform: scale(1.15);
+  }
+
+  64%, 90% {
+    opacity: 1;
+    transform: scale(1);
   }
 
   95%, 100% {
     opacity: 0;
-    transform: translateY(0);
+    transform: scale(1);
   }
 }
 
@@ -903,22 +915,33 @@ html[data-theme="dark"] {
     transition-duration: 1ms;
   }
 
-  /* Static "filled form" instead of the loop: placeholder in the input,
-     no lit pill, both people already in their branch rows. */
-  .hiw-ph,
+  /* Freeze-frame instead of the loop: the form filled in with Rikard,
+     his branch pill lit, and both arrivals already in their branch's
+     avatar stack. Carets and pulses stay off. */
+  .hiw-t1,
   .hiw-n1,
   .hiw-n2 {
     animation: none;
     opacity: 1;
   }
 
-  .hiw-t1,
+  .hiw-ph,
   .hiw-t2,
-  .hiw-s1,
+  .hiw-caret {
+    animation: none;
+    opacity: 0;
+  }
+
+  .hiw-s1 {
+    animation: none;
+    background-color: var(--gc-teal-soft);
+    border-color: var(--gc-teal);
+    color: var(--gc-teal);
+  }
+
   .hiw-s2,
   .hiw-g1,
-  .hiw-g2,
-  .hiw-caret {
+  .hiw-g2 {
     animation: none;
   }
 }

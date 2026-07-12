@@ -146,6 +146,11 @@ export function filterEvents(
       return !q || haystack.includes(q);
     }
     if (!activeTypes.has(event.type)) return false;
+    // The "gått bort" toggle (the memorial key) gates the person, not just
+    // the event kind: birthdays of those who have passed ride it too.
+    if (event.type === "birthday" && event.person.died && !activeTypes.has("memorial")) {
+      return false;
+    }
     if (!activeGroups.has(event.person.affiliation)) return false;
     const haystack = `${event.name} ${event.person.notes || ""}`.toLowerCase();
     return !q || haystack.includes(q);

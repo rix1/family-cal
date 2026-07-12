@@ -30,7 +30,6 @@ import {
   type TableSortKey,
 } from "@/lib/calendar/events.ts";
 import { typeLabel } from "@/lib/calendar/labels.ts";
-import { buildIcs } from "@/lib/calendar/ics.ts";
 import { FilterDropdown } from "@/components/calendar/FilterDropdown.tsx";
 import { CheckIcon, ListIcon, SparkIcon, TableIcon } from "@/components/calendar/icons.tsx";
 import { PersonSheet } from "@/components/calendar/PersonSheet.tsx";
@@ -100,8 +99,9 @@ export function Calendar({
     () => new Set(followedGroups),
   );
   const followed = useMemo(() => new Set(followedGroups), [followedGroups]);
-  // Remembrances are opt-in: the default view stays celebratory; the
-  // "show" dropdown toggles them back on.
+  // "Gått bort" (the memorial key) is opt-in: it gates remembrance days
+  // and the birthdays of those who have passed, so the default view stays
+  // celebratory. The show-dropdown toggles it back on.
   const [activeTypes, setActiveTypes] = useState<Set<string>>(
     () => new Set(allTypes.filter((type) => type !== "memorial")),
   );
@@ -487,30 +487,6 @@ export function Calendar({
     target?.scrollIntoView({ block: "start", behavior: "smooth" });
   }
 
-  function downloadIcs() {
-    const { ics, count } = buildIcs({
-      people,
-      occasions,
-      activeGroups,
-      activeTypes,
-      query,
-      today,
-    });
-    if (!count) return setToast(t("calendar.toast.nothingToExport"));
-    const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "family-calendar.ics";
-    link.click();
-    URL.revokeObjectURL(url);
-    setToast(
-      count === 1
-        ? t("calendar.toast.downloaded.one")
-        : t("calendar.toast.downloaded.other", { count }),
-    );
-  }
-
   const selectedDetail = selectedPerson
     ? personDetail(selectedPerson, people, currentYear, todayKey)
     : null;
@@ -576,12 +552,6 @@ export function Calendar({
                 {t("eventForm.submit")}
               </button>
             )}
-            <button type="button" onClick={downloadIcs}>
-              <MenuIcon>
-                <path d="M12 4v11M8 11l4 4 4-4M5 20h14" />
-              </MenuIcon>
-              {t("calendar.exportIcs")}
-            </button>
             <a href="/calendar/?welcome=1">
               <MenuIcon>
                 <path d="M20 12a8 8 0 1 1-2.5-5.8M18.8 3V8.2H14" />

@@ -22,12 +22,3 @@ export function occasionLabel(kind: string): string {
   }
   return t("eventKind.generic");
 }
-
-/* Feed/export titles keep a type prefix so events stay recognizable inside
-   Google/Apple calendars; the in-app UI itself renders no emoji. */
-export function exportIcon(type: string): string {
-  if (type === "memorial") return "🕯️";
-  if (type === "anniversary" || type === "wedding") return "💍";
-  if (type === "baptism" || type === "confirmation" || type === "other") return "🎉";
-  return "🎂";
-}

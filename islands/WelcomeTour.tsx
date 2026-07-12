@@ -119,7 +119,7 @@ export function WelcomeTour({
                 </div>
               )
               : (
-                <p class="mt-2 text-sm text-ink-3">
+                <p class="mt-2 rounded-lg border border-dashed border-line-2 px-3.5 py-3 text-sm text-ink-3">
                   {t("tour.welcome.noGroups")}
                 </p>
               )}

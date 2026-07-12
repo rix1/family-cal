@@ -231,7 +231,7 @@ routeTest("PUT /api/events adds an event for admin tokens", async () => {
         method: "PUT",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          event: { kind: "wedding", title: "Bryllup", date: "06-04", groups: ["no"] },
+          event: { kind: "wedding", title: "Bryllup", date: "1998-06-04", groups: ["no"] },
         }),
       },
       { token: "admin" },
@@ -251,7 +251,7 @@ routeTest("PUT /api/events lets any member add an event", async () => {
         method: "PUT",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          event: { kind: "wedding", title: "Medlemsbryllup", date: "07-12", groups: ["no"] },
+          event: { kind: "wedding", title: "Medlemsbryllup", date: "2001-07-12", groups: ["no"] },
         }),
       },
       { token: "view-all" },

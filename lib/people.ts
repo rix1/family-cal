@@ -3,7 +3,6 @@ import { slug } from "./dates.ts";
 import type { Store } from "./store.ts";
 
 const DATE_FULL = /^\d{4}-\d{2}-\d{2}$/;
-const DATE_MD = /^\d{2}-\d{2}$/;
 
 export class ValidationError extends Error {}
 
@@ -18,8 +17,8 @@ export interface PersonInput {
 
 function normBirth(value: unknown): string | null {
   if (value == null || value === "") return null;
-  if (typeof value !== "string" || !(DATE_FULL.test(value) || DATE_MD.test(value))) {
-    throw new ValidationError(`invalid date "${String(value)}" (use YYYY-MM-DD, MM-DD, or empty)`);
+  if (typeof value !== "string" || !DATE_FULL.test(value)) {
+    throw new ValidationError(`invalid date "${String(value)}" (use YYYY-MM-DD or empty)`);
   }
   return value;
 }

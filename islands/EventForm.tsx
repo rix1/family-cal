@@ -1,4 +1,5 @@
 import { activeMention, insertMention, type MentionMatch } from "@/lib/mentions.ts";
+import { useNativeDatePicker } from "@/lib/native_dates.ts";
 import { t } from "@/lib/i18n.ts";
 import { EVENT_KINDS } from "@/lib/model.ts";
 import type { ViewEvent, ViewGroup, ViewPerson } from "@/lib/view_data.ts";
@@ -27,8 +28,7 @@ interface Props {
   onCancel: () => void;
 }
 
-const dateValid = (value: string) =>
-  /^\d{4}-\d{2}-\d{2}$/.test(value) || /^\d{2}-\d{2}$/.test(value);
+const dateValid = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value);
 
 function toViewEvent(saved: {
   id: string;
@@ -64,6 +64,7 @@ export function EventForm({ groups, people, saveUrl, onSaved, onCancel }: Props)
   const [menu, setMenu] = useState<MentionMenu | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const nativeDates = useNativeDatePicker();
   const titleInput = useRef<HTMLInputElement | null>(null);
   const notesInput = useRef<HTMLTextAreaElement | null>(null);
 
@@ -171,9 +172,10 @@ export function EventForm({ groups, people, saveUrl, onSaved, onCancel }: Props)
       <label class="grid gap-1.5 text-sm font-medium">
         {t("eventForm.date")}
         <input
+          type={nativeDates ? "date" : "text"}
           value={draft.date}
           onInput={(event) => setDraft({ ...draft, date: event.currentTarget.value })}
-          placeholder="1992-06-27 / 06-27"
+          placeholder="1992-06-27"
           class="input tabular-nums"
         />
         <span class="text-xs font-normal text-ink-3">

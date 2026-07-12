@@ -1,5 +1,6 @@
 import { NEW_BRANCH_PREFIX, PERSONAL_AFFILIATION } from "@/lib/groups.ts";
 import { activeMention, insertMention, type MentionMatch } from "@/lib/mentions.ts";
+import { useNativeDatePicker } from "@/lib/native_dates.ts";
 import { t } from "@/lib/i18n.ts";
 import type { ViewGroup, ViewPerson } from "@/lib/view_data.ts";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
@@ -43,8 +44,7 @@ interface AffiliationOption {
   kind: "branch" | "personal" | "new";
 }
 
-const birthDateValid = (value: string) =>
-  value === "" || /^\d{4}-\d{2}-\d{2}$/.test(value) || /^\d{2}-\d{2}$/.test(value);
+const birthDateValid = (value: string) => value === "" || /^\d{4}-\d{2}-\d{2}$/.test(value);
 const deathDateValid = (value: string) => value === "" || /^\d{4}-\d{2}-\d{2}$/.test(value);
 
 function toViewPerson(saved: {
@@ -89,6 +89,7 @@ export function PersonForm(
   const [menu, setMenu] = useState<MentionMenu | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const nativeDates = useNativeDatePicker();
   const nameInput = useRef<HTMLInputElement | null>(null);
   const notesInput = useRef<HTMLTextAreaElement | null>(null);
 
@@ -260,15 +261,17 @@ export function PersonForm(
         <label class="grid gap-1.5 text-sm font-medium">
           {t("personForm.born")}
           <input
+            type={nativeDates ? "date" : "text"}
             value={draft.born}
             onInput={(event) => setDraft({ ...draft, born: event.currentTarget.value })}
-            placeholder="YYYY-MM-DD / MM-DD"
+            placeholder="YYYY-MM-DD"
             class="input min-w-0"
           />
         </label>
         <label class="grid gap-1.5 text-sm font-medium">
           {t("personForm.died")}
           <input
+            type={nativeDates ? "date" : "text"}
             value={draft.died}
             onInput={(event) => setDraft({ ...draft, died: event.currentTarget.value })}
             placeholder="YYYY-MM-DD"

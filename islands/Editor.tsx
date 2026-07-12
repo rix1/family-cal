@@ -28,8 +28,7 @@ interface MentionMenu {
 }
 
 const storageKey = "family-calendar-editor-draft";
-const birthDateValid = (v: string) =>
-  v === "" || /^\d{4}-\d{2}-\d{2}$/.test(v) || /^\d{2}-\d{2}$/.test(v);
+const birthDateValid = (v: string) => v === "" || /^\d{4}-\d{2}-\d{2}$/.test(v);
 const deathDateValid = (v: string) => v === "" || /^\d{4}-\d{2}-\d{2}$/.test(v);
 
 function toRow(p: Person, fallbackGroup = ""): Row {
@@ -560,9 +559,8 @@ export function Editor({
       </section>
 
       <p class="mt-3 text-xs text-ink-3">
-        Born accepts <code>YYYY-MM-DD</code>, <code>MM-DD</code>, or blank. Died requires a full
-        {" "}
-        <code>YYYY-MM-DD</code> date or blank. Type <code>@</code> in notes to link another person.
+        Born and Died take a full <code>YYYY-MM-DD</code>{" "}
+        date or blank. Type <code>@</code> in notes to link another person.
       </p>
 
       <div

@@ -121,11 +121,11 @@ export default define.page<typeof handlers>(({ data }) => {
                 <input
                   name="date"
                   required
-                  placeholder="1992-06-27 or 06-27"
+                  placeholder="1992-06-27"
                   class="input tabular-nums"
                 />
                 <span class="text-xs font-normal text-ink-3">
-                  Use MM-DD when the year is unknown. The event repeats every year.
+                  The event repeats every year.
                 </span>
               </label>
               <fieldset>

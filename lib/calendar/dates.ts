@@ -91,7 +91,7 @@ export function shortDate(date: string): string {
   );
 }
 
-/** Render a stored date (YYYY-MM-DD, or MM-DD when the year is unknown) for reading. */
+/** Render a stored date for reading; tolerates legacy year-less MM-DD values. */
 export function formatPersonDate(value: string | null | undefined): string {
   // "Unknown" is a stored data sentinel — compare literally, translate only the display.
   if (!value || value === "Unknown") return t("common.unknown");

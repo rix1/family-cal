@@ -41,13 +41,17 @@ Deno.test("normalizePerson requires a known affiliation", () => {
   assert(threw, "expected ValidationError for an unknown affiliation");
 });
 
-Deno.test("normalizePerson accepts MM-DD and empty dates", () => {
-  assertEquals(
-    normalizePerson({ name: "A", born: "03-30", affiliation: "no" }, groups).born,
-    "03-30",
-  );
+Deno.test("normalizePerson accepts empty dates and rejects year-less MM-DD", () => {
   assertEquals(normalizePerson({ name: "B", born: "", affiliation: "no" }, groups).born, null);
   assertEquals(normalizePerson({ name: "C", affiliation: "no" }, groups).born, null);
+
+  let threw = false;
+  try {
+    normalizePerson({ name: "A", born: "03-30", affiliation: "no" }, groups);
+  } catch (e) {
+    threw = e instanceof ValidationError;
+  }
+  assert(threw, "year-less MM-DD births are no longer accepted");
 });
 
 Deno.test("normalizePerson rejects bad dates and empty names", () => {

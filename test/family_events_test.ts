@@ -32,6 +32,12 @@ Deno.test("normalizeEvent validates and assigns an id", () => {
     () => normalizeEvent({ kind: "party", title: "x", date: "01-01", groups: ["no"] }, knownGroups),
     ValidationError,
   );
+  // Year-less MM-DD dates are no longer accepted.
+  assertThrows(
+    () =>
+      normalizeEvent({ kind: "wedding", title: "x", date: "06-27", groups: ["no"] }, knownGroups),
+    ValidationError,
+  );
   assertThrows(
     () =>
       normalizeEvent(
@@ -116,7 +122,7 @@ Deno.test("addEvent validates, stores and audits a new event", async () => {
   );
   const event = await addEvent(
     store,
-    { kind: "wedding", title: "Bryllup", date: "06-04", groups: ["no"], notes: "@solveig" },
+    { kind: "wedding", title: "Bryllup", date: "1998-06-04", groups: ["no"], notes: "@solveig" },
     "Editor",
   );
   assert(event.id.startsWith("wedding-bryllup-"));

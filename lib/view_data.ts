@@ -29,7 +29,7 @@ export interface ViewEvent {
   id: string;
   kind: string;
   title: string;
-  /** `YYYY-MM-DD` or `MM-DD`. */
+  /** `YYYY-MM-DD` (legacy data may be a year-less `MM-DD`). */
   date: string;
   /** Visibility tags, for the client-side group filter. */
   groups: string[];

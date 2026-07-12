@@ -7,13 +7,17 @@
  * stored.
  */
 
-/** A date string: full ISO `YYYY-MM-DD`, recurring `MM-DD`, or `null` if unknown. */
+/**
+ * A date string: full ISO `YYYY-MM-DD`, or `null` if unknown. Writes no
+ * longer accept year-less `MM-DD` values; readers stay tolerant of them in
+ * case old data resurfaces (imports, backups).
+ */
 export type PartialDate = string;
 
 export interface Person {
   id: string;
   name: string;
-  /** Birth date: `YYYY-MM-DD` (full), `MM-DD` (year unknown), or null. */
+  /** Birth date: `YYYY-MM-DD`, or null when unknown. */
   born: PartialDate | null;
   /** Death date: `YYYY-MM-DD` or null. Drives "in memory" + remembrance. */
   died: PartialDate | null;
@@ -70,7 +74,7 @@ export interface FamilyEvent {
   id: string;
   kind: EventKind;
   title: string;
-  /** `YYYY-MM-DD` (year known) or `MM-DD` (year unknown). */
+  /** `YYYY-MM-DD`. */
   date: PartialDate;
   /**
    * Visibility tags, like `Person.groups` (1+; overlapping or distinct are

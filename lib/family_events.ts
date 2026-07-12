@@ -4,7 +4,6 @@ import { ValidationError } from "./people.ts";
 import type { Store } from "./store.ts";
 
 const DATE_FULL = /^\d{4}-\d{2}-\d{2}$/;
-const DATE_MD = /^\d{2}-\d{2}$/;
 
 export const eventKindLabels: Record<EventKind, string> = {
   wedding: "Wedding",
@@ -33,8 +32,8 @@ export function normalizeEvent(input: FamilyEventInput, knownGroups: Set<string>
   if (!title) throw new ValidationError("title is required");
 
   const date = (input.date ?? "").trim();
-  if (!(DATE_FULL.test(date) || DATE_MD.test(date))) {
-    throw new ValidationError(`invalid date "${date}" (use YYYY-MM-DD or MM-DD)`);
+  if (!DATE_FULL.test(date)) {
+    throw new ValidationError(`invalid date "${date}" (use YYYY-MM-DD)`);
   }
 
   const groups = Array.isArray(input.groups) ? input.groups.filter(Boolean) : [];

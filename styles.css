@@ -302,6 +302,22 @@ html[data-theme="dark"] {
     background: var(--danger-soft);
   }
 
+  /* Native date inputs (touch devices). WebKit gives them an intrinsic
+     width that overflows narrow grid cells and centers the value; make
+     them behave like the text inputs they replace. The min-height keeps
+     an empty field from collapsing (iOS renders no value node then). */
+  .input[type="date"] {
+    -webkit-appearance: none;
+    appearance: none;
+    min-width: 0;
+    min-height: 2.3rem;
+    min-height: calc(1lh + 1rem + 2px);
+  }
+
+  .input[type="date"]::-webkit-date-and-time-value {
+    text-align: left;
+  }
+
   /* Small status/category pill; color it with bg- and text- utilities. */
   .badge {
     display: inline-flex;

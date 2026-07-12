@@ -240,7 +240,7 @@ export function WelcomeTour({
         role="dialog"
         aria-modal="true"
         aria-labelledby="welcome-tour-title"
-        class="card w-full max-w-lg p-6 sm:p-8"
+        class="card max-h-full w-full max-w-lg overflow-y-auto p-6 sm:p-8"
       >
         <div class="flex items-start justify-between gap-4">
           <p class="kicker">{current.kicker}</p>

@@ -100,8 +100,10 @@ export function Calendar({
     () => new Set(followedGroups),
   );
   const followed = useMemo(() => new Set(followedGroups), [followedGroups]);
+  // Remembrances are opt-in: the default view stays celebratory; the
+  // "show" dropdown toggles them back on.
   const [activeTypes, setActiveTypes] = useState<Set<string>>(
-    () => new Set(allTypes),
+    () => new Set(allTypes.filter((type) => type !== "memorial")),
   );
   const [firstMonthOffset, setFirstMonthOffset] = useState(0);
   const [renderedMonthCount, setRenderedMonthCount] = useState(24);

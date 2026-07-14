@@ -702,7 +702,11 @@ export function Calendar({
               <p class="kicker">{t("calendar.nextUp")}</p>
               <p class="text-xs text-ink-3">{t("calendar.next120")}</p>
             </div>
-            <div class="mt-3 grid gap-1 sm:grid-cols-2">
+            {
+              /* Explicit grid-cols-1: minmax(0,1fr) lets rows shrink below their
+               min-content, so a wide row can never push the page sideways. */
+            }
+            <div class="mt-3 grid grid-cols-1 gap-1 sm:grid-cols-2">
               {nextWindow.length
                 ? (
                   nextWindow.map((event, i) => (
@@ -726,7 +730,7 @@ export function Calendar({
         <section class="mb-6 grid gap-3 lg:grid-cols-[1fr_0.72fr]">
           <article class="card p-5">
             <p class="kicker">{t("calendar.recentlyCelebrated")}</p>
-            <div class="mt-3 grid gap-1">
+            <div class="mt-3 grid grid-cols-1 gap-1">
               {recent.length
                 ? (
                   recent.map((event) => (

@@ -13,6 +13,8 @@ export interface GroupColor {
   bg: string;
   text: string;
   border: string;
+  /** Solid fill for the small scanning dot on timeline cards. */
+  dot: string;
 }
 
 export const GROUP_COLORS: GroupColor[] = [
@@ -22,6 +24,7 @@ export const GROUP_COLORS: GroupColor[] = [
     bg: "bg-gc-slate-soft",
     text: "text-gc-slate",
     border: "border-gc-slate",
+    dot: "bg-gc-slate",
   },
   {
     key: "teal",
@@ -29,6 +32,7 @@ export const GROUP_COLORS: GroupColor[] = [
     bg: "bg-gc-teal-soft",
     text: "text-gc-teal",
     border: "border-gc-teal",
+    dot: "bg-gc-teal",
   },
   {
     key: "green",
@@ -36,6 +40,7 @@ export const GROUP_COLORS: GroupColor[] = [
     bg: "bg-gc-green-soft",
     text: "text-gc-green",
     border: "border-gc-green",
+    dot: "bg-gc-green",
   },
   {
     key: "blue",
@@ -43,6 +48,7 @@ export const GROUP_COLORS: GroupColor[] = [
     bg: "bg-gc-blue-soft",
     text: "text-gc-blue",
     border: "border-gc-blue",
+    dot: "bg-gc-blue",
   },
   {
     key: "indigo",
@@ -50,6 +56,7 @@ export const GROUP_COLORS: GroupColor[] = [
     bg: "bg-gc-indigo-soft",
     text: "text-gc-indigo",
     border: "border-gc-indigo",
+    dot: "bg-gc-indigo",
   },
   {
     key: "pink",
@@ -57,6 +64,7 @@ export const GROUP_COLORS: GroupColor[] = [
     bg: "bg-gc-pink-soft",
     text: "text-gc-pink",
     border: "border-gc-pink",
+    dot: "bg-gc-pink",
   },
   {
     key: "rose",
@@ -64,6 +72,7 @@ export const GROUP_COLORS: GroupColor[] = [
     bg: "bg-gc-rose-soft",
     text: "text-gc-rose",
     border: "border-gc-rose",
+    dot: "bg-gc-rose",
   },
   {
     key: "amber",
@@ -71,6 +80,7 @@ export const GROUP_COLORS: GroupColor[] = [
     bg: "bg-gc-amber-soft",
     text: "text-gc-amber",
     border: "border-gc-amber",
+    dot: "bg-gc-amber",
   },
 ];
 
@@ -88,6 +98,7 @@ export const PERSONAL_GROUP_COLOR: GroupColor = {
   bg: "bg-inset",
   text: "text-ink-2",
   border: "border-line",
+  dot: "bg-ink-3",
 };
 
 function colorOf(key: string | undefined): GroupColor {
@@ -116,4 +127,9 @@ export function nextFreeColor(usedColors: string[]): string {
 export function groupBadgeClass(key: string | undefined): string {
   const color = colorOf(key);
   return `${color.bg} ${color.text}`;
+}
+
+/** Tailwind class for the solid group-colored scanning dot. */
+export function groupDotClass(key: string | undefined): string {
+  return colorOf(key).dot;
 }

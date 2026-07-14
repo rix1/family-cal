@@ -1,4 +1,4 @@
-import { groupBadgeClass } from "@/lib/group_colors.ts";
+import { groupDotClass } from "@/lib/group_colors.ts";
 import { t } from "@/lib/i18n.ts";
 import type { ViewGroup, ViewPerson } from "@/lib/view_data.ts";
 import { dayFormat, parseDate, relativeLabel } from "@/lib/calendar/dates.ts";
@@ -19,8 +19,8 @@ export interface TimelineContext {
 /**
  * Compact "next up" / "recently celebrated" birthday line. Same information
  * chain in both variants; "upcoming" reads celebratory (accent cake tile),
- * "recent" reads done (muted check tile, past tense). The age lives in its own
- * right-aligned chip so the text lines never wrap on narrow screens.
+ * "recent" reads done (muted check tile, past tense). The age sits as quiet
+ * right-aligned text so the text lines never wrap on narrow screens.
  */
 export function SummaryCard({
   event,
@@ -82,14 +82,8 @@ export function SummaryCard({
       </div>
       {age && (
         <span
-          class={`badge shrink-0 ${
-            event.flare
-              ? "bg-gold-soft text-gold"
-              : highlight
-              ? "bg-surface text-accent-2"
-              : recent
-              ? "bg-inset text-ink-2"
-              : "bg-accent-soft text-accent-2"
+          class={`flex shrink-0 items-center gap-1 text-sm tabular-nums ${
+            event.flare ? "text-gold" : highlight ? "text-accent-2/70" : "text-ink-3"
           }`}
         >
           {event.flare && <SparkIcon />}
@@ -97,6 +91,23 @@ export function SummaryCard({
         </span>
       )}
     </div>
+  );
+}
+
+/**
+ * The group as a quiet last line: a solid dot in the group's color plus the
+ * label. Replaces the old right-aligned pill, which fought the name row for
+ * width on phones; the dot keeps a fixed left position for easy scanning.
+ */
+function GroupLine({ group }: { group: ViewGroup }) {
+  return (
+    <p class="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-ink-3">
+      <span
+        class={`size-2 shrink-0 rounded-full ${groupDotClass(group.color)}`}
+        aria-hidden="true"
+      />
+      {group.label}
+    </p>
   );
 }
 
@@ -162,20 +173,13 @@ export function EventCard({ event, ctx }: { event: CalendarEvent; ctx: TimelineC
           <TypeIcon type="memorial" />
         </div>
         <div class="min-w-0 flex-1">
-          <div class="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              class="font-semibold hover:underline"
-              onClick={() => onOpenPerson(event.person)}
-            >
-              {t("calendar.inMemoryOf", { name: event.person.name })}
-            </button>
-            {group && (
-              <span class={`badge ml-auto ${groupBadgeClass(group.color)}`}>
-                {group.label}
-              </span>
-            )}
-          </div>
+          <button
+            type="button"
+            class="font-semibold hover:underline"
+            onClick={() => onOpenPerson(event.person)}
+          >
+            {t("calendar.inMemoryOf", { name: event.person.name })}
+          </button>
           <p class="mt-0.5 text-sm text-ink-2">
             {t("calendar.deathAnniversary")}
             {sinceText && ` — ${sinceText}`}
@@ -190,6 +194,7 @@ export function EventCard({ event, ctx }: { event: CalendarEvent; ctx: TimelineC
               </>
             )}
           </p>
+          {group && <GroupLine group={group} />}
         </div>
       </div>
     );
@@ -223,11 +228,6 @@ export function EventCard({ event, ctx }: { event: CalendarEvent; ctx: TimelineC
               <SparkIcon /> {event.age}
             </span>
           )}
-          {group && (
-            <span class={`badge ml-auto ${groupBadgeClass(group.color)}`}>
-              {group.label}
-            </span>
-          )}
         </div>
         <p class="mt-0.5 text-sm text-ink-2">
           {age}
@@ -236,6 +236,7 @@ export function EventCard({ event, ctx }: { event: CalendarEvent; ctx: TimelineC
             ? <LinkedNotes text={notes} personLookup={personLookup} onOpenPerson={onOpenPerson} />
             : !age && t("calendar.birthday")}
         </p>
+        {group && <GroupLine group={group} />}
       </div>
     </div>
   );

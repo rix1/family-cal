@@ -2,9 +2,12 @@ import { AppHeader } from "@/components/AppHeader.tsx";
 import { GroupPicker } from "@/components/GroupPicker.tsx";
 import { CopyButton } from "@/islands/CopyButton.tsx";
 import { ensureFeedToken, setViewerGroups } from "@/lib/access_links.ts";
+import { relativeTime } from "@/lib/dates.ts";
 import { getStore } from "@/lib/db.ts";
+import { feedEtag, feedOptionsForViewer } from "@/lib/feed.ts";
+import { type FeedSyncState, feedSyncState } from "@/lib/feed_activity.ts";
 import { ownPersonalGroup, visibleGroups } from "@/lib/groups.ts";
-import { t } from "@/lib/i18n.ts";
+import { dateLocale, t } from "@/lib/i18n.ts";
 import { clearNewsletterPreference, setNewsletterPreference } from "@/lib/newsletter.ts";
 import { memberNamesByGroup, ValidationError } from "@/lib/people.ts";
 import { sessionViewer } from "@/lib/viewer_auth.ts";
@@ -17,8 +20,14 @@ export const handlers = define.handlers({
     const viewer = await sessionViewer(ctx.req, store);
     if (!viewer) throw new HttpError(404, t("error.requiresLink"));
     const baseUrl = Deno.env.get("BASE_URL") ?? ctx.url.origin;
-    const feedUrl = `${baseUrl}/cal/${await ensureFeedToken(store, viewer)}.ics`;
-    const [groups, people] = await Promise.all([store.listGroups(), store.listPeople()]);
+    const feedToken = await ensureFeedToken(store, viewer);
+    const feedUrl = `${baseUrl}/cal/${feedToken}.ics`;
+    const [groups, people, feedActivity, currentEtag] = await Promise.all([
+      store.listGroups(),
+      store.listPeople(),
+      store.getFeedActivity(feedToken),
+      feedEtag(store, feedOptionsForViewer(viewer)),
+    ]);
     const members = memberNamesByGroup(people);
     const ownList = ownPersonalGroup(groups, viewer.email);
     return page({
@@ -33,6 +42,7 @@ export const handlers = define.handlers({
       followedGroups: viewer.groups,
       subscribed: Boolean(viewer.newsletter),
       feedUrl,
+      sync: feedSyncState(feedActivity, currentEtag),
       saved: ctx.url.searchParams.get("saved"),
     });
   },
@@ -93,6 +103,48 @@ const FLASH: Record<string, string> = {
   shared: "profile.flash.shared",
   unshared: "profile.flash.unshared",
 };
+
+/** Status-line copy + dot color for a sync state, resolved at render time. */
+function syncStatus(sync: FeedSyncState): { dot: string; label: string; body: string } {
+  const agentName = (agent: string) =>
+    t(`profile.sync.agent.${agent === "browser" ? "other" : agent}`);
+  const fetched = (agent: string, lastFetchAt: string) => ({
+    agent: agentName(agent),
+    time: relativeTime(lastFetchAt, new Date(), dateLocale()),
+  });
+  switch (sync.state) {
+    case "active":
+      return {
+        dot: "bg-accent",
+        label: t("profile.sync.active.label"),
+        body: t("profile.sync.active.body", fetched(sync.agent, sync.lastFetchAt)),
+      };
+    case "stopped":
+      return {
+        dot: "bg-gold",
+        label: t("profile.sync.stopped.label"),
+        body: t("profile.sync.stopped.body", fetched(sync.agent, sync.lastFetchAt)),
+      };
+    case "downloaded":
+      return sync.changed
+        ? {
+          dot: "bg-gold",
+          label: t("profile.sync.outofsync.label"),
+          body: t("profile.sync.outofsync.body"),
+        }
+        : {
+          dot: "bg-line-2",
+          label: t("profile.sync.downloaded.label"),
+          body: t("profile.sync.downloaded.body"),
+        };
+    case "never":
+      return {
+        dot: "bg-line-2",
+        label: t("profile.sync.never.label"),
+        body: t("profile.sync.never.body"),
+      };
+  }
+}
 
 export default define.page<typeof handlers>(({ data }) => {
   const webcalUrl = data.feedUrl.replace(/^https?:/, "webcal:");
@@ -255,6 +307,18 @@ export default define.page<typeof handlers>(({ data }) => {
                 {t("profile.feed.body")}
               </p>
             </div>
+
+            {(() => {
+              const status = syncStatus(data.sync);
+              return (
+                <div class="flex items-start gap-2.5 rounded-lg bg-inset px-3 py-2.5">
+                  <span class={`mt-1.5 size-2 shrink-0 rounded-full ${status.dot}`} />
+                  <p class="text-sm leading-relaxed text-ink-2">
+                    <strong class="font-medium">{status.label}.</strong> {status.body}
+                  </p>
+                </div>
+              );
+            })()}
 
             <div class="flex items-center gap-2">
               <input

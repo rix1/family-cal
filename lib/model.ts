@@ -219,6 +219,31 @@ export interface NewsletterDraft {
   recipientCount?: number;
 }
 
+/** Client families that fetch the iCal feed, inferred from the User-Agent. */
+export type FeedAgent = "google" | "apple" | "outlook" | "browser" | "other";
+
+/**
+ * Rolling sync record for one feed token — who fetches the iCal feed and what
+ * they last got. One fixed-size record per token (the agent key set is closed),
+ * so it never grows and needs no pruning. Keyed by `Viewer.feedToken`, which
+ * survives session rotation, so the history follows the subscription.
+ */
+export interface FeedActivity {
+  feedToken: string;
+  /** ISO timestamp of the first recorded fetch. */
+  firstFetchAt: string;
+  /**
+   * Content hash + time of the last response (200 or 304) — the anchor for
+   * "your calendar changed since you last fetched it".
+   */
+  lastServed: { at: string; etag: string };
+  /**
+   * Per-client rolling state. `fetches` counts *recorded* fetches — writes are
+   * throttled to about one per agent per hour, so it is a lower bound.
+   */
+  agents: Partial<Record<FeedAgent, { lastFetchAt: string; fetches: number }>>;
+}
+
 /** An append-only record of a change, keyed by who made it. */
 export interface AuditEntry {
   /** ISO timestamp. */

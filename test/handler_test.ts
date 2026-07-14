@@ -61,6 +61,38 @@ routeTest("GET /cal/<token>.ics returns that viewer's calendar", async () => {
   assertStringIncludes(body, "END:VCALENDAR");
 });
 
+routeTest("GET /cal serves an ETag, honors If-None-Match and records the fetch", async () => {
+  const store = await getStore();
+  const first = await calRoute.handler.GET(
+    ctx(
+      "http://localhost/cal/view-all.ics",
+      { headers: { "user-agent": "Google-Calendar-Importer" } },
+      { token: "view-all" },
+    ),
+  );
+  assertEquals(first.status, 200);
+  const etag = first.headers.get("etag");
+  assert(etag?.startsWith('"'), "200 must carry a quoted ETag");
+  await first.text();
+
+  // Recorded under the token (this legacy viewer has no feedToken yet).
+  const activity = await store.getFeedActivity("view-all");
+  assert(activity, "fetch must be recorded");
+  assertEquals(activity.agents.google?.fetches, 1);
+  assertEquals(activity.lastServed.etag, etag);
+
+  const second = await calRoute.handler.GET(
+    ctx(
+      "http://localhost/cal/view-all.ics",
+      { headers: { "user-agent": "Google-Calendar-Importer", "if-none-match": etag! } },
+      { token: "view-all" },
+    ),
+  );
+  assertEquals(second.status, 304, "matching If-None-Match yields 304");
+  assertEquals(second.headers.get("etag"), etag);
+  assertEquals(await second.text(), "", "304 has no body");
+});
+
 routeTest("GET /cal/<feedToken>.ics resolves via the stable feed token", async () => {
   const store = await getStore();
   await store.upsertViewer({

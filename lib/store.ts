@@ -1,6 +1,7 @@
 import {
   type AuditEntry,
   type FamilyEvent,
+  type FeedActivity,
   type GroupInfo,
   type Invite,
   type LoginToken,
@@ -50,6 +51,10 @@ export interface Store {
   appendAudit(entry: AuditEntry): Promise<void>;
   /** Most-recent-first. */
   listAudit(limit?: number): Promise<AuditEntry[]>;
+
+  getFeedActivity(feedToken: string): Promise<FeedActivity | null>;
+  upsertFeedActivity(activity: FeedActivity): Promise<void>;
+  listFeedActivities(): Promise<FeedActivity[]>;
 }
 
 function clone<T>(value: T): T {
@@ -66,6 +71,7 @@ export class SeedStore implements Store {
   #audit: AuditEntry[] = [];
   #newsletterDrafts = new Map<string, NewsletterDraft>();
   #loginTokens = new Map<string, LoginToken>();
+  #feedActivities = new Map<string, FeedActivity>();
 
   constructor(
     people: Person[] = [],
@@ -226,5 +232,21 @@ export class SeedStore implements Store {
   // deno-lint-ignore require-await
   async listAudit(limit = 100): Promise<AuditEntry[]> {
     return clone(this.#audit.slice(-limit).reverse());
+  }
+
+  // deno-lint-ignore require-await
+  async getFeedActivity(feedToken: string): Promise<FeedActivity | null> {
+    const activity = this.#feedActivities.get(feedToken);
+    return activity ? clone(activity) : null;
+  }
+
+  // deno-lint-ignore require-await
+  async upsertFeedActivity(activity: FeedActivity): Promise<void> {
+    this.#feedActivities.set(activity.feedToken, clone(activity));
+  }
+
+  // deno-lint-ignore require-await
+  async listFeedActivities(): Promise<FeedActivity[]> {
+    return clone([...this.#feedActivities.values()]);
   }
 }

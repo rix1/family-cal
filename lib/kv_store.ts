@@ -1,6 +1,7 @@
 import {
   type AuditEntry,
   type FamilyEvent,
+  type FeedActivity,
   type GroupInfo,
   type Invite,
   type LoginToken,
@@ -18,6 +19,7 @@ const LOGIN_TOKENS = "login_tokens";
 const EVENTS = "events";
 const AUDIT = "audit";
 const NEWSLETTER_DRAFTS = "newsletter_drafts";
+const FEED_ACTIVITY = "feed_activity";
 
 /** Store backed by Deno KV. Same contract as SeedStore; the deploy target. */
 export class KvStore implements Store {
@@ -179,6 +181,23 @@ export class KvStore implements Store {
         { reverse: true, limit },
       )
     ) {
+      out.push(entry.value);
+    }
+    return out;
+  }
+
+  async getFeedActivity(feedToken: string): Promise<FeedActivity | null> {
+    const res = await this.#kv.get<FeedActivity>([FEED_ACTIVITY, feedToken]);
+    return res.value ?? null;
+  }
+
+  async upsertFeedActivity(activity: FeedActivity): Promise<void> {
+    await this.#kv.set([FEED_ACTIVITY, activity.feedToken], activity);
+  }
+
+  async listFeedActivities(): Promise<FeedActivity[]> {
+    const out: FeedActivity[] = [];
+    for await (const entry of this.#kv.list<FeedActivity>({ prefix: [FEED_ACTIVITY] })) {
       out.push(entry.value);
     }
     return out;

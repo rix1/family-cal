@@ -1,5 +1,5 @@
 import { familyStats } from "../lib/stats.ts";
-import type { NewsletterPreference, Person, Viewer } from "../lib/model.ts";
+import type { FeedActivity, NewsletterPreference, Person, Viewer } from "../lib/model.ts";
 import { assertEquals } from "./asserts.ts";
 
 function person(p: Partial<Person> & { name: string }): Person {
@@ -86,4 +86,24 @@ Deno.test("familyStats counts active subscribers and viewers", () => {
   assertEquals(stats.oldest, null);
   assertEquals(stats.busiestMonth, null);
   assertEquals(stats.sameAge, []);
+  assertEquals(stats.syncedFeeds, 0);
+});
+
+Deno.test("familyStats counts feeds a calendar app fetched within the sync window", () => {
+  const activity = (feedToken: string, agents: FeedActivity["agents"]): FeedActivity => ({
+    feedToken,
+    firstFetchAt: "2026-01-01T00:00:00.000Z",
+    lastServed: { at: "2026-06-20T10:00:00.000Z", etag: '"aaa"' },
+    agents,
+  });
+  const stats = familyStats([], [], "2026-06-21", [
+    // Fresh Google poll: a live subscription.
+    activity("a", { google: { lastFetchAt: "2026-06-20T10:00:00.000Z", fetches: 5 } }),
+    // Apple went silent seven weeks ago: stopped.
+    activity("b", { apple: { lastFetchAt: "2026-05-01T10:00:00.000Z", fetches: 5 } }),
+    // Browser-only: a download, never a subscription.
+    activity("c", { browser: { lastFetchAt: "2026-06-20T10:00:00.000Z", fetches: 1 } }),
+  ]);
+
+  assertEquals(stats.syncedFeeds, 1);
 });

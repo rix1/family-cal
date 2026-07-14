@@ -6,7 +6,8 @@
  */
 
 import { ageAtDate, splitDate } from "@/lib/dates.ts";
-import { type Person, type Viewer, viewerIsActive } from "@/lib/model.ts";
+import { lastSubscriptionFetch, SYNC_WINDOW_DAYS } from "@/lib/feed_activity.ts";
+import { type FeedActivity, type Person, type Viewer, viewerIsActive } from "@/lib/model.ts";
 import { activeSubscribers } from "@/lib/newsletter.ts";
 
 export interface NamedAge {
@@ -35,12 +36,15 @@ export interface FamilyStats {
   sameAge: SameAgeGroup[];
   subscribers: number;
   activeViewers: number;
+  /** Feeds a calendar app fetched within the sync window — live subscriptions. */
+  syncedFeeds: number;
 }
 
 export function familyStats(
   people: Person[],
   viewers: Viewer[],
   today: string,
+  feedActivities: FeedActivity[] = [],
 ): FamilyStats {
   const living = people.filter((p) => !p.died);
 
@@ -81,6 +85,14 @@ export function familyStats(
     .map(([age, names]) => ({ age, names }))
     .sort((a, b) => b.age - a.age);
 
+  const syncCutoff = new Date(
+    new Date(`${today}T00:00:00Z`).getTime() - SYNC_WINDOW_DAYS * 24 * 60 * 60 * 1000,
+  ).toISOString();
+  const syncedFeeds = feedActivities.filter((activity) => {
+    const latest = lastSubscriptionFetch(activity);
+    return latest !== null && latest.lastFetchAt >= syncCutoff;
+  }).length;
+
   return {
     totalPeople: people.length,
     living: living.length,
@@ -93,5 +105,6 @@ export function familyStats(
     sameAge,
     subscribers: activeSubscribers(viewers).length,
     activeViewers: viewers.filter(viewerIsActive).length,
+    syncedFeeds,
   };
 }

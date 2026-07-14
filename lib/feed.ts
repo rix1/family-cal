@@ -1,4 +1,5 @@
 import type { Store } from "./store.ts";
+import type { CalEvent, Viewer } from "./model.ts";
 import { toICalendar } from "./ical.ts";
 import { birthdayEvents, holidayEvents, memorialEvents, occasionEvents } from "./events.ts";
 
@@ -18,8 +19,18 @@ export interface FeedOptions {
   dtstamp?: Date;
 }
 
-/** Build a complete iCalendar feed from the store. */
-export async function buildFeed(store: Store, opts: FeedOptions = {}): Promise<string> {
+/** The feed a viewer gets: their followed groups under their personal name. */
+export function feedOptionsForViewer(viewer: Viewer): FeedOptions {
+  return {
+    groups: viewer.groups,
+    calName: viewer.name === "Everyone" ? "Family Calendar" : `Family Calendar — ${viewer.name}`,
+  };
+}
+
+async function assembleFeed(
+  store: Store,
+  opts: FeedOptions,
+): Promise<{ calName: string; events: CalEvent[] }> {
   const now = opts.now ?? new Date();
   const year = now.getUTCFullYear();
   const startYear = year - (opts.pastYears ?? 1);
@@ -43,8 +54,26 @@ export async function buildFeed(store: Store, opts: FeedOptions = {}): Promise<s
     ...holidayEvents(startYear, endYear),
   ];
 
-  return toICalendar(events, {
-    calName: opts.calName ?? "Family Calendar",
-    dtstamp: opts.dtstamp,
-  });
+  return { calName: opts.calName ?? "Family Calendar", events };
+}
+
+/** Build a complete iCalendar feed from the store. */
+export async function buildFeed(store: Store, opts: FeedOptions = {}): Promise<string> {
+  const { calName, events } = await assembleFeed(store, opts);
+  return toICalendar(events, { calName, dtstamp: opts.dtstamp });
+}
+
+/**
+ * Strong ETag for the feed `opts` would produce, quoted for HTTP headers.
+ * Hashes the assembled events rather than the serialized calendar, so the
+ * volatile DTSTAMP never leaks in: the tag changes only when the content a
+ * client would see changes (including the holiday window shifting at new year).
+ */
+export async function feedEtag(store: Store, opts: FeedOptions = {}): Promise<string> {
+  const assembled = await assembleFeed(store, opts);
+  const bytes = new TextEncoder().encode(JSON.stringify(assembled));
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
+  let hex = "";
+  for (const byte of digest.subarray(0, 16)) hex += byte.toString(16).padStart(2, "0");
+  return `"${hex}"`;
 }

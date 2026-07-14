@@ -1,4 +1,4 @@
-import { buildFeed } from "../lib/feed.ts";
+import { buildFeed, feedEtag } from "../lib/feed.ts";
 import { SeedStore } from "../lib/store.ts";
 import { assert, assertEquals, assertStringIncludes } from "./asserts.ts";
 import { TEST_GROUPS, TEST_PEOPLE, TEST_VIEWERS } from "./fixtures.ts";
@@ -44,6 +44,26 @@ Deno.test("buildFeed group filter subsets people (the per-viewer seam)", async (
 
   // Holidays are independent of the people filter.
   assertStringIncludes(dkOnly, "Christmas Day");
+});
+
+Deno.test("feedEtag is deterministic and tracks content, not timestamps", async () => {
+  const store = new SeedStore(TEST_PEOPLE, TEST_GROUPS, TEST_VIEWERS);
+  const first = await feedEtag(store, { now: fixedNow });
+  assert(/^"[0-9a-f]{32}"$/.test(first), "quoted hex etag for HTTP headers");
+  assertEquals(await feedEtag(store, { now: fixedNow }), first, "same content, same tag");
+
+  const dkOnly = await feedEtag(store, { groups: ["dk"], now: fixedNow });
+  assert(dkOnly !== first, "group subsets fingerprint differently");
+
+  await store.upsertPerson({
+    id: "nyfødt",
+    name: "Nyfødt",
+    born: "2026-05-30",
+    died: null,
+    affiliation: "no",
+    notes: "",
+  });
+  assert(await feedEtag(store, { now: fixedNow }) !== first, "content change moves the tag");
 });
 
 Deno.test("buildFeed holiday window scales with past/future years", async () => {

@@ -27,11 +27,12 @@ export const handlers = define.handlers({
 
     const viewer = await adminViewer(ctx.req, store);
     if (!viewer) return adminDenied();
-    const [people, groups, viewers, invites] = await Promise.all([
+    const [people, groups, viewers, invites, feedActivities] = await Promise.all([
       store.listPeople(),
       store.listGroups(),
       store.listViewers(),
       store.listInvites(),
+      store.listFeedActivities(),
     ]);
     const t = osloToday();
     return page({
@@ -42,7 +43,12 @@ export const handlers = define.handlers({
         viewers: viewers.length,
         invites: invites.length,
       },
-      stats: familyStats(people, viewers, `${t.year}-${pad2(t.month)}-${pad2(t.day)}`),
+      stats: familyStats(
+        people,
+        viewers,
+        `${t.year}-${pad2(t.month)}-${pad2(t.day)}`,
+        feedActivities,
+      ),
     });
   },
 });
@@ -128,6 +134,17 @@ export default define.page<typeof handlers>(({ data }) => (
             <span class="font-normal text-ink-3">/{data.stats.totalPeople}</span>
           </p>
           <p class="mt-1 text-xs text-ink-3">have a full birth date</p>
+        </div>
+
+        <div class="card p-5">
+          <p class="kicker">Calendar sync</p>
+          <p class="mt-2 text-3xl font-semibold tabular-nums tracking-tight">
+            {data.stats.syncedFeeds}
+          </p>
+          <p class="mt-1 text-xs text-ink-3">
+            of {data.stats.activeViewers} active{" "}
+            {data.stats.activeViewers === 1 ? "viewer" : "viewers"} · fetched within 14 days
+          </p>
         </div>
 
         <div class="card p-5">

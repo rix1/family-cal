@@ -4,7 +4,9 @@ import { CopyButton } from "@/islands/CopyButton.tsx";
 import { Toast } from "@/islands/Toast.tsx";
 import { accessUrls, createViewer, expirePreviousViewerLinks } from "@/lib/access_links.ts";
 import { adminDenied, adminViewer } from "@/lib/admin_auth.ts";
+import { relativeTime } from "@/lib/dates.ts";
 import { getStore } from "@/lib/db.ts";
+import { lastSubscriptionFetch } from "@/lib/feed_activity.ts";
 import { emailInUse } from "@/lib/login.ts";
 import { viewerIsActive } from "@/lib/model.ts";
 import { normalizeEmail } from "@/lib/newsletter.ts";
@@ -18,7 +20,12 @@ export const handlers = define.handlers({
     const store = await getStore();
     const viewer = await adminViewer(ctx.req, store);
     if (!viewer) return adminDenied();
-    const [viewers, groups] = await Promise.all([store.listViewers(), store.listGroups()]);
+    const [viewers, groups, feedActivities] = await Promise.all([
+      store.listViewers(),
+      store.listGroups(),
+      store.listFeedActivities(),
+    ]);
+    const activityByFeedToken = new Map(feedActivities.map((item) => [item.feedToken, item]));
     const query = ctx.url.searchParams.get("q")?.trim().toLocaleLowerCase() ?? "";
     const status = ctx.url.searchParams.get("status") ?? "all";
     const permission = ctx.url.searchParams.get("permission") ?? "all";
@@ -39,7 +46,10 @@ export const handlers = define.handlers({
     const baseUrl = Deno.env.get("BASE_URL") ?? ctx.url.origin;
     return page({
       viewer,
-      viewers: filteredViewers,
+      viewers: filteredViewers.map((item) => {
+        const activity = item.feedToken ? activityByFeedToken.get(item.feedToken) : undefined;
+        return { ...item, lastSync: activity ? lastSubscriptionFetch(activity) : null };
+      }),
       groups,
       filters: { query: ctx.url.searchParams.get("q") ?? "", status, permission, group },
       expired: ctx.url.searchParams.get("expired") === "1",
@@ -111,6 +121,12 @@ export const handlers = define.handlers({
     });
   },
 });
+
+const AGENT_LABELS: Record<string, string> = {
+  google: "Google",
+  apple: "Apple",
+  outlook: "Outlook",
+};
 
 export default define.page<typeof handlers>(({ data }) => (
   <>
@@ -265,6 +281,7 @@ export default define.page<typeof handlers>(({ data }) => (
               <th>Groups</th>
               <th>Permission</th>
               <th>Created</th>
+              <th>Last sync</th>
               <th>Status</th>
               <th></th>
             </tr>
@@ -285,6 +302,13 @@ export default define.page<typeof handlers>(({ data }) => (
                 </td>
                 <td class="tabular-nums text-ink-2">
                   {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "—"}
+                </td>
+                <td class="text-ink-2">
+                  {item.lastSync
+                    ? `${AGENT_LABELS[item.lastSync.agent] ?? item.lastSync.agent} · ${
+                      relativeTime(item.lastSync.lastFetchAt, new Date(), "en-GB")
+                    }`
+                    : "—"}
                 </td>
                 <td>
                   {item.expiredAt

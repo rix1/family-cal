@@ -83,6 +83,22 @@ export function compactStampUTC(when: Date): string {
   );
 }
 
+/**
+ * Localized "2 hours ago" for an ISO timestamp, in the largest unit that reads
+ * naturally (minutes → months). `locale` is a BCP-47 tag (see `dateLocale()`).
+ */
+export function relativeTime(iso: string, now: Date, locale: string): string {
+  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+  const minutes = Math.round((new Date(iso).getTime() - now.getTime()) / 60000);
+  if (Math.abs(minutes) < 60) return rtf.format(minutes, "minute");
+  const hours = Math.round(minutes / 60);
+  if (Math.abs(hours) < 24) return rtf.format(hours, "hour");
+  const days = Math.round(hours / 24);
+  if (Math.abs(days) < 7) return rtf.format(days, "day");
+  if (Math.abs(days) < 35) return rtf.format(Math.round(days / 7), "week");
+  return rtf.format(Math.round(days / 30), "month");
+}
+
 export function slug(text: string): string {
   return text
     .toLowerCase()

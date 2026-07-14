@@ -4,7 +4,7 @@ import type { ViewGroup, ViewPerson } from "@/lib/view_data.ts";
 import { dayFormat, parseDate, relativeLabel } from "@/lib/calendar/dates.ts";
 import { ageText, type BirthdayEvent, type CalendarEvent } from "@/lib/calendar/events.ts";
 import { occasionLabel } from "@/lib/calendar/labels.ts";
-import { SparkIcon, TypeIcon } from "@/components/calendar/icons.tsx";
+import { CheckIcon, SparkIcon, TypeIcon } from "@/components/calendar/icons.tsx";
 import { LinkedNotes, PersonDate } from "@/components/calendar/text.tsx";
 
 /** Context every card needs: the day anchor, badges, and mention links. */
@@ -16,20 +16,28 @@ export interface TimelineContext {
   onOpenPerson: (person: ViewPerson) => void;
 }
 
-/** Compact "next up" / "recently celebrated" birthday line. */
+/**
+ * Compact "next up" / "recently celebrated" birthday line. Same information
+ * chain in both variants; "upcoming" reads celebratory (accent cake tile),
+ * "recent" reads done (muted check tile, past tense). The age lives in its own
+ * right-aligned chip so the text lines never wrap on narrow screens.
+ */
 export function SummaryCard({
   event,
   highlight = false,
+  variant = "upcoming",
   ctx,
 }: {
   event: BirthdayEvent;
   highlight?: boolean;
+  variant?: "upcoming" | "recent";
   ctx: TimelineContext;
 }) {
   // "today" is already carried by the relative label, so drop ageText's suffix.
   const age = ageText(event, ctx.todayKey, true);
   const relative = relativeLabel(event.date, ctx.todayKey);
   const when = `${relative.charAt(0).toUpperCase()}${relative.slice(1)}`;
+  const recent = variant === "recent";
   return (
     <div
       class={`flex items-center gap-3 rounded-lg px-2.5 py-2 ${highlight ? "bg-accent-soft" : ""}`}
@@ -40,33 +48,54 @@ export function SummaryCard({
             ? "bg-gold-soft text-gold"
             : highlight
             ? "bg-surface text-accent-2"
-            : "bg-inset text-ink-2"
+            : recent
+            ? "bg-inset text-ink-3"
+            : "bg-accent-soft text-accent-2"
         }`}
       >
-        <TypeIcon type={event.type} />
+        {recent ? <CheckIcon /> : <TypeIcon type={event.type} />}
       </div>
-      <div class="min-w-0">
-        <p class="flex items-center gap-2 truncate text-sm">
+      <div class="min-w-0 flex-1">
+        <p class="flex items-center gap-2 text-sm">
           <button
             type="button"
-            class="truncate text-left font-semibold hover:underline"
+            class={`truncate text-left font-semibold hover:underline ${
+              recent ? "text-ink-2" : "text-ink"
+            }`}
             onClick={() => ctx.onOpenPerson(event.person)}
           >
             {event.name}
           </button>
           {highlight && <span class="badge bg-accent text-on-accent">{t("calendar.next")}</span>}
         </p>
-        <p class="text-sm tabular-nums">
-          <span class={`${highlight ? "text-accent-2" : "text-ink"}`}>
-            {when}
-          </span>
+        <p
+          class={`truncate text-sm tabular-nums ${
+            highlight ? "text-accent-2" : recent ? "text-ink-3" : "text-ink"
+          }`}
+        >
+          {when}
           <span class={highlight ? "text-accent-2/70" : "text-ink-3"}>
             {" · "}
             <PersonDate value={event.date} short />
-            {age ? ` · ${age}` : ""}
           </span>
         </p>
       </div>
+      {age && (
+        <span
+          class={`badge shrink-0 ${
+            event.flare
+              ? "bg-gold-soft text-gold"
+              : highlight
+              ? "bg-surface text-accent-2"
+              : recent
+              ? "bg-inset text-ink-2"
+              : "bg-accent-soft text-accent-2"
+          }`}
+        >
+          {event.flare && <SparkIcon />}
+          {age}
+        </span>
+      )}
     </div>
   );
 }

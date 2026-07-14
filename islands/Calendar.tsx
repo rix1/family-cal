@@ -31,7 +31,14 @@ import {
 } from "@/lib/calendar/events.ts";
 import { typeLabel } from "@/lib/calendar/labels.ts";
 import { FilterDropdown } from "@/components/calendar/FilterDropdown.tsx";
-import { CheckIcon, ListIcon, SparkIcon, TableIcon } from "@/components/calendar/icons.tsx";
+import {
+  CheckIcon,
+  ListIcon,
+  SparkIcon,
+  TableIcon,
+  TypeIcon,
+} from "@/components/calendar/icons.tsx";
+import { type AddChoice } from "@/components/calendar/AddChooser.tsx";
 import { PersonSheet } from "@/components/calendar/PersonSheet.tsx";
 import { CalendarTable } from "@/components/calendar/table.tsx";
 import { DayGroup, SummaryCard, type TimelineContext } from "@/components/calendar/timeline.tsx";
@@ -118,9 +125,13 @@ export function Calendar({
   const [personOpen, setPersonOpen] = useState(false);
   // The detail slide-over doubles as the add/edit form: `editing` swaps its body
   // in place for the selected person, `adding` opens it for a brand-new person.
+  // The add flow starts on a chooser step (`choosingAdd`) that picks between
+  // the person and event forms; continuing swaps the body in place.
   const [editing, setEditing] = useState(false);
   const [adding, setAdding] = useState(false);
   const [addingEvent, setAddingEvent] = useState(false);
+  const [choosingAdd, setChoosingAdd] = useState(false);
+  const [addChoice, setAddChoice] = useState<AddChoice>("person");
   const closePersonButton = useRef<HTMLButtonElement | null>(null);
   const personTrigger = useRef<HTMLElement | null>(null);
   const pendingScrollToPerson = useRef<ViewPerson | null>(null);
@@ -233,7 +244,7 @@ export function Calendar({
   // The sheet shows for a selected person (detail/edit) or while adding. Drive
   // the entry animation and scroll lock off this single "is it on screen" flag
   // so switching detail <-> edit or person <-> person never re-animates.
-  const sheetShown = Boolean(selectedPerson) || adding || addingEvent;
+  const sheetShown = Boolean(selectedPerson) || adding || addingEvent || choosingAdd;
   useEffect(() => {
     if (!sheetShown) return;
     const raf = requestAnimationFrame(() => {
@@ -364,25 +375,13 @@ export function Calendar({
     setEditing(false);
     setAdding(false);
     setAddingEvent(false);
+    setChoosingAdd(false);
     setSelectedPerson(person);
   }
 
-  function openAddPerson() {
-    if (closePersonTimer.current !== null) {
-      clearTimeout(closePersonTimer.current);
-      closePersonTimer.current = null;
-    }
-    personTrigger.current = document.activeElement instanceof HTMLElement
-      ? document.activeElement
-      : null;
-    setPersonClosing(false);
-    setEditing(false);
-    setAddingEvent(false);
-    setSelectedPerson(null);
-    setAdding(true);
-  }
-
-  function openAddEvent() {
+  // One entry point for adding anything: the sheet opens on the chooser step,
+  // and continuing swaps in the matching form in place — no re-animation.
+  function openAdd() {
     if (closePersonTimer.current !== null) {
       clearTimeout(closePersonTimer.current);
       closePersonTimer.current = null;
@@ -393,8 +392,16 @@ export function Calendar({
     setPersonClosing(false);
     setEditing(false);
     setAdding(false);
+    setAddingEvent(false);
     setSelectedPerson(null);
-    setAddingEvent(true);
+    setAddChoice(saveUrl ? "person" : "event");
+    setChoosingAdd(true);
+  }
+
+  function continueAdd() {
+    setChoosingAdd(false);
+    if (addChoice === "person") setAdding(true);
+    else setAddingEvent(true);
   }
 
   // Swap the open sheet's body to the edit form in place — no re-animation.
@@ -438,8 +445,12 @@ export function Calendar({
   }
 
   function cancelForm() {
-    if (adding || addingEvent) closeSheet();
-    else setEditing(false); // back to the detail view in place
+    if (adding || addingEvent) {
+      // The add forms are only reached through the chooser — step back to it.
+      setAdding(false);
+      setAddingEvent(false);
+      setChoosingAdd(true);
+    } else setEditing(false); // back to the detail view in place
   }
 
   function closeSheet() {
@@ -450,6 +461,7 @@ export function Calendar({
       setSelectedPerson(null);
       setAdding(false);
       setAddingEvent(false);
+      setChoosingAdd(false);
       setEditing(false);
       setPersonClosing(false);
       closePersonTimer.current = null;
@@ -535,21 +547,13 @@ export function Calendar({
         logoutUrl={logoutUrl}
         menuChildren={
           <>
-            {saveUrl && (
-              <button type="button" onClick={openAddPerson}>
+            {(saveUrl || eventsSaveUrl) && (
+              <button type="button" onClick={openAdd}>
                 <MenuIcon>
-                  <circle cx="9" cy="8" r="3.5" />
-                  <path d="M3 19v-1a3.5 3.5 0 0 1 3.5-3.5h5A3.5 3.5 0 0 1 15 18v1M18 8v6M21 11h-6" />
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M12 8.5v7M8.5 12h7" />
                 </MenuIcon>
-                {t("personForm.add")}
-              </button>
-            )}
-            {eventsSaveUrl && (
-              <button type="button" onClick={openAddEvent}>
-                <MenuIcon>
-                  <path d="M4 5h16v15H4zM4 9h16M8 3v4M16 3v4M12 12v5M9.5 14.5h5" />
-                </MenuIcon>
-                {t("eventForm.submit")}
+                {t("calendar.addMenu")}
               </button>
             )}
             <a href="/calendar/?welcome=1">
@@ -571,6 +575,65 @@ export function Calendar({
       </AppHeader>
 
       <main class="mx-auto max-w-5xl px-4 pb-20 pt-6">
+        {
+          /* Today's birthdays get a full-width banner up top — on mobile the
+           "I fokus" card sits below the fold, and this shouldn't be missed. */
+        }
+        {birthdaysToday.length > 0 && (
+          <section class="mb-4 grid gap-2">
+            {birthdaysToday.map((p) => {
+              const gone = Boolean(p.died);
+              const age = ageOn(p, currentYear);
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => openPerson(p)}
+                  class={`group flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left ${
+                    gone
+                      ? "border border-line bg-inset text-ink"
+                      : "bg-accent text-on-accent shadow-pop"
+                  }`}
+                >
+                  <span
+                    class={`grid size-10 shrink-0 place-items-center rounded-full ${
+                      gone ? "bg-surface text-ink-2" : "bg-on-accent/15"
+                    }`}
+                  >
+                    <TypeIcon type={gone ? "memorial" : "birthday"} class="size-5" />
+                  </span>
+                  <span class="min-w-0 flex-1">
+                    <span class="block font-semibold leading-snug">
+                      {gone
+                        ? t("calendar.remembering", { name: p.name })
+                        : t("calendar.todayBirthday", { name: p.name })}
+                      {!gone && age != null && (
+                        <span class="font-normal text-on-accent/80">
+                          {` · ${t("calendar.age.turns", { age })}`}
+                        </span>
+                      )}
+                    </span>
+                    <span
+                      class={`mt-0.5 block text-sm leading-snug ${
+                        gone ? "text-ink-2" : "text-on-accent/80"
+                      }`}
+                    >
+                      {gone
+                        ? t("calendar.rememberingHint")
+                        : t("calendar.birthdayPrompt", { name: p.name })}
+                    </span>
+                  </span>
+                  <span
+                    class="shrink-0 transition-transform group-hover:translate-x-0.5"
+                    aria-hidden="true"
+                  >
+                    →
+                  </span>
+                </button>
+              );
+            })}
+          </section>
+        )}
         {followedGroups.length === 0 && (
           <div class="mb-4 flex items-center gap-3 rounded-xl border border-accent/40 bg-accent-soft px-4 py-3 text-sm text-accent-2">
             <svg
@@ -670,6 +733,7 @@ export function Calendar({
                     <SummaryCard
                       key={`${event.date}-${event.person.id}`}
                       event={event}
+                      variant="recent"
                       ctx={timelineCtx}
                     />
                   ))
@@ -683,32 +747,6 @@ export function Calendar({
           </article>
           <article class="card flex flex-col gap-4 p-5">
             <p class="kicker">{t("calendar.inFocus")}</p>
-            {birthdaysToday.map((p) => {
-              const gone = Boolean(p.died);
-              const age = ageOn(p, currentYear);
-              return (
-                <div
-                  key={p.id}
-                  class="rounded-lg border border-accent/30 bg-accent-soft px-3.5 py-3"
-                >
-                  <p class="text-sm font-medium text-accent-2">
-                    {gone
-                      ? t("calendar.remembering", { name: p.name })
-                      : t("calendar.todayBirthday", { name: p.name })}
-                    {!gone && age != null && (
-                      <span class="font-normal text-ink-3">
-                        {` · ${t("calendar.age.turns", { age })}`}
-                      </span>
-                    )}
-                  </p>
-                  <p class="mt-1 text-xs leading-relaxed text-ink-2">
-                    {gone
-                      ? t("calendar.rememberingHint")
-                      : t("calendar.birthdayPrompt", { name: p.name })}
-                  </p>
-                </div>
-              );
-            })}
             {missing.length > 0 && (
               <div>
                 <p class="text-sm font-medium">
@@ -1038,6 +1076,8 @@ export function Calendar({
           detail={selectedDetail}
           adding={adding}
           addingEvent={addingEvent}
+          choosing={choosingAdd}
+          addChoice={addChoice}
           editing={editing}
           groups={groups}
           people={people}
@@ -1054,6 +1094,8 @@ export function Calendar({
           onEventSaved={onEventSaved}
           onCancelForm={cancelForm}
           onShowInTimeline={showPersonInTimeline}
+          onAddChoice={setAddChoice}
+          onContinueAdd={continueAdd}
           closeButtonRef={closePersonButton}
         />
       )}

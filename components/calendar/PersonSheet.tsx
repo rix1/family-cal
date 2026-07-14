@@ -1,5 +1,6 @@
 import { EventForm } from "@/islands/EventForm.tsx";
 import { PersonForm, type SavedGroup } from "@/islands/PersonForm.tsx";
+import { type AddChoice, AddChooser } from "@/components/calendar/AddChooser.tsx";
 import { groupBadgeClass } from "@/lib/group_colors.ts";
 import { t } from "@/lib/i18n.ts";
 import type { ViewEvent, ViewGroup, ViewPerson } from "@/lib/view_data.ts";
@@ -11,8 +12,9 @@ import { LinkedNotes, PersonDate } from "@/components/calendar/text.tsx";
 /**
  * The slide-over that shows a person's details and doubles as the add/edit
  * form: `editing` swaps the body in place for the selected person, `adding` /
- * `addingEvent` open it empty. The open/closing animation state stays in the
- * Calendar island, which owns the timers and focus management.
+ * `addingEvent` open it empty, and `choosing` shows the person-or-event
+ * chooser step first. The open/closing animation state stays in the Calendar
+ * island, which owns the timers and focus management.
  */
 export function PersonSheet({
   open,
@@ -21,6 +23,8 @@ export function PersonSheet({
   detail,
   adding,
   addingEvent,
+  choosing,
+  addChoice,
   editing,
   groups,
   people,
@@ -37,6 +41,8 @@ export function PersonSheet({
   onEventSaved,
   onCancelForm,
   onShowInTimeline,
+  onAddChoice,
+  onContinueAdd,
   closeButtonRef,
 }: {
   open: boolean;
@@ -45,6 +51,8 @@ export function PersonSheet({
   detail: PersonDetail | null;
   adding: boolean;
   addingEvent: boolean;
+  choosing: boolean;
+  addChoice: AddChoice;
   editing: boolean;
   groups: Record<string, ViewGroup>;
   people: ViewPerson[];
@@ -62,6 +70,8 @@ export function PersonSheet({
   onEventSaved: (saved: ViewEvent) => void;
   onCancelForm: () => void;
   onShowInTimeline: (person: ViewPerson) => void;
+  onAddChoice: (choice: AddChoice) => void;
+  onContinueAdd: () => void;
   closeButtonRef: Ref<HTMLButtonElement>;
 }) {
   const group = person ? groups[person.affiliation] : undefined;
@@ -85,7 +95,9 @@ export function PersonSheet({
         <div class="flex items-start justify-between gap-4">
           <div>
             <p class="kicker">
-              {addingEvent
+              {choosing
+                ? t("addChooser.kicker")
+                : addingEvent
                 ? t("eventForm.submit")
                 : adding
                 ? t("personForm.add")
@@ -94,7 +106,9 @@ export function PersonSheet({
                 : t("calendar.person")}
             </p>
             <h2 id="person-detail-title" class="mt-1 text-xl font-semibold tracking-tight">
-              {addingEvent
+              {choosing
+                ? t("addChooser.title")
+                : addingEvent
                 ? t("calendar.newEvent")
                 : adding
                 ? t("calendar.newPerson")
@@ -127,7 +141,17 @@ export function PersonSheet({
           </button>
         </div>
 
-        {addingEvent && eventsSaveUrl
+        {choosing
+          ? (
+            <AddChooser
+              canPerson={Boolean(saveUrl)}
+              canEvent={Boolean(eventsSaveUrl)}
+              choice={addChoice}
+              onChoice={onAddChoice}
+              onContinue={onContinueAdd}
+            />
+          )
+          : addingEvent && eventsSaveUrl
           ? (
             <EventForm
               groups={groups}

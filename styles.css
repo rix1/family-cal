@@ -627,6 +627,22 @@ html[data-theme="dark"] {
     transform: translateY(0);
   }
 
+  /* Floating "today" shortcut; hidden until the today marker scrolls out of
+   view. Bottom offset clears the iOS Safari home-indicator area. */
+  .today-fab {
+    bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(8px);
+    transition: opacity 180ms ease, transform 180ms ease;
+  }
+
+  .today-fab.visible {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+  }
+
   /* Fast-appearing tooltip for the year heatmap; native title tooltips have a
    distracting ~600ms delay, so this fades/pops in on hover instead. */
   .heatmap-tip {
@@ -634,7 +650,8 @@ html[data-theme="dark"] {
     z-index: 20;
     width: max-content;
     min-width: 8rem;
-    max-width: 18rem;
+    /* Never wider than the wrap, so the JS clamp can always fit it on-screen. */
+    max-width: min(18rem, 100%);
     border-radius: 0.5rem;
     background: var(--ink);
     padding: 0.375rem 0.625rem;
@@ -735,57 +752,68 @@ html[data-theme="dark"] {
 /* How-it-works beats. The input placeholder shows whenever the fake input
    is "empty": before each name appears and after the loop resets. */
 @keyframes hiw-ph {
-  0%, 2% {
+  0%,
+  2% {
     opacity: 1;
   }
 
-  5%, 37% {
+  5%,
+  37% {
     opacity: 0;
   }
 
-  41%, 45% {
+  41%,
+  45% {
     opacity: 1;
   }
 
-  48%, 80% {
+  48%,
+  80% {
     opacity: 0;
   }
 
-  84%, 100% {
+  84%,
+  100% {
     opacity: 1;
   }
 }
 
 /* Names rise into the input, hold while "their" pill is lit, then clear. */
 @keyframes hiw-t1 {
-  0%, 4% {
+  0%,
+  4% {
     opacity: 0;
     transform: translateY(2px);
   }
 
-  7%, 34% {
+  7%,
+  34% {
     opacity: 1;
     transform: translateY(0);
   }
 
-  37%, 100% {
+  37%,
+  100% {
     opacity: 0;
     transform: translateY(0);
   }
 }
 
 @keyframes hiw-t2 {
-  0%, 47% {
+  0%,
+  47% {
     opacity: 0;
     transform: translateY(2px);
   }
 
-  50%, 77% {
+  50%,
+  77% {
     opacity: 1;
     transform: translateY(0);
   }
 
-  80%, 100% {
+  80%,
+  100% {
     opacity: 0;
     transform: translateY(0);
   }
@@ -793,19 +821,22 @@ html[data-theme="dark"] {
 
 /* Branch pills light up in their group color while "selected". */
 @keyframes hiw-s1 {
-  0%, 10% {
+  0%,
+  10% {
     background-color: var(--surface);
     border-color: var(--line-2);
     color: var(--ink-2);
   }
 
-  13%, 34% {
+  13%,
+  34% {
     background-color: var(--gc-teal-soft);
     border-color: var(--gc-teal);
     color: var(--gc-teal);
   }
 
-  37%, 100% {
+  37%,
+  100% {
     background-color: var(--surface);
     border-color: var(--line-2);
     color: var(--ink-2);
@@ -813,19 +844,22 @@ html[data-theme="dark"] {
 }
 
 @keyframes hiw-s2 {
-  0%, 53% {
+  0%,
+  53% {
     background-color: var(--surface);
     border-color: var(--line-2);
     color: var(--ink-2);
   }
 
-  56%, 77% {
+  56%,
+  77% {
     background-color: var(--gc-pink-soft);
     border-color: var(--gc-pink);
     color: var(--gc-pink);
   }
 
-  80%, 100% {
+  80%,
+  100% {
     background-color: var(--surface);
     border-color: var(--line-2);
     color: var(--ink-2);
@@ -834,7 +868,8 @@ html[data-theme="dark"] {
 
 /* The person's avatar pops into the branch's member stack, and stays. */
 @keyframes hiw-n1 {
-  0%, 14% {
+  0%,
+  14% {
     opacity: 0;
     transform: scale(0);
   }
@@ -844,19 +879,22 @@ html[data-theme="dark"] {
     transform: scale(1.15);
   }
 
-  21%, 90% {
+  21%,
+  90% {
     opacity: 1;
     transform: scale(1);
   }
 
-  95%, 100% {
+  95%,
+  100% {
     opacity: 0;
     transform: scale(1);
   }
 }
 
 @keyframes hiw-n2 {
-  0%, 57% {
+  0%,
+  57% {
     opacity: 0;
     transform: scale(0);
   }
@@ -866,12 +904,14 @@ html[data-theme="dark"] {
     transform: scale(1.15);
   }
 
-  64%, 90% {
+  64%,
+  90% {
     opacity: 1;
     transform: scale(1);
   }
 
-  95%, 100% {
+  95%,
+  100% {
     opacity: 0;
     transform: scale(1);
   }
@@ -880,7 +920,8 @@ html[data-theme="dark"] {
 /* A soft ring in the branch color flags the row that just received
    someone. */
 @keyframes hiw-g1 {
-  0%, 14% {
+  0%,
+  14% {
     box-shadow: 0 0 0 0 transparent;
   }
 
@@ -888,13 +929,15 @@ html[data-theme="dark"] {
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--gc-teal) 35%, transparent);
   }
 
-  28%, 100% {
+  28%,
+  100% {
     box-shadow: 0 0 0 0 transparent;
   }
 }
 
 @keyframes hiw-g2 {
-  0%, 57% {
+  0%,
+  57% {
     box-shadow: 0 0 0 0 transparent;
   }
 
@@ -902,13 +945,15 @@ html[data-theme="dark"] {
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--gc-pink) 35%, transparent);
   }
 
-  71%, 100% {
+  71%,
+  100% {
     box-shadow: 0 0 0 0 transparent;
   }
 }
 
 @keyframes hiw-caret {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
   }
 

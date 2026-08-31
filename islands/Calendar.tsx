@@ -33,8 +33,9 @@ import { typeLabel } from "@/lib/calendar/labels.ts";
 import { FilterDropdown } from "@/components/calendar/FilterDropdown.tsx";
 import {
   CheckIcon,
+  DiceIcon,
   ListIcon,
-  SparkIcon,
+  SlidersIcon,
   TableIcon,
   TypeIcon,
 } from "@/components/calendar/icons.tsx";
@@ -120,6 +121,7 @@ export function Calendar({
     dir: -1,
   });
   const [toast, setToast] = useState("");
+  const [showTodayFab, setShowTodayFab] = useState(false);
   const [selectedPerson, setSelectedPerson] = useState<ViewPerson | null>(null);
   const [personClosing, setPersonClosing] = useState(false);
   const [personOpen, setPersonOpen] = useState(false);
@@ -212,6 +214,30 @@ export function Calendar({
     return () => globalThis.removeEventListener("scroll", onScroll);
   }, [viewMode]);
 
+  // "I dag" lives in a floating button instead of the (crowded) header; it
+  // fades in once today's marker leaves the viewport in either direction —
+  // scrolled ahead or back into past months — and one tap returns to it.
+  useEffect(() => {
+    if (viewMode !== "timeline") {
+      setShowTodayFab(false);
+      return;
+    }
+    function onScroll() {
+      const marker = document.querySelector(`#day-${todayKey}`);
+      if (!marker) return;
+      const rect = marker.getBoundingClientRect();
+      // 120px ≈ the sticky app header plus the month header above the cards.
+      setShowTodayFab(rect.bottom < 120 || rect.top > globalThis.innerHeight);
+    }
+    globalThis.addEventListener("scroll", onScroll, { passive: true });
+    globalThis.addEventListener("resize", onScroll);
+    onScroll();
+    return () => {
+      globalThis.removeEventListener("scroll", onScroll);
+      globalThis.removeEventListener("resize", onScroll);
+    };
+  }, [viewMode, todayKey]);
+
   // The island renders "timeline" on the server; only flip after hydration.
   useEffect(() => {
     try {
@@ -295,18 +321,6 @@ export function Calendar({
   );
   // Incomplete birth dates: no date at all, or a month-day with the year still unknown.
   const missing = people.filter((p) => !hasYear(p) && activeGroups.has(p.affiliation));
-  // "Family roots": people whose notes link to no one else yet. While the tree is
-  // being filled in this is a to-do list; once it is, the remainder are the top nodes.
-  const familyRoots = people.filter((p) => {
-    if (!activeGroups.has(p.affiliation)) return false;
-    const regex = /@([a-z0-9-]+)/gi;
-    let match;
-    while ((match = regex.exec(p.notes || "")) !== null) {
-      const id = match[1].toLowerCase();
-      if (id !== p.id.toLowerCase() && personLookup.has(id)) return false;
-    }
-    return true;
-  });
   const birthdayPeopleThisYear = people.filter((person) => {
     if (!person.date || person.died || !activeGroups.has(person.affiliation)) return false;
     const date = `${currentYear}-${monthDayOf(person)}`;
@@ -564,15 +578,7 @@ export function Calendar({
             </a>
           </>
         }
-      >
-        <button
-          type="button"
-          class="btn btn-primary"
-          onClick={scrollToToday}
-        >
-          {t("calendar.today")}
-        </button>
-      </AppHeader>
+      />
 
       <main class="mx-auto max-w-5xl px-4 pb-20 pt-6">
         {
@@ -678,7 +684,9 @@ export function Calendar({
             <p class="mt-3 text-sm text-ink-3">
               {birthdaysRemainingThisYear === 0
                 ? t("calendar.allBehind")
-                : t("calendar.stillAhead", { count: birthdaysRemainingThisYear })}
+                : birthdaysRemainingThisYear === 1
+                ? t("calendar.stillAhead.one")
+                : t("calendar.stillAhead.other", { count: birthdaysRemainingThisYear })}
             </p>
 
             {
@@ -779,41 +787,12 @@ export function Calendar({
             {/* While the getting-started checklist is up, keep the card focused on it. */}
             {checklistDismissed && (
               <>
-                <div>
-                  <p class="text-sm font-medium">{t("calendar.familyRoots")}</p>
-                  {familyRoots.length
-                    ? (
-                      <>
-                        <p class="mt-0.5 text-xs text-ink-3">
-                          {t("calendar.rootsHint")}
-                        </p>
-                        <div class="mt-2.5 flex flex-wrap gap-1.5">
-                          {familyRoots.map((p) => (
-                            <button
-                              key={p.id}
-                              type="button"
-                              onClick={() => openPerson(p)}
-                              class="rounded-full border border-line bg-surface px-2.5 py-1 text-xs font-medium text-ink-2 hover:border-line-2 hover:text-ink"
-                              title={p.notes}
-                            >
-                              {p.name}
-                            </button>
-                          ))}
-                        </div>
-                      </>
-                    )
-                    : (
-                      <p class="mt-0.5 text-xs text-ink-3">
-                        {t("calendar.allLinked")}
-                      </p>
-                    )}
-                </div>
                 <a
                   href="/recall/"
                   class="group flex items-center gap-3 rounded-lg border border-line-2 px-3.5 py-3 text-sm transition-colors hover:bg-inset"
                 >
                   <span class="grid size-9 shrink-0 place-items-center rounded-lg bg-accent-soft text-accent-2">
-                    <SparkIcon class="size-4" />
+                    <DiceIcon class="size-4" />
                   </span>
                   <span class="min-w-0 flex-1">
                     <span class="block font-medium">{t("calendar.recall")}</span>
@@ -910,11 +889,19 @@ export function Calendar({
                 : (
                   <a
                     href="/profile/"
-                    class="group inline-flex items-center gap-1 text-xs font-medium text-ink-3 hover:text-ink"
+                    class="group flex items-center gap-3 rounded-lg border border-line-2 px-3.5 py-3 text-sm transition-colors hover:bg-inset"
                   >
-                    {t("calendar.profileSummary")}
+                    <span class="grid size-9 shrink-0 place-items-center rounded-lg bg-accent-soft text-accent-2">
+                      <SlidersIcon class="size-4" />
+                    </span>
+                    <span class="min-w-0 flex-1">
+                      <span class="block font-medium">{t("calendar.settings")}</span>
+                      <span class="mt-0.5 block text-xs text-ink-3">
+                        {t("calendar.profileSummary")}
+                      </span>
+                    </span>
                     <span
-                      class="transition-transform group-hover:translate-x-0.5"
+                      class="text-ink-3 transition-transform group-hover:translate-x-0.5"
                       aria-hidden="true"
                     >
                       →
@@ -1103,6 +1090,18 @@ export function Calendar({
           closeButtonRef={closePersonButton}
         />
       )}
+
+      <button
+        type="button"
+        onClick={scrollToToday}
+        class={`today-fab btn btn-primary fixed right-4 z-30 rounded-full shadow-pop ${
+          showTodayFab ? "visible" : ""
+        }`}
+        aria-hidden={!showTodayFab}
+        tabIndex={showTodayFab ? 0 : -1}
+      >
+        {t("calendar.today")}
+      </button>
 
       <div
         role="status"

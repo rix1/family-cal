@@ -7,7 +7,7 @@ import type { ViewEvent, ViewGroup, ViewPerson } from "@/lib/view_data.ts";
 import type { Ref } from "preact";
 import { relativeLabel } from "@/lib/calendar/dates.ts";
 import type { PersonDetail } from "@/lib/calendar/people.ts";
-import { LinkedNotes, PersonDate } from "@/components/calendar/text.tsx";
+import { LinkedNotes, PersonDate, plainNotes } from "@/components/calendar/text.tsx";
 
 /**
  * The slide-over that shows a person's details and doubles as the add/edit
@@ -257,11 +257,16 @@ export function PersonSheet({
                         <button
                           type="button"
                           onClick={() => onOpenPerson(mentioner)}
-                          class="flex w-full items-center justify-between gap-3 rounded-md px-1.5 py-1 text-left text-sm hover:bg-inset"
+                          class="flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left text-sm hover:bg-inset"
                           title={mentioner.notes}
                         >
-                          <span class="font-medium">{mentioner.name}</span>
-                          <span class="tabular-nums text-ink-3">
+                          <span class="shrink-0 font-medium">{mentioner.name}</span>
+                          {mentioner.notes && (
+                            <span class="min-w-0 flex-1 truncate text-xs text-ink-3">
+                              {plainNotes(mentioner.notes, personLookup)}
+                            </span>
+                          )}
+                          <span class="ml-auto shrink-0 tabular-nums text-ink-3">
                             {age === null
                               ? "—"
                               : age === 1

@@ -17,6 +17,16 @@ export interface TimelineContext {
 }
 
 /**
+ * Whole-card click handler: the full surface opens the person (a name-sized
+ * tap target is too small on phones), but clicks that land on a nested
+ * link/button — an @-mention in the notes — keep their own action.
+ */
+function openFromCard(event: MouseEvent, open: () => void) {
+  if ((event.target as HTMLElement).closest("a, button")) return;
+  open();
+}
+
+/**
  * Compact "next up" / "recently celebrated" birthday line. Same information
  * chain in both variants; "upcoming" reads celebratory (accent cake tile),
  * "recent" reads done (muted check tile, past tense). The age sits as quiet
@@ -40,7 +50,10 @@ export function SummaryCard({
   const recent = variant === "recent";
   return (
     <div
-      class={`flex items-center gap-3 rounded-lg px-2.5 py-2 ${highlight ? "bg-accent-soft" : ""}`}
+      class={`group flex cursor-pointer items-center gap-3 rounded-lg px-2.5 py-2 ${
+        highlight ? "bg-accent-soft" : ""
+      }`}
+      onClick={(e) => openFromCard(e, () => ctx.onOpenPerson(event.person))}
     >
       <div
         class={`grid size-10 shrink-0 place-items-center rounded-lg ${
@@ -59,7 +72,7 @@ export function SummaryCard({
         <p class="flex items-center gap-2 text-sm">
           <button
             type="button"
-            class={`truncate text-left font-semibold hover:underline ${
+            class={`truncate text-left font-semibold group-hover:underline ${
               recent ? "text-ink-2" : "text-ink"
             }`}
             onClick={() => ctx.onOpenPerson(event.person)}
@@ -167,7 +180,8 @@ export function EventCard({ event, ctx }: { event: CalendarEvent; ctx: TimelineC
     return (
       <div
         id={`event-${event.person.id}-${event.date}-memorial`}
-        class="card flex items-start gap-3 p-3"
+        class="card group flex cursor-pointer items-start gap-3 p-3"
+        onClick={(e) => openFromCard(e, () => onOpenPerson(event.person))}
       >
         <div class="grid size-10 shrink-0 place-items-center rounded-lg bg-inset text-ink-2">
           <TypeIcon type="memorial" />
@@ -175,7 +189,7 @@ export function EventCard({ event, ctx }: { event: CalendarEvent; ctx: TimelineC
         <div class="min-w-0 flex-1">
           <button
             type="button"
-            class="font-semibold hover:underline"
+            class="font-semibold group-hover:underline"
             onClick={() => onOpenPerson(event.person)}
           >
             {t("calendar.inMemoryOf", { name: event.person.name })}
@@ -205,7 +219,8 @@ export function EventCard({ event, ctx }: { event: CalendarEvent; ctx: TimelineC
   return (
     <div
       id={`event-${event.person.id}-${event.date}`}
-      class="card flex items-start gap-3 p-3"
+      class="card group flex cursor-pointer items-start gap-3 p-3"
+      onClick={(e) => openFromCard(e, () => onOpenPerson(event.person))}
     >
       <div
         class={`grid size-10 shrink-0 place-items-center rounded-lg ${
@@ -218,7 +233,7 @@ export function EventCard({ event, ctx }: { event: CalendarEvent; ctx: TimelineC
         <div class="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            class="font-semibold hover:underline"
+            class="font-semibold group-hover:underline"
             onClick={() => onOpenPerson(event.person)}
           >
             {event.name}

@@ -89,7 +89,6 @@ export function AppHeader({
           </div>
         </a>
         <div class="flex shrink-0 items-center gap-2">
-          <LanguageToggle />
           {children}
           {viewerName
             ? (
@@ -160,6 +159,7 @@ export function AppHeader({
 
                   <hr />
                   <ThemeToggle />
+                  <LanguageToggle />
 
                   {logoutUrl && (
                     <>
@@ -178,9 +178,13 @@ export function AppHeader({
               </details>
             )
             : (
-              <a class="btn btn-ghost" href="/">
-                {t("nav.access")}
-              </a>
+              <>
+                {/* No account menu to host it here, so the toggle stays in the bar. */}
+                <LanguageToggle variant="compact" />
+                <a class="btn btn-ghost" href="/">
+                  {t("nav.access")}
+                </a>
+              </>
             )}
         </div>
       </div>

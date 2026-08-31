@@ -42,7 +42,12 @@ export function FilterDropdown({ label, sections }: { label: string; sections: F
           <path d="M2.5 4.5L6 8l3.5-3.5" />
         </svg>
       </summary>
-      <div class="absolute right-0 z-30 mt-2 min-w-60 rounded-xl border border-line bg-surface p-1.5 shadow-pop">
+      {
+        /* Left-anchored where the trigger sits at the page's left edge (mobile);
+         right-anchored on lg, where the filter row is right-aligned. The max
+         caps keep the panel inside the viewport whatever the content. */
+      }
+      <div class="absolute left-0 z-30 mt-2 max-h-[70vh] min-w-60 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-xl border border-line bg-surface p-1.5 shadow-pop lg:left-auto lg:right-0">
         {sections.map((section, index) => (
           <div
             key={section.heading}

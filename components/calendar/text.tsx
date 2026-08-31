@@ -23,6 +23,14 @@ export function PersonDate({ value, short = false, class: cls, children }: {
   );
 }
 
+/** Notes flattened to one plain-text line: @-mentions become bare names. */
+export function plainNotes(text: string, personLookup: Map<string, ViewPerson>): string {
+  return text
+    .replace(/@([a-z0-9-]+)/gi, (_, id) => personLookup.get(id.toLowerCase())?.name ?? id)
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 /** Notes text with @-mentions of known people turned into open-person links. */
 export function LinkedNotes({ text, personLookup, onOpenPerson }: {
   text: string;

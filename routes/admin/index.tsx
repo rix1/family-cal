@@ -35,8 +35,26 @@ export const handlers = define.handlers({
       store.listFeedActivities(),
     ]);
     const t = osloToday();
+    // "Family roots": people whose notes @-mention no one else yet. While the
+    // tree is being filled in this is a to-do list; once it is, the remainder
+    // are the top nodes. Curation work, so it lives here rather than in the
+    // calendar's viewer-facing cards.
+    const knownIds = new Set(people.map((p) => p.id.toLowerCase()));
+    const familyRoots = people
+      .filter((p) => {
+        const regex = /@([a-z0-9-]+)/gi;
+        let match;
+        while ((match = regex.exec(p.notes || "")) !== null) {
+          const id = match[1].toLowerCase();
+          if (id !== p.id.toLowerCase() && knownIds.has(id)) return false;
+        }
+        return true;
+      })
+      .map((p) => ({ id: p.id, name: p.name }))
+      .sort((a, b) => a.name.localeCompare(b.name, "nb"));
     return page({
       viewer,
+      familyRoots,
       counts: {
         people: people.length,
         groups: groups.length,
@@ -175,6 +193,29 @@ export default define.page<typeof handlers>(({ data }) => (
               </ul>
             )
             : <p class="mt-3 text-sm text-ink-3">No two members share an age yet.</p>}
+        </div>
+
+        <div class="card p-5 sm:col-span-2 xl:col-span-3">
+          <p class="kicker">Family roots</p>
+          <p class="mt-1 text-xs text-ink-3">
+            Their notes don't @-mention any relative yet — either the top of the tree, or links
+            still to be added.
+          </p>
+          {data.familyRoots.length
+            ? (
+              <div class="mt-3 flex flex-wrap gap-1.5">
+                {data.familyRoots.map((p) => (
+                  <a
+                    key={p.id}
+                    href={`/admin/people/?person=${encodeURIComponent(p.id)}`}
+                    class="rounded-full border border-line bg-surface px-2.5 py-1 text-xs font-medium text-ink-2 hover:border-line-2 hover:text-ink"
+                  >
+                    {p.name}
+                  </a>
+                ))}
+              </div>
+            )
+            : <p class="mt-3 text-sm text-ink-3">Everyone is linked into the family tree.</p>}
         </div>
       </div>
     </AdminShell>

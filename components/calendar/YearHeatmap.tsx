@@ -1,5 +1,5 @@
 import { t } from "@/lib/i18n.ts";
-import { useRef, useState } from "preact/hooks";
+import { useLayoutEffect, useRef, useState } from "preact/hooks";
 import { addDays, shortDate, shortDateFormat, toKey } from "@/lib/calendar/dates.ts";
 
 // ---- Year heatmap experiment (delete this file + its call site to remove) ----
@@ -71,6 +71,7 @@ function heatmapLevelClass(count: number, max: number): string {
 export function YearHeatmap({ cells }: { cells: HeatmapCell[] }) {
   const max = Math.max(1, ...cells.map((cell) => cell.events.length));
   const wrap = useRef<HTMLDivElement | null>(null);
+  const tipEl = useRef<HTMLDivElement | null>(null);
   const [tip, setTip] = useState<{ cell: HeatmapCell; left: number; top: number } | null>(null);
 
   function showTip(target: HTMLElement, cell: HeatmapCell) {
@@ -84,6 +85,18 @@ export function YearHeatmap({ cells }: { cells: HeatmapCell[] }) {
       top: cellRect.top - wrapRect.top,
     });
   }
+
+  // The tip is centered on its cell (translate(-50%)); once rendered we know
+  // its width, so clamp the center to keep both edges inside the wrap —
+  // edge-column cells must not push the tip beyond the viewport.
+  useLayoutEffect(() => {
+    const el = tipEl.current;
+    const wrapEl = wrap.current;
+    if (!tip || !el || !wrapEl) return;
+    const half = el.offsetWidth / 2;
+    const left = Math.min(Math.max(tip.left, half), wrapEl.clientWidth - half);
+    el.style.left = `${left}px`;
+  }, [tip]);
 
   return (
     <div ref={wrap} class="relative">
@@ -115,6 +128,7 @@ export function YearHeatmap({ cells }: { cells: HeatmapCell[] }) {
         ))}
       </div>
       <div
+        ref={tipEl}
         class={`heatmap-tip ${tip ? "visible" : ""}`}
         style={tip ? { left: `${tip.left}px`, top: `${tip.top}px` } : undefined}
       >

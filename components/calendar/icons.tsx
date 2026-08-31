@@ -17,6 +17,32 @@ export function SparkIcon({ class: cls = "size-3" }: { class?: string }) {
   );
 }
 
+/* Five-pip die for the family quiz — reads as "game", not "feature". */
+export function DiceIcon({ class: cls = "size-4" }: { class?: string }) {
+  return (
+    <svg class={cls} {...iconProps}>
+      <rect x="2.2" y="2.2" width="11.6" height="11.6" rx="2.4" />
+      <circle cx="5.4" cy="5.4" r="0.9" fill="currentColor" stroke="none" />
+      <circle cx="10.6" cy="5.4" r="0.9" fill="currentColor" stroke="none" />
+      <circle cx="8" cy="8" r="0.9" fill="currentColor" stroke="none" />
+      <circle cx="5.4" cy="10.6" r="0.9" fill="currentColor" stroke="none" />
+      <circle cx="10.6" cy="10.6" r="0.9" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+/* Two-knob sliders for the settings row; the lines break around the knobs. */
+export function SlidersIcon({ class: cls = "size-4" }: { class?: string }) {
+  return (
+    <svg class={cls} {...iconProps}>
+      <path d="M2.5 5.2h1.7M7.6 5.2h5.9" />
+      <circle cx="5.9" cy="5.2" r="1.7" />
+      <path d="M2.5 10.8h5.9M11.8 10.8h1.7" />
+      <circle cx="10.1" cy="10.8" r="1.7" />
+    </svg>
+  );
+}
+
 /* Bulleted lines for the timeline view toggle. */
 export function ListIcon({ class: cls = "size-4" }: { class?: string }) {
   return (
